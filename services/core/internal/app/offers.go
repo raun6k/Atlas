@@ -77,20 +77,27 @@ func (k *Kernel) writeOfferEventStandalone(ctx context.Context, offerID, eventTy
 		ids.New(ids.OfferEvent), offerID, eventType, body)
 }
 
-func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView) (commerce.Context, commerce.Inputs, error) {
+func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) (commerce.Context, commerce.Inputs, error) {
+	known := commerce.KnownTypes()
 	enabled := map[string]bool{}
-	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled FROM commercial_strategies`)
+	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled, COALESCE(surfaces, '{}') FROM commercial_strategies`)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
 	}
 	for rows.Next() {
 		var t string
 		var on bool
-		if err := rows.Scan(&t, &on); err != nil {
+		var surfaces []string
+		if err := rows.Scan(&t, &on, &surfaces); err != nil {
 			rows.Close()
 			return commerce.Context{}, commerce.Inputs{}, err
 		}
-		enabled[t] = on
+		if !known[t] || !on {
+			continue
+		}
+		if surface == "" || inSlice(surfaces, surface) {
+			enabled[t] = true
+		}
 	}
 	rows.Close()
 	promos, bundles, err := k.pricingRules(ctx, tx)
@@ -156,10 +163,13 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 	return cctx, commerce.Inputs{Promotions: promos, Bundles: bundles, SKUs: skus, Edges: edges}, nil
 }
 
-func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView) ([]OfferView, []string, error) {
-	cctx, in, err := k.commerceInputs(ctx, tx, s, cv)
+func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) ([]OfferView, []string, error) {
+	cctx, in, err := k.commerceInputs(ctx, tx, s, cv, surface)
 	if err != nil {
 		return nil, nil, err
+	}
+	if !anyStrategyEnabled(cctx.Enabled) {
+		return nil, nil, nil
 	}
 	cands := commerce.Select(cctx, in)
 	exp := k.Now().Add(k.Cfg.OfferTTL)
@@ -318,7 +328,7 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		if err != nil {
 			return err
 		}
-		cctx, in, err := k.commerceInputs(ctx, tx, *s, cvw)
+		cctx, in, err := k.commerceInputs(ctx, tx, *s, cvw, "")
 		if err != nil {
 			return err
 		}
@@ -409,4 +419,47 @@ func (k *Kernel) applyPatch(ctx context.Context, tx pgx.Tx, s *SessionSummary, p
 		}
 	}
 	return nil
+}
+
+func anyStrategyEnabled(enabled map[string]bool) bool {
+	for _, on := range enabled {
+		if on {
+			return true
+		}
+	}
+	return false
+}
+
+func inSlice(ids []string, id string) bool {
+	for _, x := range ids {
+		if x == id {
+			return true
+		}
+	}
+	return false
+}
+
+func filterOffersByEnabled(offers []OfferView, enabled map[string]bool) []OfferView {
+	var out []OfferView
+	for _, o := range offers {
+		if enabled[o.StrategyType] {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+func (k *Kernel) offersForSurface(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) ([]OfferView, error) {
+	cctx, _, err := k.commerceInputs(ctx, tx, s, cv, surface)
+	if err != nil {
+		return nil, err
+	}
+	if !anyStrategyEnabled(cctx.Enabled) {
+		return nil, nil
+	}
+	offers, err := k.currentOffers(ctx, tx, s)
+	if err != nil {
+		return nil, err
+	}
+	return filterOffersByEnabled(offers, cctx.Enabled), nil
 }

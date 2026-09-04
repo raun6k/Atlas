@@ -58,6 +58,12 @@ export function publicStateFrom(body: Record<string, unknown>): Record<string, u
 export function mcpOk(raw: unknown, requestId: string): Record<string, unknown> {
   const body = snake(raw) as Record<string, unknown>;
   const env = (body.envelope as Record<string, unknown>) ?? {};
+  if (!Array.isArray(body.offers) || body.offers.length === 0) {
+    delete body.offers;
+  }
+  if (!Array.isArray(body.invalidated_offer_ids) || body.invalidated_offer_ids.length === 0) {
+    delete body.invalidated_offer_ids;
+  }
   return {
     result_code: "OK",
     request_id: env.request_id || requestId,

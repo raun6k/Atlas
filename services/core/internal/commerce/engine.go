@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"atlas.dev/core/internal/cart"
-	"atlas.dev/core/internal/inventory"
 )
 
 type Candidate struct {
@@ -92,23 +91,10 @@ func Select(ctx Context, in Inputs) []Candidate {
 		ctx.Fees.DeliveryFeeMinor = ctx.DeliveryFeeMinor
 	}
 	var raw []Candidate
-	if ctx.Enabled["THRESHOLD"] {
-		raw = append(raw, threshold(ctx, in)...)
-	}
-	if ctx.Enabled["PROMOTION"] {
-		raw = append(raw, promotion(ctx, in)...)
-	}
-	if ctx.Enabled["BUNDLE"] {
-		raw = append(raw, bundle(ctx, in)...)
-	}
-	if ctx.Enabled["CROSS_SELL"] {
-		raw = append(raw, crossSell(ctx, in)...)
-	}
-	if ctx.Enabled["COMPLEMENT"] {
-		raw = append(raw, complement(ctx, in)...)
-	}
-	if ctx.Enabled["UPSELL"] {
-		raw = append(raw, upsell(ctx, in)...)
+	for _, s := range registry {
+		if ctx.Enabled[s.Type()] {
+			raw = append(raw, s.Generate(ctx, in)...)
+		}
 	}
 	var scored []Candidate
 	for _, c := range raw {
@@ -192,160 +178,6 @@ func constraintOK(ctx Context, in Inputs, c Candidate) bool {
 	return true
 }
 
-func threshold(ctx Context, in Inputs) []Candidate {
-	base := cart.PriceCart(ctx.Lines, ctx.Fees, in.Promotions, in.Bundles, ctx.LocationID, ctx.Now)
-	if ctx.Fees.FreeDeliveryThresholdMinor <= 0 || base.MerchandiseMinor-base.DiscountsMinor >= ctx.Fees.FreeDeliveryThresholdMinor {
-		return nil
-	}
-	inCart := map[string]bool{}
-	for _, l := range ctx.Lines {
-		inCart[l.SKUID] = true
-	}
-	ids := skuIDs(in.SKUs)
-	var best *Candidate
-	for _, id := range ids {
-		sku := in.SKUs[id]
-		if inCart[sku.SKUID] || sku.Sellable < 1 || sku.SellingMinor <= 0 {
-			continue
-		}
-		c := Candidate{
-			Strategy: "THRESHOLD",
-			Reason:   "Adds " + sku.Name + " to reach the free-delivery threshold",
-			Terms:    "Free delivery at the configured merchandise threshold",
-			Patch:    Patch{Type: "ADD_ITEM", Lines: []PatchLine{{SKUID: sku.SKUID, Quantity: 1, Op: "ADD"}}},
-		}
-		sim, err := Simulate(ctx, in, c, ctx.Now)
-		if err != nil || sim.Eligibility != "OK" {
-			continue
-		}
-		if sim.PatchedAllInMinor <= 0 {
-			continue
-		}
-		patchedLines, _ := ApplyPatchPure(ctx.Lines, c.Patch, in.SKUs)
-		patched := cart.PriceCart(patchedLines, ctx.Fees, in.Promotions, in.Bundles, ctx.LocationID, ctx.Now)
-		if patched.DeliveryFeeMinor != 0 {
-			continue
-		}
-		c.BuyerImpact = sim.BuyerImpact
-		c.Rank = sim.Rank
-		if best == nil || c.Rank > best.Rank || (c.Rank == best.Rank && sku.SKUID < best.Patch.Lines[0].SKUID) {
-			cp := c
-			best = &cp
-		}
-	}
-	if best == nil {
-		return nil
-	}
-	return []Candidate{*best}
-}
-
-func promotion(ctx Context, in Inputs) []Candidate {
-	qty := map[string]int{}
-	for _, l := range ctx.Lines {
-		qty[l.SKUID] += l.Quantity
-	}
-	var out []Candidate
-	for _, p := range in.Promotions {
-		if !p.Enabled || p.MinimumQty <= 0 || len(p.EligibleSKUs) == 0 {
-			continue
-		}
-		if ctx.Now.Before(p.StartsAt) || ctx.Now.After(p.EndsAt) {
-			continue
-		}
-		if !contains(p.LocationIDs, ctx.LocationID) {
-			continue
-		}
-		var n int
-		for _, sku := range p.EligibleSKUs {
-			n += qty[sku]
-		}
-		if n == 0 || n >= p.MinimumQty {
-			continue
-		}
-		need := p.MinimumQty - n
-		target := firstSellable(p.EligibleSKUs, in.SKUs, need)
-		if target == "" {
-			continue
-		}
-		out = append(out, Candidate{
-			Strategy: "PROMOTION",
-			Reason:   "Add qualifying items to earn " + p.Name,
-			Terms:    p.Name,
-			Patch: Patch{
-				Type:        "PROMOTION",
-				PromotionID: p.ID,
-				Lines:       []PatchLine{{SKUID: target, Quantity: need, Op: "ADD"}},
-			},
-		})
-	}
-	return out
-}
-
-func firstSellable(ids []string, skus map[string]CatalogSKU, need int) string {
-	sorted := append([]string(nil), ids...)
-	sort.Strings(sorted)
-	for _, id := range sorted {
-		sku, ok := skus[id]
-		if ok && sku.Sellable >= need {
-			return id
-		}
-	}
-	return ""
-}
-
-func bundle(ctx Context, in Inputs) []Candidate {
-	qty := map[string]int{}
-	for _, l := range ctx.Lines {
-		qty[l.SKUID] += l.Quantity
-	}
-	var out []Candidate
-	bundles := append([]cart.Bundle(nil), in.Bundles...)
-	sort.Slice(bundles, func(i, j int) bool { return bundles[i].ID < bundles[j].ID })
-	for _, b := range bundles {
-		if !contains(b.LocationIDs, ctx.LocationID) {
-			continue
-		}
-		var missing []PatchLine
-		complete := true
-		needIDs := make([]string, 0, len(b.SKUQuantities))
-		for sku := range b.SKUQuantities {
-			needIDs = append(needIDs, sku)
-		}
-		sort.Strings(needIDs)
-		for _, sku := range needIDs {
-			need := b.SKUQuantities[sku]
-			have := qty[sku]
-			if have >= need {
-				continue
-			}
-			cat, ok := in.SKUs[sku]
-			if !ok || cat.Sellable < (need-have) {
-				complete = false
-				break
-			}
-			missing = append(missing, PatchLine{SKUID: sku, Quantity: need - have, Op: "ADD"})
-		}
-		if !complete || len(missing) == 0 {
-			continue
-		}
-		out = append(out, Candidate{
-			Strategy: "BUNDLE",
-			Reason:   "Complete the " + b.Name + " bundle",
-			Terms:    b.Name,
-			Patch:    Patch{Type: "BUNDLE", BundleID: b.ID, Lines: missing},
-		})
-	}
-	return out
-}
-
-func crossSell(ctx Context, in Inputs) []Candidate {
-	return graphAdd(ctx, in, []string{"USED_WITH", "BUNDLE_COMPATIBLE"}, "CROSS_SELL", "Pairs with an item already in the cart")
-}
-
-func complement(ctx Context, in Inputs) []Candidate {
-	return graphAdd(ctx, in, []string{"COMPLEMENT", "CONSUMED_WITH"}, "COMPLEMENT", "Merchant-configured complement for a cart item")
-}
-
 func graphAdd(ctx Context, in Inputs, types []string, strategy, reason string) []Candidate {
 	inCart := map[string]bool{}
 	for _, l := range ctx.Lines {
@@ -407,43 +239,6 @@ func skuIDs(skus map[string]CatalogSKU) []string {
 	}
 	sort.Strings(ids)
 	return ids
-}
-
-func upsell(ctx Context, in Inputs) []Candidate {
-	var out []Candidate
-	lines := append([]cart.Line(nil), ctx.Lines...)
-	sort.Slice(lines, func(i, j int) bool { return lines[i].LineID < lines[j].LineID })
-	for _, l := range lines {
-		edges := append([]GraphEdge(nil), in.Edges...)
-		sort.Slice(edges, func(i, j int) bool { return edges[i].Target < edges[j].Target })
-		for _, e := range edges {
-			if e.Type != "UPGRADE" {
-				continue
-			}
-			if e.Source != l.SKUID && e.Source != l.ProductID {
-				continue
-			}
-			sku, ok := resolveTarget(in.SKUs, e.Target)
-			if !ok || sku.SKUID == l.SKUID || sku.Sellable < l.Quantity {
-				continue
-			}
-			if inventory.Sellable(sku.Sellable, 0, 0) < l.Quantity && sku.Sellable < l.Quantity {
-				continue
-			}
-			out = append(out, Candidate{
-				Strategy: "UPSELL",
-				Reason:   "Replace " + l.Name + " with " + sku.Name,
-				Terms:    "REPLACE_ITEM",
-				Patch: Patch{
-					Type:         "REPLACE_ITEM",
-					SourceLineID: l.LineID,
-					SourceSKUID:  l.SKUID,
-					Lines:        []PatchLine{{SKUID: sku.SKUID, Quantity: l.Quantity, Op: "REPLACE"}},
-				},
-			})
-		}
-	}
-	return out
 }
 
 func conflictFilter(in []Candidate, n int) []Candidate {

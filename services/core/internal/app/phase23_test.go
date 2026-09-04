@@ -189,7 +189,7 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	if cur.SnapshotID != "fix_quickmart_v1" {
 		t.Fatalf("snapshot %s", cur.SnapshotID)
 	}
-	if cur.Digest != "sha256:063ade0a5a4033666d34908574c3544e8638a33bf21c7aa9a207265086c08d74" {
+	if cur.Digest != "sha256:555d1923a0fa7cea5ab208769c3f0cd315932a230e35b06320ea071d1746ec1b" {
 		t.Fatalf("digest %s", cur.Digest)
 	}
 	again, err := k.ResetFixtures(ctx)
@@ -308,7 +308,7 @@ func TestPublicPrivacyNoPrivateEconomics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, items, _, err := k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "eggs", "", "", "", 10)
+	_, items, _, _, err := k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "eggs", "", "", "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}

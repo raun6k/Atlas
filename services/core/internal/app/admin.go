@@ -273,7 +273,7 @@ func (k *Kernel) AuthenticateFixtureControl(ctx context.Context, bearer string) 
 }
 
 func (k *Kernel) ListStrategyConfigs(ctx context.Context) ([]StrategyRow, error) {
-	rows, err := k.Pool().Query(ctx, `SELECT strategy_type, enabled, revision FROM commercial_strategies ORDER BY strategy_type`)
+	rows, err := k.Pool().Query(ctx, `SELECT strategy_type, enabled, revision, COALESCE(surfaces, '{}') FROM commercial_strategies ORDER BY strategy_type`)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +281,7 @@ func (k *Kernel) ListStrategyConfigs(ctx context.Context) ([]StrategyRow, error)
 	var out []StrategyRow
 	for rows.Next() {
 		var r StrategyRow
-		if err := rows.Scan(&r.Type, &r.Enabled, &r.Revision); err != nil {
+		if err := rows.Scan(&r.Type, &r.Enabled, &r.Revision, &r.Surfaces); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -293,6 +293,7 @@ type StrategyRow struct {
 	Type     string
 	Enabled  bool
 	Revision string
+	Surfaces []string
 }
 
 func (k *Kernel) UpdateStrategyConfigs(ctx context.Context, m Meta, rows []StrategyRow) ([]StrategyRow, error) {
@@ -305,7 +306,11 @@ func (k *Kernel) UpdateStrategyConfigs(ctx context.Context, m Meta, rows []Strat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	for _, r := range rows {
-		tag, err := tx.Exec(ctx, `UPDATE commercial_strategies SET enabled=$2, revision=$3 WHERE strategy_type=$1`, r.Type, r.Enabled, r.Revision)
+		surfs := r.Surfaces
+		if surfs == nil {
+			surfs = []string{}
+		}
+		tag, err := tx.Exec(ctx, `UPDATE commercial_strategies SET enabled=$2, revision=$3, surfaces=$4 WHERE strategy_type=$1`, r.Type, r.Enabled, r.Revision, surfs)
 		if err != nil {
 			return nil, err
 		}

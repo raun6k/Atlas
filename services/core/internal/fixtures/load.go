@@ -459,9 +459,9 @@ func loadStrategies(ctx context.Context, tx pgx.Tx, dir string) error {
 		}
 		enabled, _ := s["enabled"].(bool)
 		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategies (
-				strategy_type, enabled, revision, priority, objective_metric, config)
-			VALUES ($1,$2,$3,$4,$5,$6)`,
-			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(s["config"])); err != nil {
+				strategy_type, enabled, revision, priority, objective_metric, config, surfaces)
+			VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(s["config"]), stringSlice(s["surfaces"])); err != nil {
 			return err
 		}
 	}
@@ -485,6 +485,24 @@ func nullIfEmpty(s string) any {
 func strField(m map[string]any, k string) string {
 	s, _ := m[k].(string)
 	return s
+}
+
+func stringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, x := range t {
+			s, _ := x.(string)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return []string{}
+	}
 }
 
 func parseJSONTime(v any) any {

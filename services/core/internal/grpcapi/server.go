@@ -82,11 +82,11 @@ func (s *Server) GetProfile(ctx context.Context, in *v1.GetProfileRequest) (*v1.
 
 func (s *Server) SearchCatalog(ctx context.Context, in *v1.SearchCatalogRequest) (*v1.SearchCatalogResponse, error) {
 	m := meta(in.Meta)
-	env, items, cursor, err := s.K.SearchCatalog(ctx, m, in.SessionId, in.Query, in.Category, in.Brand, in.Cursor, in.PageSize)
+	env, items, cursor, offers, err := s.K.SearchCatalog(ctx, m, in.SessionId, in.Query, in.Category, in.Brand, in.Cursor, in.PageSize)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	out := &v1.SearchCatalogResponse{Envelope: toEnv(env), NextCursor: cursor}
+	out := &v1.SearchCatalogResponse{Envelope: toEnv(env), NextCursor: cursor, Offers: toOffers(offers)}
 	for _, it := range items {
 		out.Items = append(out.Items, toSKU(it))
 	}
@@ -553,7 +553,7 @@ func (s *Server) ListStrategies(ctx context.Context, in *v1.GetProfileRequest) (
 	}
 	resp := &v1.ListStrategiesResponse{Envelope: toEnv(s.KEnv(in.Meta))}
 	for _, r := range rows {
-		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision})
+		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces})
 	}
 	return resp, nil
 }
@@ -561,7 +561,7 @@ func (s *Server) ListStrategies(ctx context.Context, in *v1.GetProfileRequest) (
 func (s *Server) UpdateStrategies(ctx context.Context, in *v1.UpdateStrategiesRequest) (*v1.ListStrategiesResponse, error) {
 	var rows []app.StrategyRow
 	for _, st := range in.Strategies {
-		rows = append(rows, app.StrategyRow{Type: st.StrategyType, Enabled: st.Enabled, Revision: st.Revision})
+		rows = append(rows, app.StrategyRow{Type: st.StrategyType, Enabled: st.Enabled, Revision: st.Revision, Surfaces: st.Surfaces})
 	}
 	got, err := s.K.UpdateStrategyConfigs(ctx, meta(in.Meta), rows)
 	if err != nil {
@@ -569,7 +569,7 @@ func (s *Server) UpdateStrategies(ctx context.Context, in *v1.UpdateStrategiesRe
 	}
 	resp := &v1.ListStrategiesResponse{Envelope: toEnv(s.KEnv(in.Meta))}
 	for _, r := range got {
-		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision})
+		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces})
 	}
 	return resp, nil
 }

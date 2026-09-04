@@ -10,11 +10,11 @@ import (
 
 type SimulatedCandidate struct {
 	Candidate
-	BaseAllInMinor          int64
-	PatchedAllInMinor       int64
+	BaseAllInMinor            int64
+	PatchedAllInMinor         int64
 	MerchantRevenueDeltaMinor int64
-	ContributionDeltaMinor  *int64
-	Eligibility             string
+	ContributionDeltaMinor    *int64
+	Eligibility               string
 }
 
 func Simulate(ctx Context, in Inputs, c Candidate, now time.Time) (SimulatedCandidate, error) {

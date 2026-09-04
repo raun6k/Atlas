@@ -297,6 +297,7 @@ message SearchCatalogResponse {
   Envelope envelope = 1;
   repeated Sku items = 2;
   string next_cursor = 3;
+  repeated Offer offers = 4;
 }
 
 message GetProductRequest {
@@ -729,6 +730,7 @@ message StrategyConfig {
   string strategy_type = 1;
   bool enabled = 2;
   string revision = 3;
+  repeated string surfaces = 4;
 }
 
 message ListStrategiesResponse {

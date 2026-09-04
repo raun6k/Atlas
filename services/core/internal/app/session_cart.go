@@ -22,14 +22,14 @@ var PublicTools = []string{
 }
 
 type Capabilities struct {
-	ContractFamily        string
-	ContractVersion       string
-	MerchantDisplayName   string
-	Currency              string
-	Locale                string
-	Tools                 []string
-	MaxPageSize           int32
-	OfferTTLSeconds       int32
+	ContractFamily         string
+	ContractVersion        string
+	MerchantDisplayName    string
+	Currency               string
+	Locale                 string
+	Tools                  []string
+	MaxPageSize            int32
+	OfferTTLSeconds        int32
 	ProposalHoldTTLSeconds int32
 }
 
@@ -109,15 +109,11 @@ func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceabil
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, _, err := k.regenerateOffers(ctx, tx, session, cv)
-	if err != nil {
-		return CartMutation{}, err
-	}
 	aid, err := auditMutation(ctx, tx, m, op, "create_session", "session", sessionID, 0, map[string]any{"location_id": locID}, "Approved Host created a shopping session.")
 	if err != nil {
 		return CartMutation{}, err
 	}
-	out := CartMutation{Envelope: k.withRequest(k.env(), m.RequestID, op), Session: session, Cart: cv, Offers: offers}
+	out := CartMutation{Envelope: k.withRequest(k.env(), m.RequestID, op), Session: session, Cart: cv}
 	if err := k.storeIdempotency(ctx, tx, m, "create_session", input, out, aid); err != nil {
 		return CartMutation{}, err
 	}
@@ -209,7 +205,7 @@ func (k *Kernel) SetIntent(ctx context.Context, m Meta, sessionID string, expect
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, _, err := k.regenerateOffers(ctx, tx, session, cv)
+	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, "set_intent")
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -263,7 +259,7 @@ func (k *Kernel) GetCart(ctx context.Context, m Meta, sessionID string) (CartMut
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, err := k.currentOffers(ctx, tx, s)
+	offers, err := k.offersForSurface(ctx, tx, s, c, "get_cart")
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -405,7 +401,7 @@ func (k *Kernel) mutateCart(ctx context.Context, m Meta, tool, sessionID, cartID
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, _, err := k.regenerateOffers(ctx, tx, session, cv)
+	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, tool)
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -420,21 +416,21 @@ func (k *Kernel) mutateCart(ctx context.Context, m Meta, tool, sessionID, cartID
 	return out, tx.Commit(ctx)
 }
 
-func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, category, brand, cursor string, pageSize int32) (Envelope, []SKUView, string, error) {
+func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, category, brand, cursor string, pageSize int32) (Envelope, []SKUView, string, []OfferView, error) {
 	if err := requireHost(m); err != nil {
-		return Envelope{}, nil, "", err
+		return Envelope{}, nil, "", nil, err
 	}
 	if pageSize <= 0 || pageSize > 25 {
 		pageSize = 20
 	}
 	tx, err := k.Pool().Begin(ctx)
 	if err != nil {
-		return Envelope{}, nil, "", err
+		return Envelope{}, nil, "", nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	s, err := k.loadSession(ctx, tx, sessionID, m.ApprovedHostID)
 	if err != nil {
-		return Envelope{}, nil, "", err
+		return Envelope{}, nil, "", nil, err
 	}
 	q := strings.TrimSpace(query)
 	rows, err := tx.Query(ctx, `
@@ -454,26 +450,47 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 		ORDER BY CASE WHEN $2 = '' THEN 0 ELSE greatest(similarity(s.name, $2), similarity(pr.name, $2)) END DESC, s.sku_id
 		LIMIT $6`, s.LocationID, q, category, brand, cursor, pageSize+1)
 	if err != nil {
-		return Envelope{}, nil, "", err
+		return Envelope{}, nil, "", nil, err
 	}
-	defer rows.Close()
 	var items []SKUView
 	for rows.Next() {
 		var v SKUView
 		var cat string
 		if err := rows.Scan(&v.SKUID, &v.ProductID, &v.Name, &v.Brand, &v.Variant, &v.PackSize, &v.UOM, &v.Barcode, &v.Description, &v.Lifecycle, &v.SellingMinor, &v.Sellable, &v.StockStatus, &v.Assorted, &cat); err != nil {
-			return Envelope{}, nil, "", err
+			rows.Close()
+			return Envelope{}, nil, "", nil, err
 		}
 		v.Category = cat
 		items = append(items, v)
 	}
+	rows.Close()
 	var next string
 	if int32(len(items)) > pageSize {
 		items = items[:pageSize]
 		next = items[len(items)-1].SKUID
 	}
-	_ = tx.Commit(ctx)
-	return k.withRequest(k.env(), m.RequestID, ""), items, next, nil
+	cv, err := k.loadCart(ctx, tx, s.CartID)
+	if err != nil {
+		return Envelope{}, nil, "", nil, err
+	}
+	cctx, _, err := k.commerceInputs(ctx, tx, s, cv, "search_catalog")
+	if err != nil {
+		return Envelope{}, nil, "", nil, err
+	}
+	var offers []OfferView
+	if anyStrategyEnabled(cctx.Enabled) {
+		if _, err := k.invalidateOffers(ctx, tx, s.SessionID, "search_catalog"); err != nil {
+			return Envelope{}, nil, "", nil, err
+		}
+		offers, _, err = k.regenerateOffers(ctx, tx, s, cv, "search_catalog")
+		if err != nil {
+			return Envelope{}, nil, "", nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Envelope{}, nil, "", nil, err
+	}
+	return k.withRequest(k.env(), m.RequestID, ""), items, next, offers, nil
 }
 
 type SKUView struct {
@@ -590,4 +607,3 @@ func (k *Kernel) GetProfile(ctx context.Context, m Meta) (Envelope, map[string]a
 	}
 	return k.withRequest(k.env(), m.RequestID, ""), profile, locs, nil
 }
-

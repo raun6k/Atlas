@@ -51,6 +51,9 @@ func TestKernelCatalogCartOffersCheckout(t *testing.T) {
 	if created.Session.LocationID != "loc_qm_koramangala" {
 		t.Fatalf("location %s", created.Session.LocationID)
 	}
+	if created.Offers != nil {
+		t.Fatalf("create_session must omit offers, got %d", len(created.Offers))
+	}
 
 	intentArgs := map[string]any{"session_id": created.Session.SessionID, "expected_session_context_version": int64(0), "mission": "eggs bread bananas under 180", "planning_budget_minor": int64(18000), "currency": "INR"}
 	intent, err := k.SetIntent(ctx, signed(t, priv, host, "set_intent", intentArgs), created.Session.SessionID, 0, "eggs bread bananas under 180", 18000, "INR", nil)
@@ -61,7 +64,7 @@ func TestKernelCatalogCartOffersCheckout(t *testing.T) {
 		t.Fatalf("context %d", intent.Session.SessionContextVersion)
 	}
 
-	_, items, _, err := k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "eggs", "", "", "", 10)
+	_, items, _, _, err := k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "eggs", "", "", "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +226,7 @@ func mustProof(t *testing.T, key jwk.Key, host, tool, requestID, idem string, ar
 		Issuer(host).
 		Audience([]string{"atlas.merchant.v1"}).
 		IssuedAt(now).
-		Expiration(now.Add(60 * time.Second)).
+		Expiration(now.Add(60*time.Second)).
 		Claim("tool", tool).
 		Claim("request_id", requestID).
 		Claim("idempotency_key", idem).
@@ -302,7 +305,7 @@ func mustAuthority(t *testing.T, key jwk.Key, host string, prop app.ProposalView
 		Issuer(host).
 		Audience([]string{"atlas.merchant.v1"}).
 		IssuedAt(now).
-		Expiration(now.Add(120 * time.Second)).
+		Expiration(now.Add(120*time.Second)).
 		Claim("checkout_proposal_id", prop.ProposalID).
 		Claim("quote_hash", prop.QuoteHash).
 		Claim("amount_minor", prop.FinalMinor).
@@ -353,6 +356,120 @@ func TestCreateSessionRequiresDeliveryLocation(t *testing.T) {
 	}
 	if created.Session.LocationID != "loc_qm_koramangala" {
 		t.Fatalf("location %s", created.Session.LocationID)
+	}
+}
+
+func TestStrategySurfacesUpdate(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	rows, err := k.ListStrategyConfigs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("expected strategy rows")
+	}
+	found := false
+	for _, r := range rows {
+		if r.Type != "THRESHOLD" {
+			continue
+		}
+		found = true
+		if len(r.Surfaces) == 0 {
+			t.Fatal("THRESHOLD should have default surfaces")
+		}
+	}
+	if !found {
+		t.Fatal("THRESHOLD missing")
+	}
+	updated, err := k.UpdateStrategyConfigs(ctx, app.Meta{
+		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
+	}, []app.StrategyRow{{
+		Type: "THRESHOLD", Enabled: true, Revision: "test-surfaces", Surfaces: []string{"get_cart"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range updated {
+		if r.Type != "THRESHOLD" {
+			continue
+		}
+		if len(r.Surfaces) != 1 || r.Surfaces[0] != "get_cart" {
+			t.Fatalf("surfaces %+v", r.Surfaces)
+		}
+	}
+}
+
+func TestEmptySurfacesSkipOffers(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	rows, err := k.ListStrategyConfigs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var clear []app.StrategyRow
+	for _, r := range rows {
+		clear = append(clear, app.StrategyRow{Type: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: []string{}})
+	}
+	if _, err := k.UpdateStrategyConfigs(ctx, app.Meta{
+		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
+	}, clear); err != nil {
+		t.Fatal(err)
+	}
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+	createArgs := map[string]any{"subject_reference": "surf-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "surf-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Offers != nil {
+		t.Fatalf("create_session must omit offers, got %d", len(created.Offers))
+	}
+	_, _, _, searchOffers, err := k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "Biscuits", "", "", "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if searchOffers != nil {
+		t.Fatalf("search_catalog must omit offers when none assigned, got %d", len(searchOffers))
+	}
+	got, err := k.GetCart(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Offers != nil {
+		t.Fatalf("get_cart must omit offers when none assigned, got %d", len(got.Offers))
+	}
+}
+
+func TestSearchCatalogAssignedSurfaces(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+	createArgs := map[string]any{"subject_reference": "search-off", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "search-off", "blr_koramangala_5th_block", "en-IN", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Offers != nil {
+		t.Fatalf("create_session must omit offers, got %d", len(created.Offers))
+	}
+	_, _, _, _, err = k.SearchCatalog(ctx, app.Meta{RequestID: rid(), ApprovedHostID: host, SkipProof: true}, created.Session.SessionID, "Biscuits", "", "", "", 10)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -149,6 +149,24 @@ func TestConflictFilterOneSKUOneStrategy(t *testing.T) {
 	}
 }
 
+func TestKnownTypesRegistered(t *testing.T) {
+	got := KnownTypes()
+	for _, want := range []string{"THRESHOLD", "PROMOTION", "BUNDLE", "CROSS_SELL", "COMPLEMENT", "UPSELL"} {
+		if !got[want] {
+			t.Fatalf("missing registry type %s", want)
+		}
+	}
+}
+
+func TestSelectDisabledStrategies(t *testing.T) {
+	ctx, in := fixtureInputs()
+	ctx.Enabled = map[string]bool{}
+	got := Select(ctx, in)
+	if len(got) != 0 {
+		t.Fatalf("expected no candidates, got %+v", got)
+	}
+}
+
 func TestDeterministicTieBreak(t *testing.T) {
 	ctx, in := fixtureInputs()
 	ctx.Enabled = map[string]bool{"CROSS_SELL": true, "COMPLEMENT": true}

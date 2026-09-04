@@ -342,6 +342,7 @@ async function handleAdmin(req: IncomingMessage, res: ServerResponse, url: URL) 
           strategyType: row.strategy_type ?? row.strategy,
           enabled: row.enabled,
           revision: row.revision,
+          surfaces: Array.isArray(row.surfaces) ? row.surfaces : [],
         })),
       });
     }
