@@ -1,16 +1,13 @@
 {
-  "merchant_profile_key": "singleton",
-  "display_name": "Quickmart",
-  "legal_name": "Quickmart Retail Private Limited",
-  "description": "10–20 minute grocery and household delivery from neighbourhood dark stores in Bengaluru. Synthetic reference merchant for Atlas Test Mode.",
-  "currency": "INR",
-  "locale": "en-IN",
-  "country": "IN",
-  "city": "Bengaluru",
-  "timezone_display": "Asia/Kolkata",
-  "terms_url": "https://quickmart.example/terms",
-  "privacy_url": "https://quickmart.example/privacy",
-  "support_email": "support@quickmart.example",
-  "capability_summary": "Quick commerce grocery. atlas.merchant.v1. Razorpay Test Mode only.",
-  "affiliation_disclaimer": "Brand names in the catalog are used only as realistic grocery assortment examples. Quickmart and Atlas are not affiliated with, endorsed by, or sponsored by those brand owners."
+  "merchant_id": "quickmart_in",
+  "display_name": "QuickMart",
+  "legal_name": "QuickMart Commerce Private Limited",
+  "description": "QuickMart is a Bengaluru-based quick commerce company offering fast, on-demand delivery of groceries, fresh produce, household essentials, personal care products, snacks, beverages, and other everyday items.",
+  "default_currency": "INR",
+  "default_locale": "en-IN",
+  "country_code": "IN",
+  "default_timezone": "Asia/Kolkata",
+  "prices_include_tax": true,
+  "website_url": "https://quickmart.example",
+  "support_email": "support@quickmart.example"
 }

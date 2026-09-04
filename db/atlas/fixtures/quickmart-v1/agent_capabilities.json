@@ -1,0 +1,22 @@
+{
+  "checkout": {
+    "enabled": false
+  },
+  "fulfillment": {
+    "delivery": false,
+    "pickup": false
+  },
+  "discounts": {
+    "automatic": false,
+    "codes": false
+  },
+  "substitutions": {
+    "supported": false,
+    "requires_buyer_permission": false
+  },
+  "orders": {
+    "status": false,
+    "cancel": false
+  },
+  "protocols": {}
+}

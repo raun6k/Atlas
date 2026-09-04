@@ -1,0 +1,16 @@
+[
+  {
+    "service_area_id": "",
+    "location_id": "",
+    "name": "",
+    "status": "",
+    "priority": 0,
+    "postal_codes": [],
+    "geometry": null,
+    "delivery_fee_override_minor": null,
+    "minimum_order_value_override_minor": null,
+    "free_delivery_threshold_override_minor": null,
+    "eta_adjustment_min_minutes": 0,
+    "eta_adjustment_max_minutes": 0
+  }
+]

@@ -1,0 +1,1 @@
+sku_id,product_id,name,variant_label,net_quantity,net_unit,pack_count,internal_barcode,gtin,description_override,lifecycle,media_json,storage_class,perishable,shelf_life_days,min_order_quantity,max_order_quantity,quantity_step,gross_weight_grams,dimensions_json,hsn_code,tax_rate_bps,attributes_json

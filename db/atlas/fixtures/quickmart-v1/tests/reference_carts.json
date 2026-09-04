@@ -1,0 +1,16 @@
+[
+  {
+    "reference_cart_id": "",
+    "name": "",
+    "location_id": "",
+    "service_area_id": null,
+    "description": "",
+    "lines": [
+      {
+        "sku_id": "",
+        "quantity": 0
+      }
+    ],
+    "expected_constraints": {}
+  }
+]

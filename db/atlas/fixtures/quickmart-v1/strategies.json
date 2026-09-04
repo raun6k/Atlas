@@ -1,26 +1,62 @@
-{
-  "THRESHOLD": {
+[
+  {
+    "strategy_type": "THRESHOLD",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   },
-  "PROMOTION": {
+  {
+    "strategy_type": "PROMOTION",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   },
-  "BUNDLE": {
+  {
+    "strategy_type": "BUNDLE",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   },
-  "CROSS_SELL": {
+  {
+    "strategy_type": "CROSS_SELL",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   },
-  "COMPLEMENT": {
+  {
+    "strategy_type": "COMPLEMENT",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   },
-  "UPSELL": {
+  {
+    "strategy_type": "UPSELL",
     "enabled": true,
-    "revision": "ce_qm_v1"
+    "revision": "",
+    "priority": 0,
+    "objective_metric": "",
+    "config": {},
+    "guardrails": {},
+    "experiment_key": null
   }
-}
+]

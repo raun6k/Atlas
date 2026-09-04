@@ -1,35 +1,52 @@
 {
-  "fixture_snapshot_id": "fix_quickmart_v1",
-  "version": "1.0.0",
-  "schema_revision": 1,
-  "merchant_key": "quickmart",
-  "currency": "INR",
-  "reset_recipe": {
-    "endpoint": "POST /test/v1/fixtures/reset",
-    "body": {
-      "fixture_snapshot_id": "fix_quickmart_v1"
-    },
-    "verify": "GET /test/v1/fixtures/current returns matching digest"
-  },
+  "schema_version": "2.0.0",
+  "snapshot_id": "fix_quickmart_v1",
+  "created_for": "atlas_fixture",
+  "currency_minor_unit": 100,
   "files": [
-    "merchant.json",
-    "locations.json",
-    "products.json",
-    "skus.json",
-    "prices.json",
-    "inventory.json",
-    "promotions.json",
-    "bundles.json",
-    "relationships.json",
-    "strategies.json",
-    "reference_carts.json"
-  ],
-  "counts": {
-    "locations": 3,
-    "products": 36,
-    "skus": 50,
-    "price_rows": 149,
-    "inventory_rows": 150
-  },
-  "content_digest": "sha256:35ad9efa6b0ff5cff1f4c0394571c6b9e7fdbf948e02d698a6be7b83ff9e15b8"
+    {
+      "path": "merchant.json",
+      "sha256": "d53da786b71c29ba296b7dd7f4910d2ea63c7a7931e75d5aef8bc0bc210b32ff"
+    },
+    {
+      "path": "locations.csv",
+      "sha256": "82f0774e37c5d59aecd533b2ad3319c74392e876647507e60dd6f8eed11ad4f4"
+    },
+    {
+      "path": "service_areas.json",
+      "sha256": "a2fb1378abc50919094612dea08d810bb5b482c9989bfe629dd408007619fd36"
+    },
+    {
+      "path": "products.csv",
+      "sha256": "75ac1e4b328253966b2a7d85ec94ccd78ebee808e23ee1cdd35ffcf957067c9c"
+    },
+    {
+      "path": "skus.csv",
+      "sha256": "472aea502714b7593e6ff9b66b57ce50638e9ae679e4d9e90c2347cd3dfde7a6"
+    },
+    {
+      "path": "location_sku_offers.csv",
+      "sha256": "5ebcee18be7edd429f4c64eaa19dcb4f4648daeb451fc29dc1be1d3dc5c44d3e"
+    },
+    {
+      "path": "relationships.csv",
+      "sha256": "06ad86ee378fb949f08096def0578d0825dd82ce99cdf94351e5eb2d71308fd9"
+    },
+    {
+      "path": "promotions.json",
+      "sha256": "9c739cdb6713c3b9dc0be5af7cec841f9d0f3b8c7fa0477e3a23fb7b288f6b1b"
+    },
+    {
+      "path": "bundles.json",
+      "sha256": "7c281fb0c45bc6079435faa6547acbd56f0d6032b914bd7b778e93e826c3b6ee"
+    },
+    {
+      "path": "strategies.json",
+      "sha256": "0276686e71d53fd6cc15bd3f609cbd5e428e92f2b559128ce59e4ac2435245da"
+    },
+    {
+      "path": "agent_capabilities.json",
+      "sha256": "1a75afc629f8e249ff5f39189835a23b22acf4f1aa12d73ec08bbeb61e7a61cb"
+    }
+  ]
 }

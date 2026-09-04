@@ -37,155 +37,14 @@ func LoadDir(ctx context.Context, db *store.DB, fixtureDir, hostPEMPath string) 
 			offer_events, offers, opportunity_candidates, cart_lines, carts, shopping_sessions,
 			replay_nonces, idempotency_records, audit_events, audit_exports, jobs, outbox_events,
 			inventory, prices, product_relationships, bundles, promotions, commercial_strategies,
-			skus, products, locations, merchant_profile, host_keys, approved_hosts,
+			service_areas, skus, products, locations, merchant_profile, host_keys, approved_hosts,
 			operator_credentials, fixture_control_credentials, fixture_state
 		RESTART IDENTITY CASCADE`); err != nil {
 		return ResetResult{}, err
 	}
 
-	type merchant struct {
-		MerchantProfileKey     string `json:"merchant_profile_key"`
-		DisplayName            string `json:"display_name"`
-		LegalName              string `json:"legal_name"`
-		Description            string `json:"description"`
-		Currency               string `json:"currency"`
-		Locale                 string `json:"locale"`
-		Country                string `json:"country"`
-		City                   string `json:"city"`
-		TimezoneDisplay        string `json:"timezone_display"`
-		TermsURL               string `json:"terms_url"`
-		PrivacyURL             string `json:"privacy_url"`
-		SupportEmail           string `json:"support_email"`
-		CapabilitySummary      string `json:"capability_summary"`
-		AffiliationDisclaimer  string `json:"affiliation_disclaimer"`
-	}
-	var m merchant
-	if err := readJSON(filepath.Join(fixtureDir, "merchant.json"), &m); err != nil {
+	if err := loadMerchantPack(ctx, tx, fixtureDir); err != nil {
 		return ResetResult{}, err
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO merchant_profile (singleton_key, display_name, legal_name, description, currency, locale, country, city, timezone_display, terms_url, privacy_url, support_email, capability_summary, affiliation_disclaimer)
-		VALUES ('singleton',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		m.DisplayName, m.LegalName, m.Description, m.Currency, m.Locale, m.Country, m.City, m.TimezoneDisplay, m.TermsURL, m.PrivacyURL, m.SupportEmail, m.CapabilitySummary, m.AffiliationDisclaimer); err != nil {
-		return ResetResult{}, err
-	}
-
-	var locations []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "locations.json"), &locations); err != nil {
-		return ResetResult{}, err
-	}
-	for _, loc := range locations {
-		eta := loc["eta_minutes"].(map[string]any)
-		hours, _ := json.Marshal(loc["fulfillment_hours"])
-		if _, err := tx.Exec(ctx, `INSERT INTO locations (location_id, name, neighbourhood, city, region, country, serviceability_reference, address_public, active, is_reference_location, fulfillment_hours, delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, eta_min_minutes, eta_max_minutes, handling_fee_minor)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-			loc["location_id"], loc["name"], loc["neighbourhood"], loc["city"], loc["region"], loc["country"], loc["serviceability_reference"], loc["address_public"],
-			loc["active"], loc["is_reference_location"], hours, asInt(loc["delivery_fee_minor"]), asInt(loc["minimum_order_value_minor"]), asInt(loc["free_delivery_threshold_minor"]),
-			asInt(eta["min"]), asInt(eta["max"]), asInt(loc["handling_fee_minor"])); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var products []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "products.json"), &products); err != nil {
-		return ResetResult{}, err
-	}
-	for _, p := range products {
-		diet, _ := json.Marshal(p["dietary"])
-		imgs, _ := json.Marshal(p["image_refs"])
-		if _, err := tx.Exec(ctx, `INSERT INTO products (product_id, name, brand, category, subcategory, canonical_description, dietary, lifecycle, image_refs, search_document)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, to_tsvector('simple', $2||' '||$3||' '||$6))`,
-			p["product_id"], p["name"], p["brand"], p["category"], p["subcategory"], p["canonical_description"], diet, p["lifecycle"], imgs); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var skus []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "skus.json"), &skus); err != nil {
-		return ResetResult{}, err
-	}
-	for _, s := range skus {
-		diet, _ := json.Marshal(s["dietary"])
-		attrs, _ := json.Marshal(s["attributes"])
-		imgs, _ := json.Marshal(s["image_refs"])
-		if _, err := tx.Exec(ctx, `INSERT INTO skus (sku_id, product_id, name, brand, variant, pack_size, unit_of_measure, barcode, canonical_description, dietary, attributes, lifecycle, image_refs, search_document)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, to_tsvector('simple', $3||' '||$4||' '||$9))`,
-			s["sku_id"], s["product_id"], s["name"], s["brand"], s["variant"], asInt(s["pack_size"]), s["unit_of_measure"], s["barcode"], s["canonical_description"], diet, attrs, s["lifecycle"], imgs); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var prices []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "prices.json"), &prices); err != nil {
-		return ResetResult{}, err
-	}
-	for _, p := range prices {
-		econ, _ := p["economics_private"].(map[string]any)
-		if _, err := tx.Exec(ctx, `INSERT INTO prices (location_id, sku_id, currency, list_price_minor, selling_price_minor, tax_inclusive, tax_rate_bps, tax_amount_minor, cogs_minor, variable_cost_minor, supplier_funding_minor, contribution_margin_minor)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-			p["location_id"], p["sku_id"], p["currency"], asInt(p["list_price_minor"]), asInt(p["selling_price_minor"]), p["tax_inclusive"], asInt(p["tax_rate_bps"]), asInt(p["tax_amount_minor"]),
-			asInt(econ["cogs_minor"]), asInt(econ["variable_cost_minor"]), asInt(econ["supplier_funding_minor"]), asInt(econ["contribution_margin_minor"])); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var inv []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "inventory.json"), &inv); err != nil {
-		return ResetResult{}, err
-	}
-	for _, i := range inv {
-		if _, err := tx.Exec(ctx, `INSERT INTO inventory (location_id, sku_id, assorted, on_hand_quantity, reserved_quantity, safety_buffer, stock_status, stock_confidence, expiry_risk)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-			i["location_id"], i["sku_id"], i["assorted"], asInt(i["on_hand_quantity"]), asInt(i["reserved_quantity"]), asInt(i["safety_buffer"]), i["stock_status"], i["stock_confidence"], i["expiry_risk"]); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var rel []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "relationships.json"), &rel); err != nil {
-		return ResetResult{}, err
-	}
-	for _, r := range rel {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_relationships (source_id, target_id, relationship_type, confidence, provenance) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
-			r["source"], r["target"], r["type"], r["confidence"], r["provenance"]); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var promos []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "promotions.json"), &promos); err != nil {
-		return ResetResult{}, err
-	}
-	for _, p := range promos {
-		skusB, _ := json.Marshal(p["eligible_sku_ids"])
-		locsB, _ := json.Marshal(p["location_ids"])
-		if _, err := tx.Exec(ctx, `INSERT INTO promotions (promotion_id, type, name, eligible_sku_ids, minimum_quantity, discount_amount_minor, stacking, location_ids, supplier_funding_minor, starts_at, ends_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-			p["promotion_id"], p["type"], p["name"], skusB, asInt(p["minimum_quantity"]), asInt(p["discount_amount_minor"]), p["stacking"], locsB, asInt(p["supplier_funding_minor"]), p["starts_at"], p["ends_at"]); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var bundles []map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "bundles.json"), &bundles); err != nil {
-		return ResetResult{}, err
-	}
-	for _, b := range bundles {
-		qty, _ := json.Marshal(b["sku_quantities"])
-		locs, _ := json.Marshal(b["location_ids"])
-		if _, err := tx.Exec(ctx, `INSERT INTO bundles (bundle_id, name, sku_quantities, standalone_total_minor, bundle_total_minor, discount_amount_minor, location_ids) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-			b["bundle_id"], b["name"], qty, asInt(b["standalone_total_minor"]), asInt(b["bundle_total_minor"]), asInt(b["discount_amount_minor"]), locs); err != nil {
-			return ResetResult{}, err
-		}
-	}
-
-	var strategies map[string]map[string]any
-	if err := readJSON(filepath.Join(fixtureDir, "strategies.json"), &strategies); err != nil {
-		return ResetResult{}, err
-	}
-	for t, s := range strategies {
-		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategies (strategy_type, enabled, revision) VALUES ($1,$2,$3)`, t, s["enabled"], s["revision"]); err != nil {
-			return ResetResult{}, err
-		}
 	}
 
 	if err := seedTrust(ctx, tx, hostPEMPath); err != nil {
@@ -246,6 +105,10 @@ func seedTrust(ctx context.Context, tx pgx.Tx, hostPEMPath string) error {
 }
 
 func seedConfirmedOrder(ctx context.Context, tx pgx.Tx) error {
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM skus s JOIN locations l ON true WHERE s.sku_id='sku_qm_eggs_white_6' AND l.location_id='loc_qm_koramangala'`).Scan(&n); err != nil || n == 0 {
+		return nil
+	}
 	sessionID := "ses_fixture_confirmed_order"
 	cartID := "cart_fixture_confirmed_order"
 	orderID := "ord_fixture_confirmed_breakfast"
@@ -298,13 +161,26 @@ func contentDigest(dir string) string {
 		return "sha256:" + hex.EncodeToString(sum[:])
 	}
 	var m struct {
-		ContentDigest string `json:"content_digest"`
+		Files []struct {
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+		} `json:"files"`
 	}
-	if err := json.Unmarshal(manifest, &m); err == nil && m.ContentDigest != "" {
-		return m.ContentDigest
+	if err := json.Unmarshal(manifest, &m); err != nil || len(m.Files) == 0 {
+		sum := sha256.Sum256(manifest)
+		return "sha256:" + hex.EncodeToString(sum[:])
 	}
-	sum := sha256.Sum256(manifest)
-	return "sha256:" + hex.EncodeToString(sum[:])
+	h := sha256.New()
+	for _, f := range m.Files {
+		b, err := os.ReadFile(filepath.Join(dir, f.Path))
+		if err != nil {
+			continue
+		}
+		sum := sha256.Sum256(b)
+		h.Write([]byte(f.Path))
+		h.Write(sum[:])
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
 func readJSON(path string, v any) error {
