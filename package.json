@@ -1,0 +1,14 @@
+{
+  "name": "atlas",
+  "private": true,
+  "description": "Atlas merchant commerce stack for buyer agents (MCP), payments, and sellability evaluation.",
+  "workspaces": [
+    "apps/gateway",
+    "apps/payment-runner",
+    "apps/atlaslab",
+    "apps/frontend"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

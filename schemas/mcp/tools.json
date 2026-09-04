@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.dev/schemas/mcp/tools.json",
+  "title": "atlas.merchant.v1 public MCP tools",
+  "description": "Exactly 15 public tools. get_session, get_profile, and get_substitution are not public MCP tools.",
+  "tools": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ]
+}

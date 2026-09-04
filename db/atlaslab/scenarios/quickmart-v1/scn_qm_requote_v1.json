@@ -1,0 +1,131 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_requote_v1",
+  "framework": "TRANSACTABILITY",
+  "supported_run_types": [
+    "DETERMINISTIC_SCENARIO"
+  ],
+  "title": "Expired/stale proposal requote",
+  "purpose": "complete_checkout must not succeed on a stale proposal",
+  "family": "Checkout",
+  "difficulty": "hard",
+  "tags": [
+    "checkout",
+    "requote"
+  ],
+  "user_mission": "Do not complete checkout after inventory invalidation.",
+  "structured_requirements": {
+    "expect": "REQUOTE_REQUIRED"
+  },
+  "forbidden_outcomes": [
+    "stale_proposal_captured"
+  ],
+  "payment_simulation": "NONE",
+  "stopping_rules": {
+    "wall_seconds": 120
+  },
+  "required_terminal_assertions": [
+    {
+      "result_code": "REQUOTE_REQUIRED"
+    }
+  ],
+  "critical_safety_assertions": [
+    {
+      "no_payment_on_stale_proposal": true
+    }
+  ],
+  "action_program": {
+    "action_program_id": "ap_qm_requote_v1",
+    "version": "1",
+    "entry_step_id": "s1",
+    "max_branches": 8,
+    "steps": [
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s1",
+        "tool": "create_session",
+        "arguments": {
+          "location_id": "loc_qm_koramangala"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s2"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s2",
+        "tool": "add_cart_item",
+        "arguments": {
+          "sku_id": "sku_qm_eggs_white_6",
+          "quantity": 1,
+          "expected_cart_version": 0
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s3"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s3",
+        "tool": "prepare_checkout",
+        "arguments": {
+          "expected_cart_version": "$state.cart_version",
+          "expected_session_context_version": "$state.session_context_version"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s4"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s4",
+        "tool": "complete_checkout",
+        "arguments": {},
+        "expected_result_codes": [
+          "REQUOTE_REQUIRED"
+        ],
+        "next": {
+          "REQUOTE_REQUIRED": "TERMINAL",
+          "OK": "FAIL"
+        }
+      }
+    ],
+    "digest": "65f6a756efff09c1fa9d64001532115e43f4cbedb74713bb4367f1a2658c2bce"
+  }
+}

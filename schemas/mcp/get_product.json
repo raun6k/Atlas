@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_product",
+  "type": "object",
+  "required": ["session_id", "product_id"],
+  "additionalProperties": false,
+  "properties": {
+    "session_id": { "type": "string" },
+    "product_id": { "type": "string" },
+    "location_id": { "type": "string" }
+  }
+}

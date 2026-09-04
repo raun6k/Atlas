@@ -1,0 +1,26 @@
+{
+  "THRESHOLD": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  },
+  "PROMOTION": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  },
+  "BUNDLE": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  },
+  "CROSS_SELL": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  },
+  "COMPLEMENT": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  },
+  "UPSELL": {
+    "enabled": true,
+    "revision": "ce_qm_v1"
+  }
+}

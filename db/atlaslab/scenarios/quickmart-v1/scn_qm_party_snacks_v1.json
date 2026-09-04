@@ -1,0 +1,53 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_party_snacks_v1",
+  "framework": "COMMERCIAL_INCREMENTALITY",
+  "supported_run_types": [
+    "BENCHMARK_MODEL"
+  ],
+  "title": "Party snacks incrementality",
+  "purpose": "Benchmark-only pairing key pair_qm_party_snacks",
+  "family": "Offers",
+  "difficulty": "medium",
+  "tags": [
+    "incrementality"
+  ],
+  "user_mission": "Snacks for eight people under ₹2,500.",
+  "structured_requirements": {
+    "guests": 8,
+    "budget_minor": 250000
+  },
+  "forbidden_outcomes": [],
+  "payment_simulation": "SUCCESS",
+  "stopping_rules": {
+    "wall_seconds": 900
+  },
+  "required_terminal_assertions": [],
+  "critical_safety_assertions": [],
+  "commercial_eligibility": {
+    "pairing_key": "pair_qm_party_snacks"
+  }
+}

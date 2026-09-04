@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_order",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "merchant_order_id"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "merchant_order_id": { "type": "string" }
+  }
+}

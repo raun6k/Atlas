@@ -1,0 +1,1077 @@
+syntax = "proto3";
+
+package atlas.merchant.v1;
+
+option go_package = "atlas.dev/core/internal/gen/atlas/merchant/v1;merchantv1";
+
+import "google/protobuf/timestamp.proto";
+
+// atlas.merchant.v1 internal Core contract. Gateway maps MCP and admin REST onto
+// these methods. Frozen payment RPCs CompleteCheckout, GetOrder, IngestProviderWebhook,
+// and runner placeholders are published here so Payment Fabric can implement them.
+
+message Money {
+  int64 amount_minor = 1;
+  string currency = 2;
+  string amount_minor_string = 3;
+}
+
+message RequestMeta {
+  string request_id = 1;
+  string idempotency_key = 2;
+  string host_request_proof = 3;
+  string approved_host_id = 4;
+  string operator_id = 5;
+  repeated string operator_scopes = 6;
+}
+
+message Warning {
+  string code = 1;
+  string message = 2;
+}
+
+message ErrorDetail {
+  string request_id = 1;
+  string code = 2;
+  string message = 3;
+  bool retryable = 4;
+  int32 retry_after_ms = 5;
+  SessionSummary current_session_summary = 6;
+  Cart current_cart = 7;
+  string operation_id = 8;
+  map<string, string> details = 9;
+}
+
+message Capabilities {
+  string contract_family = 1;
+  string contract_version = 2;
+  string merchant_display_name = 3;
+  string currency = 4;
+  string locale = 5;
+  repeated string tools = 6;
+  PaymentCapability payment = 7;
+  int32 max_page_size = 8;
+  int32 offer_ttl_seconds = 9;
+  int32 proposal_hold_ttl_seconds = 10;
+}
+
+message PaymentCapability {
+  string capability_id = 1;
+  string provider = 2;
+  string environment = 3;
+  string money_movement = 4;
+  string completion_mode = 5;
+  bool requires_checkout_proposal = 6;
+  bool requires_checkout_authority = 7;
+  bool supports_buyer_agent_raw_instrument_access = 8;
+  string terminal_success_state = 9;
+}
+
+message Location {
+  string location_id = 1;
+  string name = 2;
+  string neighbourhood = 3;
+  string city = 4;
+  int64 delivery_fee_minor = 5;
+  int64 minimum_order_value_minor = 6;
+  int64 free_delivery_threshold_minor = 7;
+  int32 eta_min_minutes = 8;
+  int32 eta_max_minutes = 9;
+  bool active = 10;
+  string serviceability_reference = 11;
+  string currency = 12;
+}
+
+message Product {
+  string product_id = 1;
+  string name = 2;
+  string brand = 3;
+  string category = 4;
+  string subcategory = 5;
+  string canonical_description = 6;
+  repeated string dietary = 7;
+  string lifecycle = 8;
+  repeated Sku skus = 9;
+}
+
+message Sku {
+  string sku_id = 1;
+  string product_id = 2;
+  string name = 3;
+  string brand = 4;
+  string variant = 5;
+  int32 pack_size = 6;
+  string unit_of_measure = 7;
+  string barcode = 8;
+  string canonical_description = 9;
+  repeated string dietary = 10;
+  string lifecycle = 11;
+  Money selling_price = 12;
+  int32 sellable_quantity = 13;
+  string stock_status = 14;
+  bool assorted = 15;
+}
+
+message SessionSummary {
+  string session_id = 1;
+  int64 session_context_version = 2;
+  string location_id = 3;
+  string status = 4;
+  string cart_id = 5;
+  int64 cart_version = 6;
+  Money planning_budget = 7;
+  string mission = 8;
+  string currency = 9;
+}
+
+message CartLine {
+  string cart_line_id = 1;
+  string sku_id = 2;
+  string product_id = 3;
+  string name = 4;
+  int32 quantity = 5;
+  Money unit_price = 6;
+  Money line_total = 7;
+}
+
+message PriceBreakdown {
+  Money merchandise = 1;
+  Money discounts = 2;
+  Money delivery_fee = 3;
+  Money handling_fee = 4;
+  Money tax = 5;
+  Money all_in_total = 6;
+}
+
+message Cart {
+  string cart_id = 1;
+  string session_id = 2;
+  int64 cart_version = 3;
+  repeated CartLine lines = 4;
+  PriceBreakdown breakdown = 5;
+  string currency = 6;
+}
+
+message Offer {
+  string offer_id = 1;
+  string strategy_type = 2;
+  int64 session_context_version = 3;
+  int64 cart_version = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  string status = 6;
+  string grounded_reason = 7;
+  string terms = 8;
+  CartPatch cart_patch = 9;
+  Money buyer_impact = 10;
+  Money base_all_in_total = 11;
+  Money projected_all_in_total = 12;
+}
+
+message CartPatch {
+  string patch_type = 1; // ADD_ITEM | REPLACE_ITEM | BUNDLE | PROMOTION
+  repeated CartPatchLine lines = 2;
+  string source_cart_line_id = 3;
+  string source_sku_id = 4;
+  string promotion_id = 5;
+  string bundle_id = 6;
+}
+
+message CartPatchLine {
+  string sku_id = 1;
+  int32 quantity = 2;
+  string op = 3; // ADD | REPLACE | REMOVE
+}
+
+message CheckoutProposal {
+  string checkout_proposal_id = 1;
+  string session_id = 2;
+  int64 session_context_version = 3;
+  string cart_id = 4;
+  int64 cart_version = 5;
+  string quote_hash = 6;
+  Money final_amount = 7;
+  string payment_capability_id = 8;
+  google.protobuf.Timestamp hold_expires_at = 9;
+  google.protobuf.Timestamp proposal_expires_at = 10;
+  string status = 11;
+  PriceBreakdown breakdown = 12;
+  repeated CartLine lines = 13;
+  string location_id = 14;
+}
+
+message MerchantOrder {
+  string merchant_order_id = 1;
+  string session_id = 2;
+  string checkout_proposal_id = 3;
+  string status = 4;
+  Money total = 5;
+  string payment_attempt_id = 6;
+  string payment_public_status = 7;
+  repeated SubstitutionRequest substitutions = 8;
+  google.protobuf.Timestamp created_at = 9;
+  string location_id = 10;
+  repeated CartLine lines = 11;
+  string operation_id = 12;
+}
+
+message SubstitutionRequest {
+  string substitution_request_id = 1;
+  int64 substitution_version = 2;
+  string order_id = 3;
+  string original_sku_id = 4;
+  int32 original_quantity = 5;
+  repeated SubstitutionOption options = 6;
+  google.protobuf.Timestamp deadline_at = 7;
+  string status = 8;
+}
+
+message SubstitutionOption {
+  string option_id = 1;
+  string sku_id = 2;
+  int32 quantity = 3;
+  Money unit_price = 4;
+  string price_impact = 5; // SAME | LOWER | HIGHER
+}
+
+message Envelope {
+  string contract_version = 1;
+  string request_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  string operation_id = 4;
+  repeated Warning warnings = 5;
+}
+
+message CartMutationResult {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  repeated Offer offers = 4;
+  repeated string invalidated_offer_ids = 5;
+}
+
+message GetCapabilitiesRequest {
+  RequestMeta meta = 1;
+  string requested_contract_version = 2;
+}
+
+message GetCapabilitiesResponse {
+  Envelope envelope = 1;
+  Capabilities capabilities = 2;
+}
+
+message GetProfileRequest {
+  RequestMeta meta = 1;
+}
+
+message MerchantProfile {
+  string display_name = 1;
+  string legal_name = 2;
+  string description = 3;
+  string currency = 4;
+  string locale = 5;
+  string country = 6;
+  string city = 7;
+  string timezone_display = 8;
+  string support_email = 9;
+  string capability_summary = 10;
+  int64 profile_version = 11;
+}
+
+message GetProfileResponse {
+  Envelope envelope = 1;
+  MerchantProfile profile = 2;
+  repeated Location locations = 3;
+}
+
+message SearchCatalogRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string query = 3;
+  string category = 4;
+  string brand = 5;
+  string cursor = 6;
+  int32 page_size = 7;
+}
+
+message SearchCatalogResponse {
+  Envelope envelope = 1;
+  repeated Sku items = 2;
+  string next_cursor = 3;
+}
+
+message GetProductRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string product_id = 3;
+  string location_id = 4;
+}
+
+message GetProductResponse {
+  Envelope envelope = 1;
+  Product product = 2;
+}
+
+message CreateSessionRequest {
+  RequestMeta meta = 1;
+  string subject_reference = 2;
+  string delivery_serviceability_reference = 3;
+  string locale = 4;
+  string requested_location_id = 5;
+  // Host-stamped CONTROL | TREATMENT | empty. Buyer Agents must not set this (ID-600).
+  string evaluation_arm = 6;
+}
+
+message CreateSessionResponse {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  repeated Offer offers = 4;
+}
+
+message SetIntentRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  int64 expected_session_context_version = 3;
+  string mission = 4;
+  int64 planning_budget_minor = 5;
+  string currency = 6;
+  map<string, string> constraints = 7;
+}
+
+message SetIntentResponse {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  repeated Offer offers = 4;
+  repeated string invalidated_offer_ids = 5;
+}
+
+message GetSessionRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+}
+
+message GetSessionResponse {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  string subject_reference = 4;
+  string host_id = 5;
+}
+
+message GetCartRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+}
+
+message GetCartResponse {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  repeated Offer offers = 4;
+}
+
+message AddItemRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string cart_id = 3;
+  int64 expected_cart_version = 4;
+  string sku_id = 5;
+  int32 quantity = 6;
+}
+
+message UpdateItemRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string cart_id = 3;
+  int64 expected_cart_version = 4;
+  string cart_line_id = 5;
+  int32 quantity = 6;
+}
+
+message RemoveItemRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string cart_id = 3;
+  int64 expected_cart_version = 4;
+  string cart_line_id = 5;
+}
+
+message AcceptOfferRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string offer_id = 3;
+  int64 expected_session_context_version = 4;
+  int64 expected_cart_version = 5;
+}
+
+message AcceptOfferResponse {
+  Envelope envelope = 1;
+  Offer offer = 2;
+  SessionSummary session_summary = 3;
+  Cart cart = 4;
+  repeated Offer offers = 5;
+}
+
+message ApplyOfferRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string offer_id = 3;
+  int64 expected_session_context_version = 4;
+  int64 expected_cart_version = 5;
+}
+
+message PrepareCheckoutRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string cart_id = 3;
+  int64 expected_session_context_version = 4;
+  int64 expected_cart_version = 5;
+  string fulfillment_option_id = 6;
+}
+
+message PrepareCheckoutResponse {
+  Envelope envelope = 1;
+  SessionSummary session_summary = 2;
+  Cart cart = 3;
+  CheckoutProposal proposal = 4;
+}
+
+message CompleteCheckoutRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string checkout_proposal_id = 3;
+  string checkout_authority = 4;
+}
+
+message CompleteCheckoutResponse {
+  Envelope envelope = 1;
+  string merchant_order_id = 2;
+  string payment_attempt_id = 3;
+  string operation_id = 4;
+  string public_status = 5; // PAYMENT_PROCESSING
+  MerchantOrder order = 6;
+}
+
+message GetOrderRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string merchant_order_id = 3;
+  string timeline_cursor = 4;
+}
+
+message GetOrderResponse {
+  Envelope envelope = 1;
+  MerchantOrder order = 2;
+}
+
+message GetSubstitutionRequest {
+  RequestMeta meta = 1;
+  string substitution_request_id = 2;
+}
+
+message GetSubstitutionResponse {
+  Envelope envelope = 1;
+  SubstitutionRequest substitution = 2;
+}
+
+message RespondToSubstitutionRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+  string merchant_order_id = 3;
+  string substitution_request_id = 4;
+  int64 expected_substitution_version = 5;
+  string selected_option_id = 6;
+  bool decline = 7;
+}
+
+message RespondToSubstitutionResponse {
+  Envelope envelope = 1;
+  MerchantOrder order = 2;
+}
+
+message IngestProviderWebhookRequest {
+  bytes raw_body = 1;
+  map<string, string> headers = 2;
+  string event_id = 3;
+}
+
+message IngestProviderWebhookResponse {
+  bool accepted = 1;
+  string code = 2;
+}
+
+message ClaimRunnerJobRequest {
+  string executor_credential = 1;
+}
+
+message ClaimRunnerJobResponse {
+  string job_id = 1;
+  string payment_attempt_id = 2;
+  string razorpay_order_id = 3;
+  string checkout_payload_json = 4;
+}
+
+message ReportRunnerObservationRequest {
+  string job_id = 1;
+  string executor_credential = 2;
+  string observation_json = 3;
+}
+
+message ReportRunnerObservationResponse {
+  bool accepted = 1;
+}
+
+message ResetFixturesRequest {
+  RequestMeta meta = 1;
+  string fixture_snapshot_id = 2;
+}
+
+message ResetFixturesResponse {
+  string fixture_snapshot_id = 1;
+  string content_digest = 2;
+}
+
+message CurrentFixtureRequest {}
+
+message CurrentFixtureResponse {
+  string fixture_snapshot_id = 1;
+  string content_digest = 2;
+}
+
+service MerchantQueryService {
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc SearchCatalog(SearchCatalogRequest) returns (SearchCatalogResponse);
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+}
+
+service SessionService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc SetIntent(SetIntentRequest) returns (SetIntentResponse);
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+}
+
+service CartService {
+  rpc GetCart(GetCartRequest) returns (GetCartResponse);
+  rpc AddItem(AddItemRequest) returns (CartMutationResult);
+  rpc UpdateItem(UpdateItemRequest) returns (CartMutationResult);
+  rpc RemoveItem(RemoveItemRequest) returns (CartMutationResult);
+  rpc AcceptOffer(AcceptOfferRequest) returns (AcceptOfferResponse);
+  rpc ApplyOffer(ApplyOfferRequest) returns (CartMutationResult);
+}
+
+service CheckoutService {
+  rpc PrepareCheckout(PrepareCheckoutRequest) returns (PrepareCheckoutResponse);
+  rpc CompleteCheckout(CompleteCheckoutRequest) returns (CompleteCheckoutResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+}
+
+service FulfillmentService {
+  rpc GetSubstitution(GetSubstitutionRequest) returns (GetSubstitutionResponse);
+  rpc RespondToSubstitution(RespondToSubstitutionRequest) returns (RespondToSubstitutionResponse);
+}
+
+service PaymentFabricService {
+  rpc IngestProviderWebhook(IngestProviderWebhookRequest) returns (IngestProviderWebhookResponse);
+  rpc ClaimRunnerJob(ClaimRunnerJobRequest) returns (ClaimRunnerJobResponse);
+  rpc ReportRunnerObservation(ReportRunnerObservationRequest) returns (ReportRunnerObservationResponse);
+}
+
+service FixtureService {
+  rpc ResetFixtures(ResetFixturesRequest) returns (ResetFixturesResponse);
+  rpc CurrentFixture(CurrentFixtureRequest) returns (CurrentFixtureResponse);
+}
+
+message AdminEmpty {}
+
+message ListLocationsResponse {
+  Envelope envelope = 1;
+  repeated Location locations = 2;
+}
+
+message GetLocationRequest {
+  RequestMeta meta = 1;
+  string location_id = 2;
+}
+
+message LocationResponse {
+  Envelope envelope = 1;
+  Location location = 2;
+  int64 location_version = 3;
+}
+
+message GetSkuRequest {
+  RequestMeta meta = 1;
+  string sku_id = 2;
+}
+
+message GetSkuResponse {
+  Envelope envelope = 1;
+  Sku sku = 2;
+}
+
+message UpdateLocationRequest {
+  RequestMeta meta = 1;
+  string location_id = 2;
+  int64 expected_version = 3;
+  int64 delivery_fee_minor = 4;
+  int64 minimum_order_value_minor = 5;
+  int64 free_delivery_threshold_minor = 6;
+}
+
+message UpdateProfileRequest {
+  RequestMeta meta = 1;
+  int64 expected_version = 2;
+  string display_name = 3;
+  string description = 4;
+  string support_email = 5;
+}
+
+message ListProductsRequest {
+  RequestMeta meta = 1;
+  string cursor = 2;
+  int32 page_size = 3;
+}
+
+message ListProductsResponse {
+  Envelope envelope = 1;
+  repeated Product products = 2;
+  string next_cursor = 3;
+}
+
+message ListSkusRequest {
+  RequestMeta meta = 1;
+  string cursor = 2;
+  int32 page_size = 3;
+  string location_id = 4;
+}
+
+message ListSkusResponse {
+  Envelope envelope = 1;
+  repeated Sku skus = 2;
+  string next_cursor = 3;
+}
+
+message InventoryRow {
+  string location_id = 1;
+  string sku_id = 2;
+  int32 on_hand_quantity = 3;
+  int32 reserved_quantity = 4;
+  int32 safety_buffer = 5;
+  int32 sellable_quantity = 6;
+  string stock_status = 7;
+}
+
+message ListInventoryRequest {
+  RequestMeta meta = 1;
+  string location_id = 2;
+}
+
+message ListInventoryResponse {
+  Envelope envelope = 1;
+  repeated InventoryRow rows = 2;
+}
+
+message AdjustInventoryRequest {
+  RequestMeta meta = 1;
+  string location_id = 2;
+  string sku_id = 3;
+  int32 on_hand_delta = 4;
+  string reason = 5;
+}
+
+message ImportInventoryRequest {
+  RequestMeta meta = 1;
+  string rows_json = 2;
+}
+
+message ImportInventoryResponse {
+  Envelope envelope = 1;
+  int32 accepted = 2;
+  int32 rejected = 3;
+  repeated string row_errors = 4;
+}
+
+message Relationship {
+  string source = 1;
+  string target = 2;
+  string type = 3;
+}
+
+message ListRelationshipsResponse {
+  Envelope envelope = 1;
+  repeated Relationship relationships = 2;
+}
+
+message Promotion {
+  string promotion_id = 1;
+  string type = 2;
+  string name = 3;
+  repeated string eligible_sku_ids = 4;
+  int32 minimum_quantity = 5;
+  int64 discount_amount_minor = 6;
+}
+
+message ListPromotionsResponse {
+  Envelope envelope = 1;
+  repeated Promotion promotions = 2;
+}
+
+message UpdatePromotionRequest {
+  RequestMeta meta = 1;
+  string promotion_id = 2;
+  int64 expected_version = 3;
+  bool enabled = 4;
+}
+
+message StrategyConfig {
+  string strategy_type = 1;
+  bool enabled = 2;
+  string revision = 3;
+}
+
+message ListStrategiesResponse {
+  Envelope envelope = 1;
+  repeated StrategyConfig strategies = 2;
+}
+
+message UpdateStrategiesRequest {
+  RequestMeta meta = 1;
+  repeated StrategyConfig strategies = 2;
+}
+
+message PreviewRulesRequest {
+  RequestMeta meta = 1;
+  string fixture_cart_name = 2;
+}
+
+message PreviewRulesResponse {
+  Envelope envelope = 1;
+  PriceBreakdown breakdown = 2;
+  repeated Offer offers = 3;
+}
+
+message ListSessionsRequest {
+  RequestMeta meta = 1;
+  string cursor = 2;
+  int32 page_size = 3;
+}
+
+message ListSessionsResponse {
+  Envelope envelope = 1;
+  repeated SessionSummary sessions = 2;
+  string next_cursor = 3;
+}
+
+message GetCartByIDRequest {
+  RequestMeta meta = 1;
+  string cart_id = 2;
+}
+
+message ListOffersRequest {
+  RequestMeta meta = 1;
+  string session_id = 2;
+}
+
+message ListOffersResponse {
+  Envelope envelope = 1;
+  repeated Offer offers = 2;
+}
+
+message GetOfferRequest {
+  RequestMeta meta = 1;
+  string offer_id = 2;
+}
+
+message GetOfferResponse {
+  Envelope envelope = 1;
+  Offer offer = 2;
+  string candidate_json = 3;
+}
+
+message ListOrdersRequest {
+  RequestMeta meta = 1;
+  string cursor = 2;
+  int32 page_size = 3;
+}
+
+message ListOrdersResponse {
+  Envelope envelope = 1;
+  repeated MerchantOrder orders = 2;
+  string next_cursor = 3;
+}
+
+message GetOrderAdminRequest {
+  RequestMeta meta = 1;
+  string merchant_order_id = 2;
+}
+
+message CreateRefundRequest {
+  RequestMeta meta = 1;
+  string merchant_order_id = 2;
+  int64 amount_minor = 3;
+  string currency = 4;
+  string reason = 5;
+}
+
+message CreateRefundResponse {
+  Envelope envelope = 1;
+  string code = 2;
+  string message = 3;
+}
+
+message HostRecord {
+  string host_id = 1;
+  string display_name = 2;
+  string status = 3;
+  repeated string scopes = 4;
+}
+
+message ListHostsResponse {
+  Envelope envelope = 1;
+  repeated HostRecord hosts = 2;
+}
+
+message GetHostRequest {
+  RequestMeta meta = 1;
+  string host_id = 2;
+}
+
+message AttentionSummary {
+  string completeness = 1;
+  int32 unresolved_money = 2;
+  int32 evidence_rejected = 3;
+  int32 authorization_security = 4;
+  int32 commerce_replan = 5;
+  int32 recovery_delayed = 6;
+  string headline = 7;
+}
+
+message GetAttentionResponse {
+  Envelope envelope = 1;
+  AttentionSummary summary = 2;
+}
+
+message ResourceSearchRequest {
+  RequestMeta meta = 1;
+  string query = 2;
+}
+
+message ResourceSearchHit {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+message ResourceSearchResponse {
+  Envelope envelope = 1;
+  repeated ResourceSearchHit hits = 2;
+}
+
+message ListAuditEventsRequest {
+  RequestMeta meta = 1;
+  string from_time = 2;
+  string to_time = 3;
+  repeated string event_kind = 4;
+  bool needs_attention = 5;
+  string request_id_filter = 6;
+  string operation_id = 7;
+  string resource_type = 8;
+  string resource_id = 9;
+  string cursor = 10;
+  int32 page_size = 11;
+  bool include_material_reads = 12;
+}
+
+message AuditEvent {
+  string audit_event_id = 1;
+  int64 record_sequence = 2;
+  string event_kind = 3;
+  string occurred_at = 4;
+  string request_id = 5;
+  string operation_id = 6;
+  string action = 7;
+  string primary_resource_type = 8;
+  string primary_resource_id = 9;
+  string summary_sentence = 10;
+  string attention_code = 11;
+  string event_body_json = 12;
+}
+
+message ListAuditEventsResponse {
+  Envelope envelope = 1;
+  repeated AuditEvent events = 2;
+  string next_cursor = 3;
+  int32 active_filter_count = 4;
+}
+
+message GetAuditEventRequest {
+  RequestMeta meta = 1;
+  string audit_event_id = 2;
+}
+
+message GetAuditEventResponse {
+  Envelope envelope = 1;
+  AuditEvent event = 2;
+}
+
+message GetOperationTimelineRequest {
+  RequestMeta meta = 1;
+  string operation_id = 2;
+}
+
+message AssuranceStage {
+  string stage = 1;
+  bool reached = 2;
+}
+
+message GetOperationTimelineResponse {
+  Envelope envelope = 1;
+  repeated AuditEvent events = 2;
+  repeated AssuranceStage stages = 3;
+}
+
+message GetResourceTimelineRequest {
+  RequestMeta meta = 1;
+  string resource_type = 2;
+  string resource_id = 3;
+}
+
+message GetResourceTimelineResponse {
+  Envelope envelope = 1;
+  repeated AuditEvent events = 2;
+}
+
+message CreateAuditExportRequest {
+  RequestMeta meta = 1;
+  string format = 2; // CSV_SUMMARY | JSON_SAFE_DETAIL
+  string filter_json = 3;
+}
+
+message CreateAuditExportResponse {
+  Envelope envelope = 1;
+  string export_id = 2;
+  string status = 3;
+}
+
+message GetAuditExportRequest {
+  RequestMeta meta = 1;
+  string export_id = 2;
+}
+
+message GetAuditExportResponse {
+  Envelope envelope = 1;
+  string export_id = 2;
+  string status = 3;
+  string download_path = 4;
+  string artifact_digest = 5;
+}
+
+message ListOperationsRequest {
+  RequestMeta meta = 1;
+}
+
+message JobRow {
+  string job_id = 1;
+  string job_type = 2;
+  string status = 3;
+  string operation_id = 4;
+}
+
+message ListOperationsResponse {
+  Envelope envelope = 1;
+  repeated JobRow jobs = 2;
+}
+
+message ReconcileOperationRequest {
+  RequestMeta meta = 1;
+  string operation_id = 2;
+}
+
+message ReconcileOperationResponse {
+  Envelope envelope = 1;
+  bool scheduled = 2;
+}
+
+message SystemHealthResponse {
+  Envelope envelope = 1;
+  string status = 2;
+  bool database = 3;
+  bool migrations = 4;
+}
+
+service AdminService {
+  rpc GetMerchantProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc UpdateMerchantProfile(UpdateProfileRequest) returns (GetProfileResponse);
+  rpc ListLocations(GetProfileRequest) returns (ListLocationsResponse);
+  rpc GetLocation(GetLocationRequest) returns (LocationResponse);
+  rpc UpdateLocation(UpdateLocationRequest) returns (LocationResponse);
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc GetProductAdmin(GetProductRequest) returns (GetProductResponse);
+  rpc ListSkus(ListSkusRequest) returns (ListSkusResponse);
+  rpc GetSku(GetSkuRequest) returns (GetSkuResponse);
+  rpc ListInventory(ListInventoryRequest) returns (ListInventoryResponse);
+  rpc AdjustInventory(AdjustInventoryRequest) returns (ListInventoryResponse);
+  rpc ImportInventory(ImportInventoryRequest) returns (ImportInventoryResponse);
+  rpc ListRelationships(GetProfileRequest) returns (ListRelationshipsResponse);
+  rpc ListPromotions(GetProfileRequest) returns (ListPromotionsResponse);
+  rpc UpdatePromotion(UpdatePromotionRequest) returns (ListPromotionsResponse);
+  rpc ListStrategies(GetProfileRequest) returns (ListStrategiesResponse);
+  rpc UpdateStrategies(UpdateStrategiesRequest) returns (ListStrategiesResponse);
+  rpc PreviewRules(PreviewRulesRequest) returns (PreviewRulesResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc GetSessionAdmin(GetSessionRequest) returns (GetSessionResponse);
+  rpc GetCartAdmin(GetCartByIDRequest) returns (GetCartResponse);
+  rpc ListOffers(ListOffersRequest) returns (ListOffersResponse);
+  rpc GetOffer(GetOfferRequest) returns (GetOfferResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc GetOrderAdmin(GetOrderAdminRequest) returns (GetOrderResponse);
+  rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
+  rpc ListHosts(GetProfileRequest) returns (ListHostsResponse);
+  rpc GetHost(GetHostRequest) returns (ListHostsResponse);
+  rpc GetAttention(GetProfileRequest) returns (GetAttentionResponse);
+  rpc SearchResources(ResourceSearchRequest) returns (ResourceSearchResponse);
+  rpc ListOperations(ListOperationsRequest) returns (ListOperationsResponse);
+  rpc ReconcileOperation(ReconcileOperationRequest) returns (ReconcileOperationResponse);
+  rpc GetSystemCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  rpc GetSystemHealth(GetProfileRequest) returns (SystemHealthResponse);
+}
+
+service AuditService {
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+  rpc GetAuditEvent(GetAuditEventRequest) returns (GetAuditEventResponse);
+  rpc GetOperationTimeline(GetOperationTimelineRequest) returns (GetOperationTimelineResponse);
+  rpc GetResourceTimeline(GetResourceTimelineRequest) returns (GetResourceTimelineResponse);
+  rpc CreateAuditExport(CreateAuditExportRequest) returns (CreateAuditExportResponse);
+  rpc GetAuditExport(GetAuditExportRequest) returns (GetAuditExportResponse);
+}
+
+message ClaimJobRequest {
+  string worker_id = 1;
+  repeated string job_types = 2;
+}
+
+message ClaimJobResponse {
+  string job_id = 1;
+  string job_type = 2;
+  string payload_json = 3;
+  string operation_id = 4;
+}
+
+message CompleteJobRequest {
+  string job_id = 1;
+  string worker_id = 2;
+  string result_json = 3;
+}
+
+message FailJobRequest {
+  string job_id = 1;
+  string worker_id = 2;
+  string error_code = 3;
+}
+
+service WorkerService {
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse);
+  rpc CompleteJob(CompleteJobRequest) returns (AdminEmpty);
+  rpc FailJob(FailJobRequest) returns (AdminEmpty);
+}

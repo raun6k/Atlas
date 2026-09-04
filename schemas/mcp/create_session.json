@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.dev/schemas/mcp/create_session.json",
+  "title": "create_session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject_reference", "delivery_serviceability_reference"],
+  "properties": {
+    "subject_reference": { "type": "string" },
+    "delivery_serviceability_reference": { "type": "string" },
+    "locale": { "type": "string" },
+    "requested_location_id": { "type": "string" },
+    "evaluation_arm": {
+      "type": "string",
+      "enum": ["CONTROL", "TREATMENT"],
+      "description": "Host-stamped experiment arm. AtlasLab Host overwrites any Buyer-supplied value before signing (ID-600)."
+    }
+  }
+}

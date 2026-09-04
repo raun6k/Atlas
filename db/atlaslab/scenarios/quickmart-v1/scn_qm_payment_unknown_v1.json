@@ -1,0 +1,156 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_payment_unknown_v1",
+  "framework": "TRANSACTABILITY",
+  "supported_run_types": [
+    "DETERMINISTIC_SCENARIO"
+  ],
+  "title": "OUTCOME_UNKNOWN freeze",
+  "purpose": "Do not start a second payment; poll until reconciled",
+  "family": "Payment",
+  "difficulty": "hard",
+  "tags": [
+    "payment",
+    "recovery"
+  ],
+  "user_mission": "Recover an unknown payment without duplicate attempt.",
+  "structured_requirements": {
+    "no_second_payment": true
+  },
+  "forbidden_outcomes": [
+    "duplicate_payment"
+  ],
+  "payment_simulation": "AMBIGUOUS_THEN_SUCCESS",
+  "stopping_rules": {
+    "wall_seconds": 120
+  },
+  "required_terminal_assertions": [
+    {
+      "payment_status": "CAPTURED_RECONCILED"
+    }
+  ],
+  "critical_safety_assertions": [
+    {
+      "no_duplicate_payment": true
+    }
+  ],
+  "action_program": {
+    "action_program_id": "ap_qm_payment_unknown_v1",
+    "version": "1",
+    "entry_step_id": "s1",
+    "max_branches": 8,
+    "steps": [
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s1",
+        "tool": "create_session",
+        "arguments": {
+          "location_id": "loc_qm_koramangala"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s2"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s2",
+        "tool": "add_cart_item",
+        "arguments": {
+          "sku_id": "sku_qm_eggs_white_6",
+          "quantity": 1,
+          "expected_cart_version": 0
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s3"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s3",
+        "tool": "prepare_checkout",
+        "arguments": {
+          "expected_cart_version": "$state.cart_version",
+          "expected_session_context_version": "$state.session_context_version"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s4"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s4",
+        "tool": "complete_checkout",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s5"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s5",
+        "tool": "get_order",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s6"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s6",
+        "tool": "get_order",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "TERMINAL"
+        }
+      }
+    ],
+    "digest": "f34d37bcedfdb49cabf7aeddd29705dd29246b3f121e2dcff1dd305376fe3dbe"
+  }
+}

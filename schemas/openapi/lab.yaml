@@ -1,0 +1,523 @@
+openapi: 3.0.3
+info:
+  title: AtlasLab HTTP API
+  version: atlaslab.v1
+  description: |
+    Operator-console Lab control and evidence API.
+    AtlasLab is the supported Agent Host and evaluator. It is not merchant authority.
+    Deterministic runs do not require OpenRouter. Razorpay is Test Mode only.
+servers:
+  - url: http://127.0.0.1:8090
+paths:
+  /health/live:
+    get:
+      operationId: healthLive
+      responses:
+        "200":
+          description: Process is live
+  /health/ready:
+    get:
+      operationId: healthReady
+      responses:
+        "200":
+          description: Database and migrations are ready. OpenRouter is not required.
+        "503":
+          description: Not ready
+  /lab/v1/capabilities:
+    get:
+      operationId: getLabCapabilities
+      tags: [lab]
+      responses:
+        "200":
+          description: Independent deterministic vs model readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunLaunchCapabilities"
+  /lab/v1/scenarios:
+    get:
+      operationId: listScenarios
+      tags: [lab]
+      responses:
+        "200":
+          description: Scenario versions and supported run types
+  /lab/v1/configurations:
+    get:
+      operationId: listConfigurations
+      tags: [lab]
+      responses:
+        "200":
+          description: Immutable discriminated run configurations
+  /lab/v1/runs:
+    post:
+      operationId: startRun
+      tags: [lab]
+      security:
+        - LabBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRunRequest"
+      responses:
+        "201":
+          description: Run created and executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunEnvelope"
+        "400":
+          description: Wrong variant or validation error
+        "401":
+          description: Missing bearer
+        "403":
+          description: Forbidden
+        "409":
+          description: Model runs unavailable
+  /lab/v1/runs/{run_id}:
+    get:
+      operationId: getRun
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunEnvelope"
+  /lab/v1/runs/{run_id}/cancel:
+    post:
+      operationId: cancelRun
+      tags: [lab]
+      security:
+        - LabBearer: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Cancellation requested; evidence is retained
+        "409":
+          description: Terminal run
+  /lab/v1/runs/{run_id}/events:
+    get:
+      operationId: listRunEvents
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - in: query
+          name: after
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cursor-paginated Run Trace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunTracePage"
+  /lab/v1/runs/{run_id}/evaluations:
+    get:
+      operationId: listRunEvaluations
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Assertions and grades
+  /lab/v1/pairs:
+    post:
+      operationId: startPair
+      tags: [lab]
+      security:
+        - LabBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartPairRequest"
+      responses:
+        "201":
+          description: Pair created; assignment frozen before arm execution (ID-602)
+  /lab/v1/runs/{run_id}/proof:
+    get:
+      operationId: getRunProof
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Stage results, requirement grades, and fail-closed commerce outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/runs/{run_id}/trajectory:
+    get:
+      operationId: getRunTrajectory
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Display-ready four-lane trajectory; secrets redacted
+  /lab/v1/runs/{run_id}/payment-assurance:
+    get:
+      operationId: getRunPaymentAssurance
+      tags: [lab]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run-scoped payment assurance projection
+  /lab/v1/analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [lab]
+      responses:
+        "200":
+          description: Proof claims, ladder, blockers, payment assurance, evidence quality
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/analytics/sellability:
+    get:
+      operationId: getAnalyticsSellability
+      tags: [lab]
+      responses:
+        "200":
+          description: Stage summaries with numerator/denominator and exclusions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/analytics/failures:
+    get:
+      operationId: getAnalyticsFailures
+      tags: [lab]
+      responses:
+        "200":
+          description: Stage/domain/code distributions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/analytics/issues:
+    get:
+      operationId: getAnalyticsIssues
+      tags: [lab]
+      responses:
+        "200":
+          description: Ranked evaluation issues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/analytics/experiments:
+    get:
+      operationId: getAnalyticsExperiments
+      tags: [lab]
+      responses:
+        "200":
+          description: Paired observations; missing revenue never coerced to zero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabAnalyticsEnvelope"
+  /lab/v1/pairs/{pair_id}:
+    get:
+      operationId: getPair
+      tags: [lab]
+      parameters:
+        - in: path
+          name: pair_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pair eligibility, states, deltas, guardrails
+  /lab/v1/reports/{report_id}:
+    get:
+      operationId: getReport
+      tags: [lab]
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Generated JSON/CSV report labeled Razorpay Test Mode
+components:
+  securitySchemes:
+    LabBearer:
+      type: http
+      scheme: bearer
+  parameters:
+    RunId:
+      in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+  schemas:
+    RunType:
+      type: string
+      enum: [DETERMINISTIC_SCENARIO, BENCHMARK_MODEL, CUSTOM_MISSION]
+    EvidenceEligibility:
+      type: string
+      enum: [CONTRACT_EVIDENCE_ONLY, BENCHMARK_ELIGIBLE, BENCHMARK_INELIGIBLE, EXPLORATORY]
+    EventSource:
+      type: string
+      enum:
+        - USER_INPUT
+        - ATLASLAB_ORCHESTRATOR
+        - DETERMINISTIC_DRIVER
+        - MODEL_VISIBLE
+        - HOST_BOUNDARY
+        - ATLAS_RESPONSE
+        - ATLASLAB_EVALUATOR
+    RunLaunchCapabilities:
+      type: object
+      required: [deterministic, model, input_limits, default_model_id]
+      properties:
+        deterministic:
+          type: object
+          required: [ready]
+          properties:
+            ready:
+              type: boolean
+            reason:
+              type: string
+        model:
+          type: object
+          required: [ready, health]
+          properties:
+            ready:
+              type: boolean
+            health:
+              type: string
+              enum: [available, missing, invalid]
+            reason:
+              type: string
+        input_limits:
+          type: object
+        fixtures:
+          type: array
+          items:
+            type: object
+        consent_profiles:
+          type: array
+          items:
+            type: object
+        default_model_id:
+          nullable: true
+          type: string
+          description: Always null. The operator selects a model per run.
+    StartRunRequest:
+      type: object
+      required: [run_type]
+      properties:
+        run_type:
+          $ref: "#/components/schemas/RunType"
+        scenario_id:
+          type: string
+        fixture_snapshot_id:
+          type: string
+        payment_simulation:
+          type: string
+        model_id:
+          type: string
+          description: Required for BENCHMARK_MODEL and CUSTOM_MISSION. Forbidden on DETERMINISTIC_SCENARIO.
+        custom_user_input:
+          type: string
+          maxLength: 4000
+        custom_input_digest:
+          type: string
+        consent_policy:
+          type: object
+        permitted_actions:
+          type: array
+          items:
+            type: string
+        arm:
+          type: string
+          enum: [CONTROL, TREATMENT]
+        pairing_key:
+          type: string
+    RunSummary:
+      type: object
+      required: [run_id, run_type, evidence_eligibility, state, configuration_digest]
+      properties:
+        run_id:
+          type: string
+        run_type:
+          $ref: "#/components/schemas/RunType"
+        evidence_eligibility:
+          $ref: "#/components/schemas/EvidenceEligibility"
+        state:
+          type: string
+        configuration_digest:
+          type: string
+        fixture_digest:
+          type: string
+          nullable: true
+        requested_model_id:
+          type: string
+          nullable: true
+        returned_model_id:
+          type: string
+          nullable: true
+        arm:
+          type: string
+          nullable: true
+        pair_id:
+          type: string
+          nullable: true
+        terminal_reason:
+          type: string
+          nullable: true
+    RunEnvelope:
+      type: object
+      properties:
+        request_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        run:
+          $ref: "#/components/schemas/RunSummary"
+    RunTraceEvent:
+      type: object
+      required: [event_id, record_sequence, source, kind, occurred_at]
+      properties:
+        event_id:
+          type: string
+        record_sequence:
+          type: integer
+        source:
+          $ref: "#/components/schemas/EventSource"
+        kind:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        payload:
+          type: object
+    RunTracePage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunTraceEvent"
+        next_cursor:
+          type: integer
+    ProofStage:
+      type: string
+      enum:
+        - DISCOVERY
+        - CATALOG_RESOLUTION
+        - CART_VALID
+        - OFFER_DECISION
+        - QUOTE_HELD
+        - CHECKOUT_ACCEPTED
+        - PAYMENT_RECONCILED
+        - ORDER_CONFIRMED
+    StageResult:
+      type: string
+      enum: [PASS, FAIL, UNRESOLVED, NOT_REACHED, NOT_APPLICABLE]
+    FailureDomain:
+      type: string
+      enum:
+        - BUYER_REASONING
+        - ATLASLAB_MODEL_RUNTIME
+        - ATLASLAB_HOST_BOUNDARY
+        - PUBLIC_TOOL_CONTRACT
+        - ATLAS_MERCHANT_DOMAIN
+        - PAYMENT_EXECUTION
+        - PAYMENT_RECONCILIATION
+        - EXTERNAL_PROVIDER_UNCERTAINTY
+        - EVALUATOR
+        - INFRASTRUCTURE
+    RequirementCategory:
+      type: string
+      enum:
+        - PRODUCT
+        - VARIANT
+        - QUANTITY
+        - BUDGET
+        - LOCATION
+        - FULFILLMENT
+        - OFFER
+        - CHECKOUT
+        - PAYMENT
+        - ORDER
+        - SAFETY
+    DisplayState:
+      type: string
+      enum:
+        - VERIFIED
+        - FAILED
+        - UNRESOLVED
+        - INSUFFICIENT_EVIDENCE
+        - NOT_EVALUATED
+        - NOT_APPLICABLE
+        - EXCLUDED
+        - UNAVAILABLE
+    LabAnalyticsEnvelope:
+      type: object
+      required: [request_id, generated_at, data_freshness_at, partial, data]
+      properties:
+        request_id:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        data_freshness_at:
+          type: string
+          format: date-time
+        evaluator_set_version:
+          type: string
+        projection_version:
+          type: string
+        partial:
+          type: boolean
+        unavailable_sections:
+          type: array
+          items:
+            type: object
+            properties:
+              section:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+        data:
+          type: object
+    StartPairRequest:
+      type: object
+      required: [pairing_key]
+      properties:
+        pairing_key:
+          type: string
+        scenario_id:
+          type: string
+        model_id:
+          type: string
+        fixture_snapshot_id:
+          type: string
+        payment_simulation:
+          type: string
+        control_run_id:
+          type: string
+          description: Legacy diagnostic only. Pairing finished runs cannot enter denominators (ID-602).
+        treatment_run_id:
+          type: string

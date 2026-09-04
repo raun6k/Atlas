@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.dev/schemas/mcp/add_cart_item.json",
+  "title": "add_cart_item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "cart_id", "expected_cart_version", "sku_id", "quantity"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "cart_id": { "type": "string" },
+    "expected_cart_version": { "type": "integer", "minimum": 0 },
+    "sku_id": { "type": "string", "description": "Sellable SKU. product_id is not a cart line." },
+    "quantity": { "type": "integer", "minimum": 1 }
+  }
+}

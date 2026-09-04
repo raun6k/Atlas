@@ -1,0 +1,177 @@
+[
+  {
+    "source": "prd_qm_amul_toned_milk",
+    "target": "prd_qm_amul_gold_milk",
+    "type": "UPGRADE",
+    "confidence": 0.82,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "sku_qm_amul_toned_500ml",
+    "target": "sku_qm_amul_toned_1l",
+    "type": "UPGRADE",
+    "confidence": 0.9,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "prd_qm_amul_toned_milk",
+    "target": "prd_qm_amul_gold_milk",
+    "type": "SAME_FAMILY",
+    "confidence": 1.0,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_eggs_white",
+    "target": "prd_qm_eggs_brown",
+    "type": "SAME_FAMILY",
+    "confidence": 1.0,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_eggs_white",
+    "target": "prd_qm_eggs_brown",
+    "type": "SUBSTITUTE",
+    "confidence": 0.88,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "sku_qm_eggs_white_6",
+    "target": "sku_qm_eggs_white_12",
+    "type": "UPGRADE",
+    "confidence": 0.86,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "prd_qm_britannia_white_bread",
+    "target": "prd_qm_britannia_wheat_bread",
+    "type": "SAME_FAMILY",
+    "confidence": 0.7,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_britannia_white_bread",
+    "target": "prd_qm_britannia_wheat_bread",
+    "type": "SUBSTITUTE",
+    "confidence": 0.75,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "sku_qm_banana_500g",
+    "target": "sku_qm_banana_1kg",
+    "type": "UPGRADE",
+    "confidence": 0.84,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "prd_qm_coca_cola",
+    "target": "prd_qm_coca_cola_zero",
+    "type": "SAME_FAMILY",
+    "confidence": 1.0,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_coca_cola",
+    "target": "prd_qm_thums_up",
+    "type": "SUBSTITUTE",
+    "confidence": 0.7,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "sku_qm_coke_750ml",
+    "target": "sku_qm_coke_1250ml",
+    "type": "UPGRADE",
+    "confidence": 0.91,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "sku_qm_coke_zero_750ml",
+    "target": "sku_qm_coke_zero_1250ml",
+    "type": "UPGRADE",
+    "confidence": 0.91,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "sku_qm_coke_750ml",
+    "target": "sku_qm_coke_zero_750ml",
+    "type": "SUBSTITUTE",
+    "confidence": 0.65,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_lays_classic",
+    "target": "prd_qm_lays_magic_masala",
+    "type": "SAME_FAMILY",
+    "confidence": 1.0,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "prd_qm_cornitos_nachos",
+    "target": "prd_qm_salsa",
+    "type": "CONSUMED_WITH",
+    "confidence": 0.93,
+    "provenance": "curated"
+  },
+  {
+    "source": "prd_qm_cornitos_nachos",
+    "target": "prd_qm_salsa",
+    "type": "COMPLEMENT",
+    "confidence": 0.93,
+    "provenance": "curated"
+  },
+  {
+    "source": "prd_qm_britannia_white_bread",
+    "target": "prd_qm_amul_butter",
+    "type": "CONSUMED_WITH",
+    "confidence": 0.8,
+    "provenance": "curated"
+  },
+  {
+    "source": "prd_qm_britannia_white_bread",
+    "target": "prd_qm_eggs_white",
+    "type": "BUNDLE_COMPATIBLE",
+    "confidence": 0.78,
+    "provenance": "curated"
+  },
+  {
+    "source": "prd_qm_red_label",
+    "target": "prd_qm_parle_g",
+    "type": "CONSUMED_WITH",
+    "confidence": 0.85,
+    "provenance": "curated"
+  },
+  {
+    "source": "prd_qm_maggi_masala",
+    "target": "prd_qm_onion",
+    "type": "COMPLEMENT",
+    "confidence": 0.6,
+    "provenance": "curated"
+  },
+  {
+    "source": "sku_qm_maggi_70g",
+    "target": "sku_qm_maggi_280g",
+    "type": "UPGRADE",
+    "confidence": 0.88,
+    "provenance": "same_family_size"
+  },
+  {
+    "source": "prd_qm_coca_cola",
+    "target": "prd_qm_lays_classic",
+    "type": "BUNDLE_COMPATIBLE",
+    "confidence": 0.72,
+    "provenance": "curated"
+  },
+  {
+    "source": "sku_qm_amul_toned_500ml",
+    "target": "sku_qm_amul_gold_500ml",
+    "type": "UPGRADE",
+    "confidence": 0.8,
+    "provenance": "catalog_rule"
+  },
+  {
+    "source": "sku_qm_lays_classic_28g",
+    "target": "sku_qm_lays_classic_52g",
+    "type": "UPGRADE",
+    "confidence": 0.9,
+    "provenance": "same_family_size"
+  }
+]

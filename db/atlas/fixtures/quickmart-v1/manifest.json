@@ -1,0 +1,35 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "version": "1.0.0",
+  "schema_revision": 1,
+  "merchant_key": "quickmart",
+  "currency": "INR",
+  "reset_recipe": {
+    "endpoint": "POST /test/v1/fixtures/reset",
+    "body": {
+      "fixture_snapshot_id": "fix_quickmart_v1"
+    },
+    "verify": "GET /test/v1/fixtures/current returns matching digest"
+  },
+  "files": [
+    "merchant.json",
+    "locations.json",
+    "products.json",
+    "skus.json",
+    "prices.json",
+    "inventory.json",
+    "promotions.json",
+    "bundles.json",
+    "relationships.json",
+    "strategies.json",
+    "reference_carts.json"
+  ],
+  "counts": {
+    "locations": 3,
+    "products": 36,
+    "skus": 50,
+    "price_rows": 149,
+    "inventory_rows": 150
+  },
+  "content_digest": "sha256:35ad9efa6b0ff5cff1f4c0394571c6b9e7fdbf948e02d698a6be7b83ff9e15b8"
+}

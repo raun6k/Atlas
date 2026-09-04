@@ -1,0 +1,23 @@
+services:
+  atlaslab-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: atlaslab
+      POSTGRES_PASSWORD: atlaslab
+      POSTGRES_DB: atlaslab
+    ports:
+      # Default host 5433 (ID-507). Override when a local Postgres already owns that port.
+      - "${ATLASLAB_POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - atlaslab_pgdata:/var/lib/postgresql/data
+      - ../db/atlaslab/migrations:/migrations:ro
+      - ../db/atlaslab/roles:/roles:ro
+      - ../db/atlaslab/init/01_apply.sh:/docker-entrypoint-initdb.d/01_apply.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlaslab -d atlaslab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  atlaslab_pgdata:

@@ -1,0 +1,22 @@
+services:
+  core:
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile.core
+    environment:
+      ATLAS_ENVIRONMENT: test
+      ATLAS_POSTGRES_URL: postgres://atlas:atlas@atlas-postgres:5432/atlas?sslmode=disable
+      ATLAS_CORE_GRPC_ADDR: 0.0.0.0:9090
+      ATLAS_CORE_HTTP_ADDR: 0.0.0.0:9091
+      ATLAS_MIGRATIONS_DIR: /app/db/atlas/migrations
+      ATLAS_FIXTURE_DIR: /app/db/atlas/fixtures/quickmart-v1
+      ATLAS_HOST_TEST_PUBKEY: /app/testdata/hostkeys/host_test_public.pem
+      ATLAS_TEST_HOST_BEARER: atlaslab-test-bearer
+      ATLAS_TEST_ADMIN_BEARER: operator-test-bearer
+      ATLAS_TEST_FIXTURE_BEARER: fixture-test-control
+    ports:
+      - "9090:9090"
+      - "9091:9091"
+    depends_on:
+      atlas-postgres:
+        condition: service_healthy

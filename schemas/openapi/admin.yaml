@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: Atlas admin and read API
+  version: atlas.merchant.v1
+  description: Operator REST mapped onto Core AdminService and AuditService. Refund execution is Payment Fabric.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /admin/v1/merchant/profile:
+    get:
+      operationId: getMerchantProfile
+      tags: [merchant]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Singleton merchant profile }
+    put:
+      operationId: updateMerchantProfile
+      tags: [merchant]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Updated profile }
+  /admin/v1/merchant/locations:
+    get:
+      operationId: listLocations
+      tags: [merchant]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Locations }
+  /admin/v1/merchant/locations/{location_id}:
+    get:
+      operationId: getLocation
+      tags: [merchant]
+      security: [{ operatorBearer: [] }]
+      parameters:
+        - in: path
+          name: location_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Location }
+    put:
+      operationId: updateLocation
+      tags: [merchant]
+      security: [{ operatorBearer: [] }]
+      parameters:
+        - in: path
+          name: location_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Updated location }
+  /admin/v1/merchant/products:
+    get:
+      operationId: listProducts
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Product families }
+  /admin/v1/merchant/products/{product_id}:
+    get:
+      operationId: getProduct
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Product plus SKUs }
+  /admin/v1/merchant/skus:
+    get:
+      operationId: listSkus
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: SKUs }
+  /admin/v1/merchant/inventory:
+    get:
+      operationId: listInventory
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Inventory rows }
+  /admin/v1/merchant/inventory/adjustments:
+    post:
+      operationId: adjustInventory
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Adjustment result }
+  /admin/v1/trust/attention:
+    get:
+      operationId: getAttention
+      tags: [trust]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Attention summary; never a fabricated zero on failure }
+  /admin/v1/search:
+    get:
+      operationId: searchResources
+      tags: [search]
+      security: [{ operatorBearer: [] }]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+      responses:
+        "200": { description: Resource ID hits }
+  /admin/v1/audit/events:
+    get:
+      operationId: listAuditEvents
+      tags: [audit]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Filtered audit list }
+  /admin/v1/audit/events/{audit_event_id}:
+    get:
+      operationId: getAuditEvent
+      tags: [audit]
+      security: [{ operatorBearer: [] }]
+      parameters:
+        - in: path
+          name: audit_event_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Event inspector }
+  /admin/v1/audit/exports:
+    post:
+      operationId: createAuditExport
+      tags: [audit]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Export created }
+  /admin/v1/system/capabilities:
+    get:
+      operationId: getSystemCapabilities
+      tags: [system]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Contract and pcap_razorpay_test }
+  /admin/v1/system/health:
+    get:
+      operationId: getSystemHealth
+      tags: [system]
+      security: [{ operatorBearer: [] }]
+      responses:
+        "200": { description: Readiness without secrets }
+  /health/live:
+    get:
+      operationId: live
+      responses:
+        "200": { description: Process live }
+  /health/ready:
+    get:
+      operationId: ready
+      responses:
+        "200": { description: Ready }
+components:
+  securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer

@@ -1,0 +1,20 @@
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+COPY services/core ./services/core
+COPY proto ./proto
+COPY db/atlas ./db/atlas
+COPY testdata ./testdata
+COPY go.work ./
+WORKDIR /src/services/core
+RUN go build -o /out/core ./cmd/core && go build -o /out/worker ./cmd/worker && go build -o /out/migrate ./cmd/migrate
+
+FROM alpine:3.20
+WORKDIR /app
+COPY --from=build /out/core /app/core
+COPY --from=build /out/worker /app/worker
+COPY --from=build /out/migrate /app/migrate
+COPY db/atlas /app/db/atlas
+COPY testdata /app/testdata
+ENV ATLAS_MIGRATIONS_DIR=/app/db/atlas/migrations
+EXPOSE 9090 9091
+CMD ["/app/core"]

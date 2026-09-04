@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "update_cart_item",
+  "type": "object",
+  "required": ["session_id", "cart_id", "expected_cart_version", "cart_line_id", "quantity"],
+  "additionalProperties": false,
+  "properties": {
+    "session_id": { "type": "string" },
+    "cart_id": { "type": "string" },
+    "expected_cart_version": { "type": "integer" },
+    "cart_line_id": { "type": "string" },
+    "quantity": { "type": "integer", "minimum": 1 }
+  }
+}

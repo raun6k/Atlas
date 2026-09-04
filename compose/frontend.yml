@@ -1,0 +1,37 @@
+# Frontend process fragment. Root docker-compose.yml is created at join (ID-005).
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: apps/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      ATLAS_ADMIN_API_URL: ${ATLAS_ADMIN_API_URL:-http://127.0.0.1:8080}
+      ATLASLAB_API_URL: ${ATLASLAB_API_URL:-http://127.0.0.1:8090}
+      ATLAS_ADMIN_SERVICE_TOKEN: ${ATLAS_ADMIN_SERVICE_TOKEN:-}
+      ATLASLAB_SERVICE_TOKEN: ${ATLASLAB_SERVICE_TOKEN:-${ATLASLAB_API_TOKEN:-}}
+      ATLAS_FRONTEND_OPERATOR_SESSION_SECRET: ${ATLAS_FRONTEND_OPERATOR_SESSION_SECRET:-}
+      ATLAS_SEED_OPERATOR_MERCHANT_EMAIL: ${ATLAS_SEED_OPERATOR_MERCHANT_EMAIL:-merchant@quickmart.example}
+      ATLAS_SEED_OPERATOR_EVAL_EMAIL: ${ATLAS_SEED_OPERATOR_EVAL_EMAIL:-eval@quickmart.example}
+      ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD: ${ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD:-}
+      ATLAS_SEED_OPERATOR_EVAL_PASSWORD: ${ATLAS_SEED_OPERATOR_EVAL_PASSWORD:-}
+      ATLAS_FRONTEND_LOCALE: ${ATLAS_FRONTEND_LOCALE:-en-IN}
+      ATLAS_FRONTEND_TIMEZONE: ${ATLAS_FRONTEND_TIMEZONE:-Asia/Kolkata}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  frontend-mocks:
+    profiles: ["frontend-mocks"]
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ../apps/frontend:/app
+    command: ["node", "mocks/server.mjs"]
+    ports:
+      - "18080:18080"
+    environment:
+      ATLAS_MOCK_HTTP_ADDR: 0.0.0.0:18080

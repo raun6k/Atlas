@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.dev/schemas/mcp/complete_checkout.json",
+  "title": "complete_checkout",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "checkout_proposal_id", "checkout_authority"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "checkout_proposal_id": { "type": "string" },
+    "checkout_authority": { "type": "string", "description": "Host-signed Checkout Authority JWS. Frozen signature for Payment Fabric." }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set_intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "expected_session_context_version", "mission", "planning_budget_minor"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "expected_session_context_version": { "type": "integer", "minimum": 0 },
+    "mission": { "type": "string" },
+    "planning_budget_minor": { "type": "integer", "minimum": 0 },
+    "currency": { "type": "string" }
+  }
+}

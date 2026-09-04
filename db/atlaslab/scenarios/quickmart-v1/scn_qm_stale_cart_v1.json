@@ -1,0 +1,145 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_stale_cart_v1",
+  "framework": "TRANSACTABILITY",
+  "supported_run_types": [
+    "DETERMINISTIC_SCENARIO"
+  ],
+  "title": "Stale cart version recovery",
+  "purpose": "Second add with expected version 0 must surface CART_VERSION_CONFLICT and recover",
+  "family": "Cart",
+  "difficulty": "medium",
+  "tags": [
+    "cart",
+    "recovery"
+  ],
+  "user_mission": "Recover from a stale cart version.",
+  "structured_requirements": {
+    "recover_conflict": true
+  },
+  "forbidden_outcomes": [
+    "silent_merge"
+  ],
+  "payment_simulation": "NONE",
+  "stopping_rules": {
+    "wall_seconds": 120
+  },
+  "required_terminal_assertions": [
+    {
+      "observed_result": "CART_VERSION_CONFLICT"
+    }
+  ],
+  "critical_safety_assertions": [],
+  "action_program": {
+    "action_program_id": "ap_qm_stale_cart_v1",
+    "version": "1",
+    "entry_step_id": "s1",
+    "max_branches": 8,
+    "steps": [
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s1",
+        "tool": "create_session",
+        "arguments": {
+          "location_id": "loc_qm_koramangala"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s2"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s2",
+        "tool": "add_cart_item",
+        "arguments": {
+          "sku_id": "sku_qm_eggs_white_6",
+          "quantity": 1,
+          "expected_cart_version": 0
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s3"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s3",
+        "tool": "add_cart_item",
+        "arguments": {
+          "sku_id": "sku_qm_banana_500g",
+          "quantity": 1,
+          "expected_cart_version": 0
+        },
+        "expected_result_codes": [
+          "CART_VERSION_CONFLICT"
+        ],
+        "next": {
+          "CART_VERSION_CONFLICT": "s4",
+          "OK": "FAIL"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s4",
+        "tool": "get_cart",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s5"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s5",
+        "tool": "add_cart_item",
+        "arguments": {
+          "sku_id": "sku_qm_banana_500g",
+          "quantity": 1,
+          "expected_cart_version": "$state.cart_version"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "TERMINAL"
+        }
+      }
+    ],
+    "digest": "97f78c2626e5c79beacec03957e3d124c7cf794b39068d958af1253262ae08d4"
+  }
+}

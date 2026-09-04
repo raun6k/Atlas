@@ -1,0 +1,13 @@
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile.core
+    command: ["/app/worker"]
+    environment:
+      ATLAS_ENVIRONMENT: test
+      ATLAS_POSTGRES_URL: postgres://atlas:atlas@atlas-postgres:5432/atlas?sslmode=disable
+      ATLAS_EXPORT_DIR: /tmp/atlas-exports
+    depends_on:
+      atlas-postgres:
+        condition: service_healthy

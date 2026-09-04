@@ -1,0 +1,1099 @@
+[
+  {
+    "sku_id": "sku_qm_amul_toned_500ml",
+    "product_id": "prd_qm_amul_toned_milk",
+    "name": "Amul Toned Milk 500 ml",
+    "brand": "Amul",
+    "variant": "500 ml pouch",
+    "pack_size": 500,
+    "unit_of_measure": "ml",
+    "barcode": "9900001005001",
+    "canonical_description": "Pasteurised toned milk. Keep refrigerated. Packed at dairy.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_toned_500ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_toned_1l",
+    "product_id": "prd_qm_amul_toned_milk",
+    "name": "Amul Toned Milk 1 L",
+    "brand": "Amul",
+    "variant": "1 L pouch",
+    "pack_size": 1000,
+    "unit_of_measure": "ml",
+    "barcode": "9900001001002",
+    "canonical_description": "Pasteurised toned milk. Keep refrigerated. Packed at dairy.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_toned_1l.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_gold_500ml",
+    "product_id": "prd_qm_amul_gold_milk",
+    "name": "Amul Gold Milk 500 ml",
+    "brand": "Amul",
+    "variant": "500 ml pouch",
+    "pack_size": 500,
+    "unit_of_measure": "ml",
+    "barcode": "9900001005003",
+    "canonical_description": "Full cream pasteurised milk. Higher fat than toned milk.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_gold_500ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_gold_1l",
+    "product_id": "prd_qm_amul_gold_milk",
+    "name": "Amul Gold Milk 1 L",
+    "brand": "Amul",
+    "variant": "1 L pouch",
+    "pack_size": 1000,
+    "unit_of_measure": "ml",
+    "barcode": "9900001001004",
+    "canonical_description": "Full cream pasteurised milk. Higher fat than toned milk.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_gold_1l.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_dahi_400g",
+    "product_id": "prd_qm_amul_dahi",
+    "name": "Amul Masti Dahi 400 g",
+    "brand": "Amul",
+    "variant": "400 g cup",
+    "pack_size": 400,
+    "unit_of_measure": "g",
+    "barcode": "9900001004005",
+    "canonical_description": "Set curd in a cup. Vegetarian. Keep chilled.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_dahi_400g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_butter_100g",
+    "product_id": "prd_qm_amul_butter",
+    "name": "Amul Butter 100 g",
+    "brand": "Amul",
+    "variant": "100 g carton",
+    "pack_size": 100,
+    "unit_of_measure": "g",
+    "barcode": "9900001001006",
+    "canonical_description": "Salted table butter. Vegetarian.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_butter_100g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_butter_500g",
+    "product_id": "prd_qm_amul_butter",
+    "name": "Amul Butter 500 g",
+    "brand": "Amul",
+    "variant": "500 g carton",
+    "pack_size": 500,
+    "unit_of_measure": "g",
+    "barcode": "9900001005007",
+    "canonical_description": "Salted table butter. Vegetarian.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_butter_500g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_amul_paneer_200g",
+    "product_id": "prd_qm_amul_paneer",
+    "name": "Amul Fresh Paneer 200 g",
+    "brand": "Amul",
+    "variant": "200 g pack",
+    "pack_size": 200,
+    "unit_of_measure": "g",
+    "barcode": "9900001002008",
+    "canonical_description": "Fresh cottage cheese block. Vegetarian. Keep chilled.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_amul_paneer_200g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_eggs_white_6",
+    "product_id": "prd_qm_eggs_white",
+    "name": "White Eggs 6 pcs",
+    "brand": "Quickmart Fresh",
+    "variant": "6-pack",
+    "pack_size": 6,
+    "unit_of_measure": "pcs",
+    "barcode": "9900002000006",
+    "canonical_description": "White hen eggs. Not vegetarian. Packed at the dark store.",
+    "dietary": [
+      "eggetarian"
+    ],
+    "attributes": {
+      "storage": "ambient_cool",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_eggs_white_6.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_eggs_white_12",
+    "product_id": "prd_qm_eggs_white",
+    "name": "White Eggs 12 pcs",
+    "brand": "Quickmart Fresh",
+    "variant": "12-pack",
+    "pack_size": 12,
+    "unit_of_measure": "pcs",
+    "barcode": "9900002000012",
+    "canonical_description": "White hen eggs. Not vegetarian. Packed at the dark store.",
+    "dietary": [
+      "eggetarian"
+    ],
+    "attributes": {
+      "storage": "ambient_cool",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_eggs_white_12.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_eggs_white_30",
+    "product_id": "prd_qm_eggs_white",
+    "name": "White Eggs 30 pcs",
+    "brand": "Quickmart Fresh",
+    "variant": "30-pack tray",
+    "pack_size": 30,
+    "unit_of_measure": "pcs",
+    "barcode": "9900002000030",
+    "canonical_description": "White hen eggs. Not vegetarian. Packed at the dark store.",
+    "dietary": [
+      "eggetarian"
+    ],
+    "attributes": {
+      "storage": "ambient_cool",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_eggs_white_30.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_eggs_brown_6",
+    "product_id": "prd_qm_eggs_brown",
+    "name": "Brown Eggs 6 pcs",
+    "brand": "Quickmart Fresh",
+    "variant": "6-pack",
+    "pack_size": 6,
+    "unit_of_measure": "pcs",
+    "barcode": "9900002001006",
+    "canonical_description": "Brown hen eggs. Not vegetarian. Packed at the dark store.",
+    "dietary": [
+      "eggetarian"
+    ],
+    "attributes": {
+      "storage": "ambient_cool",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_eggs_brown_6.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_britannia_white_400g",
+    "product_id": "prd_qm_britannia_white_bread",
+    "name": "Britannia White Bread 400 g",
+    "brand": "Britannia",
+    "variant": "400 g loaf",
+    "pack_size": 400,
+    "unit_of_measure": "g",
+    "barcode": "9900003000400",
+    "canonical_description": "Sliced white sandwich bread. Contains gluten and wheat.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_britannia_white_400g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_britannia_wheat_400g",
+    "product_id": "prd_qm_britannia_wheat_bread",
+    "name": "Britannia Whole Wheat Bread 400 g",
+    "brand": "Britannia",
+    "variant": "400 g loaf",
+    "pack_size": 400,
+    "unit_of_measure": "g",
+    "barcode": "9900003000401",
+    "canonical_description": "Sliced whole wheat bread. Contains gluten and wheat.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_britannia_wheat_400g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_banana_500g",
+    "product_id": "prd_qm_banana_robusta",
+    "name": "Robusta Banana 500 g",
+    "brand": "Quickmart Fresh",
+    "variant": "500 g pack",
+    "pack_size": 500,
+    "unit_of_measure": "g",
+    "barcode": "9900004000500",
+    "canonical_description": "Robusta bananas sold by weight. Unpacked produce. Vegetarian.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_banana_500g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_banana_1kg",
+    "product_id": "prd_qm_banana_robusta",
+    "name": "Robusta Banana 1 kg",
+    "brand": "Quickmart Fresh",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900004001000",
+    "canonical_description": "Robusta bananas sold by weight. Unpacked produce. Vegetarian.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_banana_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_tomato_500g",
+    "product_id": "prd_qm_tomato",
+    "name": "Tomato 500 g",
+    "brand": "Quickmart Fresh",
+    "variant": "500 g pack",
+    "pack_size": 500,
+    "unit_of_measure": "g",
+    "barcode": "9900004001500",
+    "canonical_description": "Local tomatoes sold by weight. Unpacked produce.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_tomato_500g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_tomato_1kg",
+    "product_id": "prd_qm_tomato",
+    "name": "Tomato 1 kg",
+    "brand": "Quickmart Fresh",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900004001100",
+    "canonical_description": "Local tomatoes sold by weight. Unpacked produce.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_tomato_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_onion_500g",
+    "product_id": "prd_qm_onion",
+    "name": "Onion 500 g",
+    "brand": "Quickmart Fresh",
+    "variant": "500 g pack",
+    "pack_size": 500,
+    "unit_of_measure": "g",
+    "barcode": "9900004002500",
+    "canonical_description": "Dry onions sold by weight.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_onion_500g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_potato_1kg",
+    "product_id": "prd_qm_potato",
+    "name": "Potato 1 kg",
+    "brand": "Quickmart Fresh",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900004003100",
+    "canonical_description": "Table potatoes sold by weight.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_potato_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coriander_100g",
+    "product_id": "prd_qm_coriander",
+    "name": "Coriander Leaves 100 g",
+    "brand": "Quickmart Fresh",
+    "variant": "100 g bunch",
+    "pack_size": 100,
+    "unit_of_measure": "g",
+    "barcode": "9900004004100",
+    "canonical_description": "Fresh coriander bunch. Highly perishable.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "chilled",
+      "perishable": true,
+      "expiry_risk": "high"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coriander_100g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coke_750ml",
+    "product_id": "prd_qm_coca_cola",
+    "name": "Coca-Cola 750 ml",
+    "brand": "Coca-Cola",
+    "variant": "750 ml PET",
+    "pack_size": 750,
+    "unit_of_measure": "ml",
+    "barcode": "9900005000750",
+    "canonical_description": "Carbonated cola soft drink. Contains caffeine.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coke_750ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coke_1250ml",
+    "product_id": "prd_qm_coca_cola",
+    "name": "Coca-Cola 1.25 L",
+    "brand": "Coca-Cola",
+    "variant": "1.25 L PET",
+    "pack_size": 1250,
+    "unit_of_measure": "ml",
+    "barcode": "9900005001250",
+    "canonical_description": "Carbonated cola soft drink. Contains caffeine.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coke_1250ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coke_2l",
+    "product_id": "prd_qm_coca_cola",
+    "name": "Coca-Cola 2 L",
+    "brand": "Coca-Cola",
+    "variant": "2 L PET",
+    "pack_size": 2000,
+    "unit_of_measure": "ml",
+    "barcode": "9900005002000",
+    "canonical_description": "Carbonated cola soft drink. Contains caffeine.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coke_2l.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coke_zero_750ml",
+    "product_id": "prd_qm_coca_cola_zero",
+    "name": "Coca-Cola Zero Sugar 750 ml",
+    "brand": "Coca-Cola",
+    "variant": "750 ml PET",
+    "pack_size": 750,
+    "unit_of_measure": "ml",
+    "barcode": "9900005001750",
+    "canonical_description": "Carbonated cola with no added sugar. Contains caffeine and sweeteners.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true,
+      "no_added_sugar": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coke_zero_750ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_coke_zero_1250ml",
+    "product_id": "prd_qm_coca_cola_zero",
+    "name": "Coca-Cola Zero Sugar 1.25 L",
+    "brand": "Coca-Cola",
+    "variant": "1.25 L PET",
+    "pack_size": 1250,
+    "unit_of_measure": "ml",
+    "barcode": "9900005002250",
+    "canonical_description": "Carbonated cola with no added sugar. Contains caffeine and sweeteners.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true,
+      "no_added_sugar": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_coke_zero_1250ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_thums_up_750ml",
+    "product_id": "prd_qm_thums_up",
+    "name": "Thums Up 750 ml",
+    "brand": "Thums Up",
+    "variant": "750 ml PET",
+    "pack_size": 750,
+    "unit_of_measure": "ml",
+    "barcode": "9900005002750",
+    "canonical_description": "Carbonated cola with a stronger spice profile than Coca-Cola. Contains caffeine.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_thums_up_750ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_kinley_1l",
+    "product_id": "prd_qm_kinley_water",
+    "name": "Kinley Water 1 L",
+    "brand": "Kinley",
+    "variant": "1 L PET",
+    "pack_size": 1000,
+    "unit_of_measure": "ml",
+    "barcode": "9900005003100",
+    "canonical_description": "Packaged drinking water in a PET bottle.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_kinley_1l.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_lays_classic_28g",
+    "product_id": "prd_qm_lays_classic",
+    "name": "Lay's Classic Salted 28 g",
+    "brand": "Lay's",
+    "variant": "28 g pack",
+    "pack_size": 28,
+    "unit_of_measure": "g",
+    "barcode": "9900006000028",
+    "canonical_description": "Potato chips, classic salted flavour. Contains potato.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_lays_classic_28g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_lays_classic_52g",
+    "product_id": "prd_qm_lays_classic",
+    "name": "Lay's Classic Salted 52 g",
+    "brand": "Lay's",
+    "variant": "52 g pack",
+    "pack_size": 52,
+    "unit_of_measure": "g",
+    "barcode": "9900006000052",
+    "canonical_description": "Potato chips, classic salted flavour. Contains potato.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_lays_classic_52g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_lays_mm_52g",
+    "product_id": "prd_qm_lays_magic_masala",
+    "name": "Lay's Magic Masala 52 g",
+    "brand": "Lay's",
+    "variant": "52 g pack",
+    "pack_size": 52,
+    "unit_of_measure": "g",
+    "barcode": "9900006001052",
+    "canonical_description": "Potato chips, Magic Masala flavour.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_lays_mm_52g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_cornitos_cheese_60g",
+    "product_id": "prd_qm_cornitos_nachos",
+    "name": "Cornitos Nacho Crisps Cheese 60 g",
+    "brand": "Cornitos",
+    "variant": "60 g pack",
+    "pack_size": 60,
+    "unit_of_measure": "g",
+    "barcode": "9900006002060",
+    "canonical_description": "Corn nacho crisps, cheese flavour. Typically eaten with salsa.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_cornitos_cheese_60g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_salsa_mild_180g",
+    "product_id": "prd_qm_salsa",
+    "name": "Quickmart Salsa Dip Mild 180 g",
+    "brand": "Quickmart",
+    "variant": "180 g jar",
+    "pack_size": 180,
+    "unit_of_measure": "g",
+    "barcode": "9900006003180",
+    "canonical_description": "Mild tomato salsa dip. Store brand. Vegetarian.",
+    "dietary": [
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_salsa_mild_180g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_maggi_70g",
+    "product_id": "prd_qm_maggi_masala",
+    "name": "Maggi Masala Noodles 70 g",
+    "brand": "Maggi",
+    "variant": "70 g pack",
+    "pack_size": 70,
+    "unit_of_measure": "g",
+    "barcode": "9900007000070",
+    "canonical_description": "Instant wheat noodles with masala tastemaker. Contains gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_maggi_70g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_maggi_280g",
+    "product_id": "prd_qm_maggi_masala",
+    "name": "Maggi Masala Noodles 280 g (4 pack)",
+    "brand": "Maggi",
+    "variant": "4 x 70 g",
+    "pack_size": 280,
+    "unit_of_measure": "g",
+    "barcode": "9900007000280",
+    "canonical_description": "Instant wheat noodles with masala tastemaker. Contains gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_maggi_280g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_tata_salt_1kg",
+    "product_id": "prd_qm_tata_salt",
+    "name": "Tata Salt 1 kg",
+    "brand": "Tata Salt",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900008001000",
+    "canonical_description": "Iodised vacuum-evaporated salt.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_tata_salt_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_atta_1kg",
+    "product_id": "prd_qm_aashirvaad_atta",
+    "name": "Aashirvaad Atta 1 kg",
+    "brand": "Aashirvaad",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900008001100",
+    "canonical_description": "Whole wheat flour. Contains gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_atta_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_atta_5kg",
+    "product_id": "prd_qm_aashirvaad_atta",
+    "name": "Aashirvaad Atta 5 kg",
+    "brand": "Aashirvaad",
+    "variant": "5 kg pack",
+    "pack_size": 5000,
+    "unit_of_measure": "g",
+    "barcode": "9900008001500",
+    "canonical_description": "Whole wheat flour. Contains gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_atta_5kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_rice_1kg",
+    "product_id": "prd_qm_india_gate_rice",
+    "name": "India Gate Mini Mogra Rice 1 kg",
+    "brand": "India Gate",
+    "variant": "1 kg pack",
+    "pack_size": 1000,
+    "unit_of_measure": "g",
+    "barcode": "9900008002100",
+    "canonical_description": "Broken basmati-style rice, mini mogra grade.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_rice_1kg.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_oil_1l",
+    "product_id": "prd_qm_fortune_oil",
+    "name": "Fortune Sunflower Oil 1 L",
+    "brand": "Fortune",
+    "variant": "1 L bottle",
+    "pack_size": 1000,
+    "unit_of_measure": "ml",
+    "barcode": "9900008003100",
+    "canonical_description": "Refined sunflower oil.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_oil_1l.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_parle_g_80g",
+    "product_id": "prd_qm_parle_g",
+    "name": "Parle-G 80 g",
+    "brand": "Parle-G",
+    "variant": "80 g pack",
+    "pack_size": 80,
+    "unit_of_measure": "g",
+    "barcode": "9900006004080",
+    "canonical_description": "Glucose biscuits. Contains wheat and gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_parle_g_80g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_parle_g_800g",
+    "product_id": "prd_qm_parle_g",
+    "name": "Parle-G 800 g Family Pack",
+    "brand": "Parle-G",
+    "variant": "800 g pack",
+    "pack_size": 800,
+    "unit_of_measure": "g",
+    "barcode": "9900006004800",
+    "canonical_description": "Glucose biscuits. Contains wheat and gluten.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_parle_g_800g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_good_day_100g",
+    "product_id": "prd_qm_good_day",
+    "name": "Good Day Butter Cookies 100 g",
+    "brand": "Britannia",
+    "variant": "100 g pack",
+    "pack_size": 100,
+    "unit_of_measure": "g",
+    "barcode": "9900006005100",
+    "canonical_description": "Butter cookies. Contains gluten and milk.",
+    "dietary": [
+      "vegetarian",
+      "contains_gluten",
+      "contains_milk"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_good_day_100g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_red_label_250g",
+    "product_id": "prd_qm_red_label",
+    "name": "Red Label Tea 250 g",
+    "brand": "Brooke Bond",
+    "variant": "250 g carton",
+    "pack_size": 250,
+    "unit_of_measure": "g",
+    "barcode": "9900005004250",
+    "canonical_description": "Black leaf tea.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_red_label_250g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_nescafe_50g",
+    "product_id": "prd_qm_nescafe",
+    "name": "Nescafe Classic 50 g",
+    "brand": "Nescafe",
+    "variant": "50 g jar",
+    "pack_size": 50,
+    "unit_of_measure": "g",
+    "barcode": "9900005005050",
+    "canonical_description": "Spray-dried instant coffee. Contains caffeine.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "ambient",
+      "contains_caffeine": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_nescafe_50g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_colgate_200g",
+    "product_id": "prd_qm_colgate",
+    "name": "Colgate Strong Teeth 200 g",
+    "brand": "Colgate",
+    "variant": "200 g tube",
+    "pack_size": 200,
+    "unit_of_measure": "g",
+    "barcode": "9900009000200",
+    "canonical_description": "Fluoride toothpaste.",
+    "dietary": [],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_colgate_200g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_surf_500g",
+    "product_id": "prd_qm_surf_excel",
+    "name": "Surf Excel Easy Wash 500 g",
+    "brand": "Surf Excel",
+    "variant": "500 g pack",
+    "pack_size": 500,
+    "unit_of_measure": "g",
+    "barcode": "9900009001500",
+    "canonical_description": "Laundry detergent powder.",
+    "dietary": [],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_surf_500g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_vim_bar_200g",
+    "product_id": "prd_qm_vim",
+    "name": "Vim Dishwash Bar 200 g",
+    "brand": "Vim",
+    "variant": "200 g bar",
+    "pack_size": 200,
+    "unit_of_measure": "g",
+    "barcode": "9900009002200",
+    "canonical_description": "Dishwashing soap bar.",
+    "dietary": [],
+    "attributes": {
+      "storage": "ambient"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_vim_bar_200g.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_ice_vanilla_100ml",
+    "product_id": "prd_qm_amul_ice_cream",
+    "name": "Amul Vanilla Ice Cream 100 ml",
+    "brand": "Amul",
+    "variant": "100 ml cup",
+    "pack_size": 100,
+    "unit_of_measure": "ml",
+    "barcode": "9900010000100",
+    "canonical_description": "Vanilla ice cream cup. Keep frozen. Contains milk.",
+    "dietary": [
+      "vegetarian",
+      "contains_milk"
+    ],
+    "attributes": {
+      "storage": "frozen",
+      "perishable": true
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_ice_vanilla_100ml.svg"
+    ]
+  },
+  {
+    "sku_id": "sku_qm_peas_200g",
+    "product_id": "prd_qm_frozen_peas",
+    "name": "Quickmart Frozen Green Peas 200 g",
+    "brand": "Quickmart",
+    "variant": "200 g pack",
+    "pack_size": 200,
+    "unit_of_measure": "g",
+    "barcode": "9900010000200",
+    "canonical_description": "Frozen green peas. Keep frozen. Store brand.",
+    "dietary": [
+      "vegan",
+      "vegetarian"
+    ],
+    "attributes": {
+      "storage": "frozen"
+    },
+    "lifecycle": "sellable",
+    "image_refs": [
+      "images/sku_qm_peas_200g.svg"
+    ]
+  }
+]

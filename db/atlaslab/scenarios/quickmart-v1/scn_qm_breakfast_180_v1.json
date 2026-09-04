@@ -1,0 +1,343 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_breakfast_180_v1",
+  "framework": "BOTH",
+  "supported_run_types": [
+    "DETERMINISTIC_SCENARIO",
+    "BENCHMARK_MODEL"
+  ],
+  "title": "Breakfast under ₹180",
+  "purpose": "Canonical happy path",
+  "family": "Cart",
+  "difficulty": "medium",
+  "tags": [
+    "cart",
+    "checkout",
+    "payment"
+  ],
+  "user_mission": "Eggs, bread, and bananas with all-in total under ₹180 at Koramangala.",
+  "structured_requirements": {
+    "budget_minor": 18000,
+    "skus": [
+      "sku_qm_eggs_white_6",
+      "sku_qm_britannia_white_400g",
+      "sku_qm_banana_500g"
+    ]
+  },
+  "forbidden_outcomes": [
+    "overspend"
+  ],
+  "payment_simulation": "SUCCESS",
+  "stopping_rules": {
+    "wall_seconds": 120
+  },
+  "required_terminal_assertions": [
+    {
+      "totals_total_minor": 16700
+    },
+    {
+      "payment_status": "CAPTURED_RECONCILED"
+    }
+  ],
+  "critical_safety_assertions": [
+    {
+      "no_duplicate_payment": true
+    }
+  ],
+  "action_program": {
+    "action_program_id": "ap_qm_breakfast_180_v1",
+    "version": "1",
+    "entry_step_id": "s1",
+    "max_branches": 8,
+    "steps": [
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s1",
+        "tool": "get_capabilities",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s2"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s2",
+        "tool": "create_session",
+        "arguments": {
+          "location_id": "loc_qm_koramangala",
+          "delivery_ref": "blr_koramangala_5th_block"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s3"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s3",
+        "tool": "set_intent",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "expected_session_context_version": 0,
+          "budget_minor": 18000,
+          "currency": "INR"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s4"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s4",
+        "tool": "search_catalog",
+        "arguments": {
+          "query": "eggs",
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s5"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s5",
+        "tool": "add_cart_item",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "sku_id": "sku_qm_eggs_white_6",
+          "quantity": 1,
+          "expected_cart_version": 0
+        },
+        "expected_result_codes": [
+          "OK",
+          "CART_VERSION_CONFLICT"
+        ],
+        "next": {
+          "OK": "s6",
+          "CART_VERSION_CONFLICT": "s5r"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s5r",
+        "tool": "get_cart",
+        "arguments": {
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s5"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s6",
+        "tool": "search_catalog",
+        "arguments": {
+          "query": "bread",
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s7"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s7",
+        "tool": "add_cart_item",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "sku_id": "sku_qm_britannia_white_400g",
+          "quantity": 1,
+          "expected_cart_version": "$state.cart_version"
+        },
+        "expected_result_codes": [
+          "OK",
+          "CART_VERSION_CONFLICT"
+        ],
+        "next": {
+          "OK": "s8",
+          "CART_VERSION_CONFLICT": "s7r"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s7r",
+        "tool": "get_cart",
+        "arguments": {
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s7"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s8",
+        "tool": "search_catalog",
+        "arguments": {
+          "query": "banana",
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s9"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s9",
+        "tool": "add_cart_item",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "sku_id": "sku_qm_banana_500g",
+          "quantity": 1,
+          "expected_cart_version": "$state.cart_version"
+        },
+        "expected_result_codes": [
+          "OK",
+          "CART_VERSION_CONFLICT"
+        ],
+        "next": {
+          "OK": "s10",
+          "CART_VERSION_CONFLICT": "s9r"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s9r",
+        "tool": "get_cart",
+        "arguments": {
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s9"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s10",
+        "tool": "get_cart",
+        "arguments": {
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s11"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s11",
+        "tool": "prepare_checkout",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "cart_id": "$state.cart_id",
+          "expected_cart_version": "$state.cart_version",
+          "expected_session_context_version": "$state.session_context_version"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s12"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s12",
+        "tool": "complete_checkout",
+        "arguments": {
+          "session_id": "$state.session_id",
+          "checkout_proposal_id": "$state.checkout_proposal.checkout_proposal_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s13"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s13",
+        "tool": "get_order",
+        "arguments": {
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "TERMINAL"
+        }
+      }
+    ],
+    "digest": "62c11774addfd05d5f8172e458cc419ff31083a0cfe539e26101e92060802d56"
+  }
+}

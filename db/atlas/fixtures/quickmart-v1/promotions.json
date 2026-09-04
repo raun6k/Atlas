@@ -1,0 +1,40 @@
+[
+  {
+    "promotion_id": "pro_qm_coke_buy3",
+    "type": "QUANTITY_DISCOUNT",
+    "name": "Buy 3 Coca-Cola 750 ml, save ₹30",
+    "eligible_sku_ids": [
+      "sku_qm_coke_750ml"
+    ],
+    "minimum_quantity": 3,
+    "discount_amount_minor": 3000,
+    "stacking": "exclusive_with_bundle",
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_indiranagar",
+      "loc_qm_hsr"
+    ],
+    "supplier_funding_minor": 1200,
+    "starts_at": "2026-01-01T00:00:00Z",
+    "ends_at": "2027-12-31T23:59:59Z"
+  },
+  {
+    "promotion_id": "pro_qm_maggi_3",
+    "type": "QUANTITY_DISCOUNT",
+    "name": "Buy 3 Maggi 70 g, save ₹8",
+    "eligible_sku_ids": [
+      "sku_qm_maggi_70g"
+    ],
+    "minimum_quantity": 3,
+    "discount_amount_minor": 800,
+    "stacking": "exclusive_with_bundle",
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_indiranagar",
+      "loc_qm_hsr"
+    ],
+    "supplier_funding_minor": 400,
+    "starts_at": "2026-01-01T00:00:00Z",
+    "ends_at": "2027-12-31T23:59:59Z"
+  }
+]

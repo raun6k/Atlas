@@ -1,0 +1,19 @@
+# Payment Fabric runner process. Root docker-compose.yml is owned by the join (ID-005).
+services:
+  payment-runner:
+    build:
+      context: ../apps/payment-runner
+      dockerfile: Dockerfile
+    environment:
+      ATLAS_RUNNER_ENDPOINT: ${ATLAS_RUNNER_ENDPOINT:-http://gateway:8080}
+      ATLAS_RUNNER_EXECUTOR_CREDENTIAL: ${ATLAS_RUNNER_EXECUTOR_CREDENTIAL}
+      ATLAS_RUNNER_BROWSER_TIMEOUT_MS: ${ATLAS_RUNNER_BROWSER_TIMEOUT_MS:-90000}
+      ATLAS_RUNNER_HTTP_ADDR: 0.0.0.0:8091
+    expose:
+      - "8091"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8091/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped

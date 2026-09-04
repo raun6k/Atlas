@@ -1,0 +1,139 @@
+openapi: 3.1.0
+info:
+  title: Atlas Internal Test Runner
+  version: "1.0.0"
+  description: >
+    Private Razorpay Test Mode runner job contract. Not a public API.
+    The runner never receives Razorpay key secrets, webhook secrets, or database URLs.
+    Browser observations are not payment truth.
+servers:
+  - url: /
+paths:
+  /health/live:
+    get:
+      operationId: runnerLive
+      responses:
+        "200":
+          description: Process is up
+  /health/ready:
+    get:
+      operationId: runnerReady
+      responses:
+        "200":
+          description: Runner can reach the claim endpoint configuration
+  /internal/v1/test-runner/jobs/claim:
+    post:
+      operationId: claimRunnerJob
+      summary: Claim one issued Test Mode checkout job
+      security:
+        - runnerExecutor: []
+      responses:
+        "200":
+          description: One issued job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerJob"
+        "204":
+          description: No issued job
+        "401":
+          description: Missing or invalid executor credential
+  /internal/v1/test-runner/jobs/{job_id}/observations:
+    post:
+      operationId: postRunnerObservation
+      summary: Report bounded browser observations. Success screens are not capture.
+      security:
+        - runnerExecutor: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunnerObservation"
+      responses:
+        "202":
+          description: Observation accepted
+        "401":
+          description: Invalid executor credential or one-action token
+        "404":
+          description: Unknown job
+components:
+  securitySchemes:
+    runnerExecutor:
+      type: http
+      scheme: bearer
+      description: ATLAS_RUNNER_EXECUTOR_CREDENTIAL. Not a Razorpay secret.
+  schemas:
+    Money:
+      type: object
+      required: [amount_minor, currency]
+      properties:
+        amount_minor:
+          type: string
+          description: Integer minor units serialized as a decimal string
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+    RunnerJob:
+      type: object
+      required:
+        - job_id
+        - payment_attempt_id
+        - executor_token
+        - razorpay_order_id
+        - razorpay_key_id
+        - amount_minor
+        - currency
+        - scenario
+      properties:
+        job_id:
+          type: string
+        payment_attempt_id:
+          type: string
+        executor_token:
+          type: string
+          description: One-action token. Not a Razorpay secret.
+        razorpay_order_id:
+          type: string
+        razorpay_key_id:
+          type: string
+          description: Test Mode public key id only
+        amount_minor:
+          type: string
+        currency:
+          type: string
+        callback_origin:
+          type: string
+        scenario:
+          type: string
+          enum: [success, failure, authorized]
+        checkout_page_url:
+          type: string
+          description: Optional local mock checkout page for tests
+    RunnerObservation:
+      type: object
+      required: [executor_token, observed_screen]
+      properties:
+        executor_token:
+          type: string
+        observed_screen:
+          type: string
+          enum:
+            - checkout_opened
+            - possible_submission
+            - success_screen
+            - failure_screen
+            - timeout
+        razorpay_order_id:
+          type: string
+        razorpay_payment_id:
+          type: string
+        not_capture:
+          type: boolean
+          description: Always true. Browser success is not Atlas capture.

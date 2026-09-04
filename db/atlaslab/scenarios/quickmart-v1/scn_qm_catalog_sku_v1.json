@@ -1,0 +1,126 @@
+{
+  "fixture_snapshot_id": "fix_quickmart_v1",
+  "consent_policy": {
+    "max_amount_minor": 250000,
+    "currency": "INR",
+    "capability_id": "pcap_razorpay_test"
+  },
+  "permitted_actions": [
+    "get_capabilities",
+    "create_session",
+    "set_intent",
+    "search_catalog",
+    "get_product",
+    "get_cart",
+    "add_cart_item",
+    "update_cart_item",
+    "remove_cart_item",
+    "accept_offer",
+    "apply_offer",
+    "prepare_checkout",
+    "complete_checkout",
+    "get_order",
+    "respond_to_substitution"
+  ],
+  "version": "1",
+  "scenario_id": "scn_qm_catalog_sku_v1",
+  "framework": "TRANSACTABILITY",
+  "supported_run_types": [
+    "DETERMINISTIC_SCENARIO",
+    "BENCHMARK_MODEL"
+  ],
+  "title": "Exact SKU resolution",
+  "purpose": "Coke Zero must not resolve to 750 ml regular Coke",
+  "family": "Catalog",
+  "difficulty": "easy",
+  "tags": [
+    "catalog"
+  ],
+  "user_mission": "Find Coke Zero, not regular Coke.",
+  "structured_requirements": {
+    "sku_prefix": "sku_qm_coke_zero_"
+  },
+  "forbidden_outcomes": [
+    "wrong_variant"
+  ],
+  "payment_simulation": "NONE",
+  "stopping_rules": {
+    "wall_seconds": 120
+  },
+  "required_terminal_assertions": [
+    {
+      "search_sku_prefix": "sku_qm_coke_zero_"
+    }
+  ],
+  "critical_safety_assertions": [],
+  "action_program": {
+    "action_program_id": "ap_qm_catalog_sku_v1",
+    "version": "1",
+    "entry_step_id": "s1",
+    "max_branches": 8,
+    "steps": [
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s1",
+        "tool": "get_capabilities",
+        "arguments": {},
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s2"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "retain",
+        "step_id": "s2",
+        "tool": "create_session",
+        "arguments": {
+          "location_id": "loc_qm_koramangala",
+          "delivery_ref": "blr_koramangala_5th_block"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s3"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s3",
+        "tool": "search_catalog",
+        "arguments": {
+          "query": "coke zero",
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "s4"
+        }
+      },
+      {
+        "max_attempts": 3,
+        "idempotency_rule": "new_per_attempt",
+        "step_id": "s4",
+        "tool": "get_product",
+        "arguments": {
+          "product_id": "prd_qm_coca_cola_zero",
+          "session_id": "$state.session_id"
+        },
+        "expected_result_codes": [
+          "OK"
+        ],
+        "next": {
+          "OK": "TERMINAL"
+        }
+      }
+    ],
+    "digest": "810693f541907ffca1a58884c5c52b4cb49fc04bf833c0ad839a836fdd7661fa"
+  }
+}

@@ -1,0 +1,19 @@
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local logs
+*.log
+
+# Tooling
+node_modules/
+dist/
+coverage/
+*.exe
+artifacts/
+
+docs/
+AGENTS.md

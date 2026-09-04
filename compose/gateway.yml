@@ -1,0 +1,12 @@
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile.gateway
+    environment:
+      ATLAS_CORE_GRPC_ADDR: core:9090
+      ATLAS_GATEWAY_HTTP_ADDR: 0.0.0.0:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - core

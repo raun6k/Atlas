@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "prepare_checkout",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "cart_id", "expected_session_context_version", "expected_cart_version"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "cart_id": { "type": "string" },
+    "expected_session_context_version": { "type": "integer" },
+    "expected_cart_version": { "type": "integer" }
+  }
+}

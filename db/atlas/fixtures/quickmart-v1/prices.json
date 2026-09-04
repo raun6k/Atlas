@@ -1,0 +1,2386 @@
+[
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_toned_500ml",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_toned_500ml",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_toned_500ml",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_toned_1l",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 257,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 800
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_toned_1l",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 257,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 800
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_toned_1l",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 257,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 800
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_gold_500ml",
+    "currency": "INR",
+    "list_price_minor": 3300,
+    "selling_price_minor": 3300,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 157,
+    "economics_private": {
+      "cogs_minor": 2600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 400
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_gold_500ml",
+    "currency": "INR",
+    "list_price_minor": 3300,
+    "selling_price_minor": 3300,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 157,
+    "economics_private": {
+      "cogs_minor": 2600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 400
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_gold_500ml",
+    "currency": "INR",
+    "list_price_minor": 3300,
+    "selling_price_minor": 3300,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 157,
+    "economics_private": {
+      "cogs_minor": 2600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 400
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_gold_1l",
+    "currency": "INR",
+    "list_price_minor": 6600,
+    "selling_price_minor": 6400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 5000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_gold_1l",
+    "currency": "INR",
+    "list_price_minor": 6600,
+    "selling_price_minor": 6400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 5000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_gold_1l",
+    "currency": "INR",
+    "list_price_minor": 6600,
+    "selling_price_minor": 6400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 5000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_dahi_400g",
+    "currency": "INR",
+    "list_price_minor": 3500,
+    "selling_price_minor": 3200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 152,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_dahi_400g",
+    "currency": "INR",
+    "list_price_minor": 3500,
+    "selling_price_minor": 3200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 152,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_dahi_400g",
+    "currency": "INR",
+    "list_price_minor": 3500,
+    "selling_price_minor": 3200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 152,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_butter_100g",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 621,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1100
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_butter_100g",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 621,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1100
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_butter_100g",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 621,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1100
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_butter_500g",
+    "currency": "INR",
+    "list_price_minor": 28500,
+    "selling_price_minor": 27500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 2946,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_butter_500g",
+    "currency": "INR",
+    "list_price_minor": 28500,
+    "selling_price_minor": 27500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 2946,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_butter_500g",
+    "currency": "INR",
+    "list_price_minor": 28500,
+    "selling_price_minor": 27500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1200,
+    "tax_amount_minor": 2946,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_amul_paneer_200g",
+    "currency": "INR",
+    "list_price_minor": 9900,
+    "selling_price_minor": 9500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 452,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_amul_paneer_200g",
+    "currency": "INR",
+    "list_price_minor": 9900,
+    "selling_price_minor": 9500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 452,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_amul_paneer_200g",
+    "currency": "INR",
+    "list_price_minor": 9900,
+    "selling_price_minor": 9500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 452,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_eggs_white_6",
+    "currency": "INR",
+    "list_price_minor": 5400,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_eggs_white_6",
+    "currency": "INR",
+    "list_price_minor": 5400,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_eggs_white_6",
+    "currency": "INR",
+    "list_price_minor": 5400,
+    "selling_price_minor": 5400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4000,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_eggs_white_12",
+    "currency": "INR",
+    "list_price_minor": 10800,
+    "selling_price_minor": 10200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 7600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2100
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_eggs_white_12",
+    "currency": "INR",
+    "list_price_minor": 10800,
+    "selling_price_minor": 10200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 7600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2100
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_eggs_white_12",
+    "currency": "INR",
+    "list_price_minor": 10800,
+    "selling_price_minor": 10200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 7600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2100
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_eggs_white_30",
+    "currency": "INR",
+    "list_price_minor": 26000,
+    "selling_price_minor": 24500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 18500,
+      "variable_cost_minor": 800,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5200
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_eggs_white_30",
+    "currency": "INR",
+    "list_price_minor": 26000,
+    "selling_price_minor": 24500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 18500,
+      "variable_cost_minor": 800,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5200
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_eggs_white_30",
+    "currency": "INR",
+    "list_price_minor": 26000,
+    "selling_price_minor": 24500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 18500,
+      "variable_cost_minor": 800,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 5200
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_eggs_brown_6",
+    "currency": "INR",
+    "list_price_minor": 6200,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4600,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1200
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_eggs_brown_6",
+    "currency": "INR",
+    "list_price_minor": 6200,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4600,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1200
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_eggs_brown_6",
+    "currency": "INR",
+    "list_price_minor": 6200,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4600,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1200
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_britannia_white_400g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 200,
+    "economics_private": {
+      "cogs_minor": 2800,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_britannia_white_400g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 200,
+    "economics_private": {
+      "cogs_minor": 2800,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_britannia_white_400g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 200,
+    "economics_private": {
+      "cogs_minor": 2800,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_britannia_wheat_400g",
+    "currency": "INR",
+    "list_price_minor": 5000,
+    "selling_price_minor": 4800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 229,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_britannia_wheat_400g",
+    "currency": "INR",
+    "list_price_minor": 5000,
+    "selling_price_minor": 4800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 229,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_britannia_wheat_400g",
+    "currency": "INR",
+    "list_price_minor": 5000,
+    "selling_price_minor": 4800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 229,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_banana_500g",
+    "currency": "INR",
+    "list_price_minor": 3600,
+    "selling_price_minor": 3600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_banana_500g",
+    "currency": "INR",
+    "list_price_minor": 3600,
+    "selling_price_minor": 3600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_banana_500g",
+    "currency": "INR",
+    "list_price_minor": 3600,
+    "selling_price_minor": 3600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_banana_1kg",
+    "currency": "INR",
+    "list_price_minor": 7200,
+    "selling_price_minor": 6800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_banana_1kg",
+    "currency": "INR",
+    "list_price_minor": 7200,
+    "selling_price_minor": 6800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_banana_1kg",
+    "currency": "INR",
+    "list_price_minor": 7200,
+    "selling_price_minor": 6800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_tomato_500g",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_tomato_500g",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_tomato_500g",
+    "currency": "INR",
+    "list_price_minor": 2800,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_tomato_1kg",
+    "currency": "INR",
+    "list_price_minor": 5500,
+    "selling_price_minor": 5200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 3000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1600
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_tomato_1kg",
+    "currency": "INR",
+    "list_price_minor": 5500,
+    "selling_price_minor": 5200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 3000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1600
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_tomato_1kg",
+    "currency": "INR",
+    "list_price_minor": 5500,
+    "selling_price_minor": 5200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 3000,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1600
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_onion_500g",
+    "currency": "INR",
+    "list_price_minor": 2200,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_onion_500g",
+    "currency": "INR",
+    "list_price_minor": 2200,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_onion_500g",
+    "currency": "INR",
+    "list_price_minor": 2200,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_potato_1kg",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 3800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2000,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_potato_1kg",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 3800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2000,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_potato_1kg",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 3800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 2000,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coriander_100g",
+    "currency": "INR",
+    "list_price_minor": 1800,
+    "selling_price_minor": 1800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coriander_100g",
+    "currency": "INR",
+    "list_price_minor": 1800,
+    "selling_price_minor": 1800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_coriander_100g",
+    "currency": "INR",
+    "list_price_minor": 1800,
+    "selling_price_minor": 1800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 0,
+    "tax_amount_minor": 0,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coke_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coke_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_coke_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 1900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coke_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coke_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_coke_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coke_2l",
+    "currency": "INR",
+    "list_price_minor": 9900,
+    "selling_price_minor": 9500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 2078,
+    "economics_private": {
+      "cogs_minor": 5200,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 600,
+      "contribution_margin_minor": 4400
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coke_2l",
+    "currency": "INR",
+    "list_price_minor": 9900,
+    "selling_price_minor": 9500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 2078,
+    "economics_private": {
+      "cogs_minor": 5200,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 600,
+      "contribution_margin_minor": 4400
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coke_zero_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2100,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coke_zero_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2100,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_coke_zero_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2100,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_coke_zero_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3100,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2800
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_coke_zero_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3100,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2800
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_coke_zero_1250ml",
+    "currency": "INR",
+    "list_price_minor": 6000,
+    "selling_price_minor": 5800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 1269,
+    "economics_private": {
+      "cogs_minor": 3100,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 500,
+      "contribution_margin_minor": 2800
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_thums_up_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_thums_up_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_thums_up_750ml",
+    "currency": "INR",
+    "list_price_minor": 4000,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 2800,
+    "tax_amount_minor": 875,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_kinley_1l",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_kinley_1l",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_kinley_1l",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_lays_classic_28g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_lays_classic_28g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_lays_classic_28g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_lays_classic_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_lays_classic_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_lays_classic_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_lays_mm_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_lays_mm_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_lays_mm_52g",
+    "currency": "INR",
+    "list_price_minor": 2000,
+    "selling_price_minor": 2000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 305,
+    "economics_private": {
+      "cogs_minor": 1000,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_cornitos_cheese_60g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 610,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1500
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_cornitos_cheese_60g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 610,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1500
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_cornitos_cheese_60g",
+    "currency": "INR",
+    "list_price_minor": 4500,
+    "selling_price_minor": 4000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 610,
+    "economics_private": {
+      "cogs_minor": 2200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1500
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_salsa_mild_180g",
+    "currency": "INR",
+    "list_price_minor": 7900,
+    "selling_price_minor": 7500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1144,
+    "economics_private": {
+      "cogs_minor": 3800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_salsa_mild_180g",
+    "currency": "INR",
+    "list_price_minor": 7900,
+    "selling_price_minor": 7500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1144,
+    "economics_private": {
+      "cogs_minor": 3800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_salsa_mild_180g",
+    "currency": "INR",
+    "list_price_minor": 7900,
+    "selling_price_minor": 7500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1144,
+    "economics_private": {
+      "cogs_minor": 3800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_maggi_70g",
+    "currency": "INR",
+    "list_price_minor": 1400,
+    "selling_price_minor": 1400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_maggi_70g",
+    "currency": "INR",
+    "list_price_minor": 1400,
+    "selling_price_minor": 1400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_maggi_70g",
+    "currency": "INR",
+    "list_price_minor": 1400,
+    "selling_price_minor": 1400,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 800,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 600
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_maggi_280g",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 854,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_maggi_280g",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 854,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_maggi_280g",
+    "currency": "INR",
+    "list_price_minor": 5600,
+    "selling_price_minor": 5600,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 854,
+    "economics_private": {
+      "cogs_minor": 3200,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 300,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_tata_salt_1kg",
+    "currency": "INR",
+    "list_price_minor": 3000,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_tata_salt_1kg",
+    "currency": "INR",
+    "list_price_minor": 3000,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_tata_salt_1kg",
+    "currency": "INR",
+    "list_price_minor": 3000,
+    "selling_price_minor": 2800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 133,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 300,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_atta_1kg",
+    "currency": "INR",
+    "list_price_minor": 6500,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 295,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_atta_1kg",
+    "currency": "INR",
+    "list_price_minor": 6500,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 295,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_atta_1kg",
+    "currency": "INR",
+    "list_price_minor": 6500,
+    "selling_price_minor": 6200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 295,
+    "economics_private": {
+      "cogs_minor": 4400,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_atta_5kg",
+    "currency": "INR",
+    "list_price_minor": 31000,
+    "selling_price_minor": 29200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 1390,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 1200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 7000
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_atta_5kg",
+    "currency": "INR",
+    "list_price_minor": 31000,
+    "selling_price_minor": 29200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 1390,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 1200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 7000
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_atta_5kg",
+    "currency": "INR",
+    "list_price_minor": 31000,
+    "selling_price_minor": 29200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 1390,
+    "economics_private": {
+      "cogs_minor": 21000,
+      "variable_cost_minor": 1200,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 7000
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_rice_1kg",
+    "currency": "INR",
+    "list_price_minor": 8500,
+    "selling_price_minor": 7800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 371,
+    "economics_private": {
+      "cogs_minor": 5500,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_rice_1kg",
+    "currency": "INR",
+    "list_price_minor": 8500,
+    "selling_price_minor": 7800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 371,
+    "economics_private": {
+      "cogs_minor": 5500,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_rice_1kg",
+    "currency": "INR",
+    "list_price_minor": 8500,
+    "selling_price_minor": 7800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 371,
+    "economics_private": {
+      "cogs_minor": 5500,
+      "variable_cost_minor": 500,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1800
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_oil_1l",
+    "currency": "INR",
+    "list_price_minor": 15500,
+    "selling_price_minor": 14800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 705,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_oil_1l",
+    "currency": "INR",
+    "list_price_minor": 15500,
+    "selling_price_minor": 14800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 705,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_oil_1l",
+    "currency": "INR",
+    "list_price_minor": 15500,
+    "selling_price_minor": 14800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 705,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 600,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 2400
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_parle_g_80g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_parle_g_80g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_parle_g_80g",
+    "currency": "INR",
+    "list_price_minor": 1000,
+    "selling_price_minor": 1000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 153,
+    "economics_private": {
+      "cogs_minor": 500,
+      "variable_cost_minor": 100,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 500
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_parle_g_800g",
+    "currency": "INR",
+    "list_price_minor": 10000,
+    "selling_price_minor": 9000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1373,
+    "economics_private": {
+      "cogs_minor": 4800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 4200
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_parle_g_800g",
+    "currency": "INR",
+    "list_price_minor": 10000,
+    "selling_price_minor": 9000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1373,
+    "economics_private": {
+      "cogs_minor": 4800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 4200
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_parle_g_800g",
+    "currency": "INR",
+    "list_price_minor": 10000,
+    "selling_price_minor": 9000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1373,
+    "economics_private": {
+      "cogs_minor": 4800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 4200
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_good_day_100g",
+    "currency": "INR",
+    "list_price_minor": 3200,
+    "selling_price_minor": 3000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 458,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1400
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_good_day_100g",
+    "currency": "INR",
+    "list_price_minor": 3200,
+    "selling_price_minor": 3000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 458,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1400
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_good_day_100g",
+    "currency": "INR",
+    "list_price_minor": 3200,
+    "selling_price_minor": 3000,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 458,
+    "economics_private": {
+      "cogs_minor": 1600,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 200,
+      "contribution_margin_minor": 1400
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_red_label_250g",
+    "currency": "INR",
+    "list_price_minor": 13000,
+    "selling_price_minor": 12500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 595,
+    "economics_private": {
+      "cogs_minor": 8800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_red_label_250g",
+    "currency": "INR",
+    "list_price_minor": 13000,
+    "selling_price_minor": 12500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 595,
+    "economics_private": {
+      "cogs_minor": 8800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_red_label_250g",
+    "currency": "INR",
+    "list_price_minor": 13000,
+    "selling_price_minor": 12500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 595,
+    "economics_private": {
+      "cogs_minor": 8800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 3300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_nescafe_50g",
+    "currency": "INR",
+    "list_price_minor": 17500,
+    "selling_price_minor": 16500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 2517,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 4300
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_nescafe_50g",
+    "currency": "INR",
+    "list_price_minor": 17500,
+    "selling_price_minor": 16500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 2517,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 4300
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_nescafe_50g",
+    "currency": "INR",
+    "list_price_minor": 17500,
+    "selling_price_minor": 16500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 2517,
+    "economics_private": {
+      "cogs_minor": 11800,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 4300
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_colgate_200g",
+    "currency": "INR",
+    "list_price_minor": 12500,
+    "selling_price_minor": 11800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1800,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 600,
+      "contribution_margin_minor": 4800
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_colgate_200g",
+    "currency": "INR",
+    "list_price_minor": 12500,
+    "selling_price_minor": 11800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1800,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 600,
+      "contribution_margin_minor": 4800
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_colgate_200g",
+    "currency": "INR",
+    "list_price_minor": 12500,
+    "selling_price_minor": 11800,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1800,
+    "economics_private": {
+      "cogs_minor": 7200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 600,
+      "contribution_margin_minor": 4800
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_surf_500g",
+    "currency": "INR",
+    "list_price_minor": 7500,
+    "selling_price_minor": 6900,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1053,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_surf_500g",
+    "currency": "INR",
+    "list_price_minor": 7500,
+    "selling_price_minor": 6900,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1053,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_surf_500g",
+    "currency": "INR",
+    "list_price_minor": 7500,
+    "selling_price_minor": 6900,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 1053,
+    "economics_private": {
+      "cogs_minor": 4200,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 400,
+      "contribution_margin_minor": 2700
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_vim_bar_200g",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 336,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_vim_bar_200g",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 336,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_vim_bar_200g",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2200,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 336,
+    "economics_private": {
+      "cogs_minor": 1200,
+      "variable_cost_minor": 200,
+      "supplier_funding_minor": 100,
+      "contribution_margin_minor": 900
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_ice_vanilla_100ml",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 381,
+    "economics_private": {
+      "cogs_minor": 1400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_ice_vanilla_100ml",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 381,
+    "economics_private": {
+      "cogs_minor": 1400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_ice_vanilla_100ml",
+    "currency": "INR",
+    "list_price_minor": 2500,
+    "selling_price_minor": 2500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 1800,
+    "tax_amount_minor": 381,
+    "economics_private": {
+      "cogs_minor": 1400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 700
+    }
+  },
+  {
+    "location_id": "loc_qm_koramangala",
+    "sku_id": "sku_qm_peas_200g",
+    "currency": "INR",
+    "list_price_minor": 4900,
+    "selling_price_minor": 4500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 2400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1700
+    }
+  },
+  {
+    "location_id": "loc_qm_indiranagar",
+    "sku_id": "sku_qm_peas_200g",
+    "currency": "INR",
+    "list_price_minor": 4900,
+    "selling_price_minor": 4500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 2400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1700
+    }
+  },
+  {
+    "location_id": "loc_qm_hsr",
+    "sku_id": "sku_qm_peas_200g",
+    "currency": "INR",
+    "list_price_minor": 4900,
+    "selling_price_minor": 4500,
+    "tax_inclusive": true,
+    "tax_rate_bps": 500,
+    "tax_amount_minor": 214,
+    "economics_private": {
+      "cogs_minor": 2400,
+      "variable_cost_minor": 400,
+      "supplier_funding_minor": 0,
+      "contribution_margin_minor": 1700
+    }
+  }
+]

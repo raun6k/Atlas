@@ -1,0 +1,73 @@
+# Join-owned root compose (ID-005 / ID-500). Two databases, two roles.
+# Vertical fragments stay in compose/*.yml. Do not start the frontend-mocks profile.
+
+include:
+  - path: compose/atlas-postgres.yml
+  - path: compose/atlaslab-postgres.yml
+  - path: compose/core.yml
+  - path: compose/worker.yml
+  - path: compose/gateway.yml
+  - path: compose/payment-runner.yml
+  - path: compose/atlaslab.yml
+  - path: compose/frontend.yml
+
+services:
+  core:
+    environment:
+      ATLAS_REQUIRED_MIGRATION: 0140_join_payment_extensions.sql
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_CALLBACK_ORIGIN: ${RAZORPAY_CALLBACK_ORIGIN:-}
+      RAZORPAY_CAPTURE_MODE: ${RAZORPAY_CAPTURE_MODE:-automatic}
+      ATLAS_PUBLIC_ORIGIN: ${ATLAS_PUBLIC_ORIGIN:-}
+      ATLAS_RUNNER_EXECUTOR_CREDENTIAL: ${ATLAS_RUNNER_EXECUTOR_CREDENTIAL:-}
+  worker:
+    environment:
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_CALLBACK_ORIGIN: ${RAZORPAY_CALLBACK_ORIGIN:-}
+      RAZORPAY_CAPTURE_MODE: ${RAZORPAY_CAPTURE_MODE:-automatic}
+      ATLAS_RUNNER_EXECUTOR_CREDENTIAL: ${ATLAS_RUNNER_EXECUTOR_CREDENTIAL:-}
+  gateway:
+    environment:
+      ATLAS_CORE_HTTP_ADDR: http://core:9091
+      ATLAS_ENVIRONMENT: test
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      ATLAS_RUNNER_EXECUTOR_CREDENTIAL: ${ATLAS_RUNNER_EXECUTOR_CREDENTIAL:-}
+      ATLAS_ADMIN_SERVICE_TOKEN: ${ATLAS_ADMIN_SERVICE_TOKEN:-}
+      ATLAS_TEST_HOST_BEARER: ${ATLAS_TEST_HOST_BEARER:-atlaslab-test-bearer}
+      ATLAS_TEST_ADMIN_BEARER: ${ATLAS_TEST_ADMIN_BEARER:-operator-test-bearer}
+      ATLAS_TEST_FIXTURE_BEARER: ${ATLAS_TEST_FIXTURE_BEARER:-fixture-test-control}
+    depends_on:
+      - core
+  atlaslab:
+    environment:
+      ATLASLAB_MOCK_MCP: "0"
+      ATLASLAB_MOCK_FIXTURE_RESET: "0"
+      ATLAS_MCP_URL: http://gateway:8080/mcp
+      ATLASLAB_HOST_ID: host_atlaslab_quickmart
+      ATLASLAB_HOST_KEY_ID: host_atlaslab_test_key
+      ATLASLAB_HOST_BEARER: ${ATLASLAB_HOST_BEARER:-atlaslab-test-bearer}
+      ATLASLAB_HOST_SIGNING_KEY: ${ATLASLAB_HOST_SIGNING_KEY:-}
+      ATLASLAB_FIXTURE_CONTROL_CREDENTIAL: ${ATLASLAB_FIXTURE_CONTROL_CREDENTIAL:-fixture-test-control}
+      ATLASLAB_API_TOKEN: ${ATLASLAB_API_TOKEN:-${ATLASLAB_SERVICE_TOKEN:-}}
+    depends_on:
+      gateway:
+        condition: service_started
+  frontend:
+    environment:
+      ATLAS_ADMIN_API_URL: http://gateway:8080
+      ATLASLAB_API_URL: http://atlaslab:8090
+      ATLAS_FRONTEND_ENABLE_MOCKS: "0"
+      ATLASLAB_SERVICE_TOKEN: ${ATLASLAB_SERVICE_TOKEN:-${ATLASLAB_API_TOKEN:-}}
+      ATLASLAB_API_TOKEN: ${ATLASLAB_API_TOKEN:-${ATLASLAB_SERVICE_TOKEN:-}}
+    depends_on:
+      - gateway
+      - atlaslab
+  payment-runner:
+    environment:
+      ATLAS_RUNNER_ENDPOINT: http://gateway:8080
+    depends_on:
+      - gateway
