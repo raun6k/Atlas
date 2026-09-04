@@ -1,30 +1,481 @@
 [
   {
-    "bundle_id": "",
-    "name": "",
-    "description": "",
-    "status": "",
-    "media": [],
-    "commercial_objective": null,
+    "bundle_id": "bundle_qm_001",
+    "name": "breakfast starter bundle",
+    "description": "A practical breakfast starter combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 2500,
     "items": [
       {
-        "sku_id": "",
-        "quantity": 0,
-        "sort_order": 0,
-        "item_role": "required"
-      }
-    ],
-    "offers": [
+        "sku_id": "QM-BEV-0031-A",
+        "quantity": 2
+      },
       {
-        "location_id": "",
-        "currency": "",
-        "pricing_type": "",
-        "fixed_total_minor": null,
-        "amount_off_minor": null,
-        "percent_off_bps": null,
-        "valid_from": null,
-        "valid_until": null,
-        "enabled": true
+        "sku_id": "QM-PAN-0195-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0006-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_002",
+    "name": "movie night bundle",
+    "description": "A practical movie night combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3000,
+    "items": [
+      {
+        "sku_id": "QM-SNK-0002-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0035-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0007-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_003",
+    "name": "quick lunch bundle",
+    "description": "A practical quick lunch combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3500,
+    "items": [
+      {
+        "sku_id": "QM-PAN-0196-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0036-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0009-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_004",
+    "name": "fresh cooking bundle",
+    "description": "A practical fresh cooking combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4000,
+    "items": [
+      {
+        "sku_id": "QM-FPR-0065-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0186-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0040-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_005",
+    "name": "chicken dinner bundle",
+    "description": "A practical chicken dinner combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4500,
+    "items": [
+      {
+        "sku_id": "QM-MTS-0097-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-PAN-0195-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0072-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_006",
+    "name": "seafood supper bundle",
+    "description": "A practical seafood supper combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 5000,
+    "items": [
+      {
+        "sku_id": "QM-MTS-0098-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0201-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0043-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_007",
+    "name": "weekend grill bundle",
+    "description": "A practical weekend grill combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 2500,
+    "items": [
+      {
+        "sku_id": "QM-MTS-0100-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0012-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0045-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_008",
+    "name": "home cleaning bundle",
+    "description": "A practical home cleaning combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3000,
+    "items": [
+      {
+        "sku_id": "QM-HOU-0142-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0147-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0160-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_009",
+    "name": "laundry refresh bundle",
+    "description": "A practical laundry refresh combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3500,
+    "items": [
+      {
+        "sku_id": "QM-HOU-0145-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-HOU-0150-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0048-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_010",
+    "name": "bathroom care bundle",
+    "description": "A practical bathroom care combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4000,
+    "items": [
+      {
+        "sku_id": "QM-HOU-0148-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0161-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0128-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_011",
+    "name": "oral care set bundle",
+    "description": "A practical oral care set combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4500,
+    "items": [
+      {
+        "sku_id": "QM-PER-0159-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0164-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0171-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_012",
+    "name": "daily grooming bundle",
+    "description": "A practical daily grooming combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 5000,
+    "items": [
+      {
+        "sku_id": "QM-PER-0162-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0167-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0052-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_013",
+    "name": "tea break bundle",
+    "description": "A practical tea break combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 2500,
+    "items": [
+      {
+        "sku_id": "QM-SNK-0019-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-BEV-0051-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0206-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_014",
+    "name": "pantry top-up bundle",
+    "description": "A practical pantry top-up combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3000,
+    "items": [
+      {
+        "sku_id": "QM-PAN-0189-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0201-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0085-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_015",
+    "name": "smoothie basket bundle",
+    "description": "A practical smoothie basket combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3500,
+    "items": [
+      {
+        "sku_id": "QM-FPR-0082-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0054-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0191-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_016",
+    "name": "pet meal time bundle",
+    "description": "A practical pet meal time combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4000,
+    "items": [
+      {
+        "sku_id": "QM-PET-0234-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PET-0216-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0198-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_017",
+    "name": "pet care starter bundle",
+    "description": "A practical pet care starter combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 4500,
+    "items": [
+      {
+        "sku_id": "QM-PET-0211-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-PET-0225-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0149-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_018",
+    "name": "new baby basics bundle",
+    "description": "A practical new baby basics combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 5000,
+    "items": [
+      {
+        "sku_id": "QM-BAB-0249-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BAB-0241-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0168-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_019",
+    "name": "baby feeding bundle",
+    "description": "A practical baby feeding combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 2500,
+    "items": [
+      {
+        "sku_id": "QM-BAB-0246-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BAB-0249-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0191-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "bundle_id": "bundle_qm_020",
+    "name": "family essentials bundle",
+    "description": "A practical family essentials combination for a quick-commerce basket.",
+    "enabled": true,
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "amount_off_minor": 3000,
+    "items": [
+      {
+        "sku_id": "QM-BAB-0243-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0171-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0198-A",
+        "quantity": 1
       }
     ]
   }

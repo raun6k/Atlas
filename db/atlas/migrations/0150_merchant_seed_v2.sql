@@ -142,6 +142,4 @@ ALTER TABLE bundles ALTER COLUMN discount_amount_minor SET DEFAULT 0;
 ALTER TABLE commercial_strategies
     ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS objective_metric TEXT NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb,
-    ADD COLUMN IF NOT EXISTS guardrails JSONB NOT NULL DEFAULT '{}'::jsonb,
-    ADD COLUMN IF NOT EXISTS experiment_key TEXT;
+    ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb;

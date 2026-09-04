@@ -324,6 +324,38 @@ func mustAuthority(t *testing.T, key jwk.Key, host string, prop app.ProposalView
 	return string(signed)
 }
 
+func TestCreateSessionRequiresDeliveryLocation(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+
+	emptyArgs := map[string]any{"subject_reference": "buyer-loc", "delivery_serviceability_reference": "", "locale": "en-IN", "requested_location_id": ""}
+	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", emptyArgs), "buyer-loc", "", "en-IN", "", "")
+	if !apperr.Is(err, apperr.InvalidArgument) {
+		t.Fatalf("want INVALID_ARGUMENT for missing delivery location, got %v", err)
+	}
+
+	unknownArgs := map[string]any{"subject_reference": "buyer-loc-2", "delivery_serviceability_reference": "unknown_neighbourhood", "locale": "en-IN", "requested_location_id": ""}
+	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", unknownArgs), "buyer-loc-2", "unknown_neighbourhood", "en-IN", "", "")
+	if !apperr.Is(err, apperr.InvalidArgument) {
+		t.Fatalf("want INVALID_ARGUMENT for unknown neighbourhood, got %v", err)
+	}
+
+	okArgs := map[string]any{"subject_reference": "buyer-loc-3", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", okArgs), "buyer-loc-3", "blr_koramangala_5th_block", "en-IN", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Session.LocationID != "loc_qm_koramangala" {
+		t.Fatalf("location %s", created.Session.LocationID)
+	}
+}
+
 func mustKey(t *testing.T) jwk.Key {
 	t.Helper()
 	root := testdbRoot(t)

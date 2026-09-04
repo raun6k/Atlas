@@ -1,28 +1,666 @@
 [
   {
-    "promotion_id": "",
-    "promotion_type": "",
-    "name": "",
-    "description": "",
-    "application_mode": "",
+    "promotion_id": "promo_qm_snk_basket_01",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "snack basket savings",
+    "description": "Automatic saving when the cart includes qualifying snack items.",
+    "application_mode": "automatic",
     "code": null,
     "condition": {
-      "minimum_quantity": 0,
+      "minimum_quantity": 2,
       "minimum_cart_value_minor": 0
     },
     "benefit": {
-      "type": "",
-      "discount_amount_minor": 0
+      "type": "fixed_amount",
+      "discount_amount_minor": 6000
     },
-    "stacking_group": null,
-    "stacking_priority": 0,
-    "funding": {},
-    "commercial_objective": null,
-    "eligible_sku_ids": [],
-    "excluded_sku_ids": [],
-    "location_ids": [],
-    "starts_at": "",
-    "ends_at": "",
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 6000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-SNK-0001-A",
+      "QM-SNK-0001-B",
+      "QM-SNK-0002-A",
+      "QM-SNK-0002-B",
+      "QM-SNK-0003-A",
+      "QM-SNK-0003-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_snk_local_01",
+    "promotion_type": "MULTI_BUY",
+    "name": "snack mix and match",
+    "description": "Add qualifying snack items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 9000
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 9000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-SNK-0028-A",
+      "QM-SNK-0028-B",
+      "QM-SNK-0029-A",
+      "QM-SNK-0029-B",
+      "QM-SNK-0030-A",
+      "QM-SNK-0030-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_bev_basket_02",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "beverage basket savings",
+    "description": "Automatic saving when the cart includes qualifying beverage items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 6500
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 6500,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-BEV-0031-A",
+      "QM-BEV-0031-B",
+      "QM-BEV-0032-A",
+      "QM-BEV-0032-B",
+      "QM-BEV-0033-A",
+      "QM-BEV-0033-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_bev_local_02",
+    "promotion_type": "MULTI_BUY",
+    "name": "beverage mix and match",
+    "description": "Add qualifying beverage items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 9400
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 9400,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-BEV-0058-A",
+      "QM-BEV-0058-B",
+      "QM-BEV-0059-A",
+      "QM-BEV-0059-B",
+      "QM-BEV-0060-A",
+      "QM-BEV-0060-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_fpr_basket_03",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "fresh produce basket savings",
+    "description": "Automatic saving when the cart includes qualifying fresh produce items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 7000
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 7000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-FPR-0061-A",
+      "QM-FPR-0061-B",
+      "QM-FPR-0062-A",
+      "QM-FPR-0062-B",
+      "QM-FPR-0063-A",
+      "QM-FPR-0063-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_fpr_local_03",
+    "promotion_type": "MULTI_BUY",
+    "name": "fresh produce mix and match",
+    "description": "Add qualifying fresh produce items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 9800
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 9800,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-FPR-0088-A",
+      "QM-FPR-0088-B",
+      "QM-FPR-0089-A",
+      "QM-FPR-0089-B",
+      "QM-FPR-0090-A",
+      "QM-FPR-0090-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_mts_basket_04",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "meat and seafood basket savings",
+    "description": "Automatic saving when the cart includes qualifying meat and seafood items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 7500
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 7500,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-MTS-0091-A",
+      "QM-MTS-0091-B",
+      "QM-MTS-0092-A",
+      "QM-MTS-0092-B",
+      "QM-MTS-0093-A",
+      "QM-MTS-0093-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_mts_local_04",
+    "promotion_type": "MULTI_BUY",
+    "name": "meat and seafood mix and match",
+    "description": "Add qualifying meat and seafood items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 10200
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 10200,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-MTS-0115-A",
+      "QM-MTS-0116-A",
+      "QM-MTS-0117-A",
+      "QM-MTS-0118-A",
+      "QM-MTS-0119-A",
+      "QM-MTS-0120-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_hou_basket_05",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "household basket savings",
+    "description": "Automatic saving when the cart includes qualifying household items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 8000
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 8000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-HOU-0121-A",
+      "QM-HOU-0122-A",
+      "QM-HOU-0123-A",
+      "QM-HOU-0124-A",
+      "QM-HOU-0125-A",
+      "QM-HOU-0126-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_hou_local_05",
+    "promotion_type": "MULTI_BUY",
+    "name": "household mix and match",
+    "description": "Add qualifying household items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 10600
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 10600,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-HOU-0145-A",
+      "QM-HOU-0146-A",
+      "QM-HOU-0147-A",
+      "QM-HOU-0148-A",
+      "QM-HOU-0149-A",
+      "QM-HOU-0150-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_per_basket_06",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "personal care basket savings",
+    "description": "Automatic saving when the cart includes qualifying personal care items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 8500
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 8500,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PER-0151-A",
+      "QM-PER-0152-A",
+      "QM-PER-0153-A",
+      "QM-PER-0154-A",
+      "QM-PER-0155-A",
+      "QM-PER-0156-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_per_local_06",
+    "promotion_type": "MULTI_BUY",
+    "name": "personal care mix and match",
+    "description": "Add qualifying personal care items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 11000
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 11000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PER-0167-A",
+      "QM-PER-0168-A",
+      "QM-PER-0171-A",
+      "QM-PER-0174-A",
+      "QM-PER-0176-A",
+      "QM-PER-0180-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_pan_basket_07",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "pantry staple basket savings",
+    "description": "Automatic saving when the cart includes qualifying pantry staple items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 9000
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 9000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PAN-0181-A",
+      "QM-PAN-0182-A",
+      "QM-PAN-0183-A",
+      "QM-PAN-0184-A",
+      "QM-PAN-0185-A",
+      "QM-PAN-0186-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_pan_local_07",
+    "promotion_type": "MULTI_BUY",
+    "name": "pantry staple mix and match",
+    "description": "Add qualifying pantry staple items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 11400
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 11400,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PAN-0196-A",
+      "QM-PAN-0198-A",
+      "QM-PAN-0201-A",
+      "QM-PAN-0204-A",
+      "QM-PAN-0206-A",
+      "QM-PAN-0210-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_pet_basket_08",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "pet care basket savings",
+    "description": "Automatic saving when the cart includes qualifying pet care items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 9500
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 9500,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PET-0211-A",
+      "QM-PET-0212-A",
+      "QM-PET-0213-A",
+      "QM-PET-0214-A",
+      "QM-PET-0215-A",
+      "QM-PET-0216-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_pet_local_08",
+    "promotion_type": "MULTI_BUY",
+    "name": "pet care mix and match",
+    "description": "Add qualifying pet care items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 11800
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 11800,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-PET-0226-A",
+      "QM-PET-0228-A",
+      "QM-PET-0231-A",
+      "QM-PET-0234-A",
+      "QM-PET-0236-A",
+      "QM-PET-0240-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_bab_basket_09",
+    "promotion_type": "CATEGORY_BASKET",
+    "name": "baby care basket savings",
+    "description": "Automatic saving when the cart includes qualifying baby care items.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 2,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 10000
+    },
+    "stacking_group": "category_basket",
+    "stacking_priority": 10,
+    "funding": {
+      "merchant_funded_minor": 10000,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-BAB-0241-A",
+      "QM-BAB-0242-A",
+      "QM-BAB-0243-A",
+      "QM-BAB-0244-A",
+      "QM-BAB-0245-A",
+      "QM-BAB-0246-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_bab_local_09",
+    "promotion_type": "MULTI_BUY",
+    "name": "baby care mix and match",
+    "description": "Add qualifying baby care items together to unlock a store assortment saving.",
+    "application_mode": "automatic",
+    "code": null,
+    "condition": {
+      "minimum_quantity": 3,
+      "minimum_cart_value_minor": 25000
+    },
+    "benefit": {
+      "type": "fixed_amount",
+      "discount_amount_minor": 12200
+    },
+    "stacking_group": "mix_match",
+    "stacking_priority": 20,
+    "funding": {
+      "merchant_funded_minor": 12200,
+      "supplier_funded_minor": 0
+    },
+    "eligible_sku_ids": [
+      "QM-BAB-0241-A",
+      "QM-BAB-0243-A",
+      "QM-BAB-0246-A",
+      "QM-BAB-0249-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala"
+    ],
+    "starts_at": "2026-09-01T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
     "enabled": true
   }
 ]

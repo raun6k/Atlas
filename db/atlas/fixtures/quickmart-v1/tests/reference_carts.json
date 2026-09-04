@@ -1,16 +1,348 @@
 [
   {
-    "reference_cart_id": "",
-    "name": "",
-    "location_id": "",
-    "service_area_id": null,
-    "description": "",
+    "reference_cart_id": "rc_qm_breakfast_001",
+    "name": "Breakfast top-up",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic breakfast top-up cart for commercial-engine evaluation.",
+    "planning_budget_minor": 18000,
     "lines": [
       {
-        "sku_id": "",
-        "quantity": 0
+        "sku_id": "QM-PAN-0189-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0038-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0013-A",
+        "quantity": 1
       }
-    ],
-    "expected_constraints": {}
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_movie_night_002",
+    "name": "Movie night basket",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic movie night basket cart for commercial-engine evaluation.",
+    "planning_budget_minor": 22000,
+    "lines": [
+      {
+        "sku_id": "QM-SNK-0005-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0038-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0013-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_weekly_pantry_003",
+    "name": "Weekly pantry refill",
+    "location_id": "loc_qm_bellandur",
+    "service_area_id": "sa_qm_bellandur",
+    "description": "Synthetic weekly pantry refill cart for commercial-engine evaluation.",
+    "planning_budget_minor": 45000,
+    "lines": [
+      {
+        "sku_id": "QM-PAN-0188-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-FPR-0067-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0039-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-SNK-0012-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_quick_dinner_004",
+    "name": "Quick dinner ingredients",
+    "location_id": "loc_qm_indiranagar",
+    "service_area_id": "sa_qm_indiranagar",
+    "description": "Synthetic quick dinner ingredients cart for commercial-engine evaluation.",
+    "planning_budget_minor": 32000,
+    "lines": [
+      {
+        "sku_id": "QM-MTS-0094-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0193-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0069-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_seafood_supper_005",
+    "name": "Seafood supper",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic seafood supper cart for commercial-engine evaluation.",
+    "planning_budget_minor": 36000,
+    "lines": [
+      {
+        "sku_id": "QM-MTS-0095-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0196-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0043-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_home_cleaning_006",
+    "name": "Home cleaning restock",
+    "location_id": "loc_qm_bellandur",
+    "service_area_id": "sa_qm_bellandur",
+    "description": "Synthetic home cleaning restock cart for commercial-engine evaluation.",
+    "planning_budget_minor": 28000,
+    "lines": [
+      {
+        "sku_id": "QM-HOU-0127-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0122-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0167-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_personal_care_007",
+    "name": "Personal care refill",
+    "location_id": "loc_qm_indiranagar",
+    "service_area_id": "sa_qm_indiranagar",
+    "description": "Synthetic personal care refill cart for commercial-engine evaluation.",
+    "planning_budget_minor": 26000,
+    "lines": [
+      {
+        "sku_id": "QM-PER-0158-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0163-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0168-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_pet_mealtime_008",
+    "name": "Pet mealtime",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic pet mealtime cart for commercial-engine evaluation.",
+    "planning_budget_minor": 24000,
+    "lines": [
+      {
+        "sku_id": "QM-PET-0211-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PET-0226-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0204-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_new_baby_009",
+    "name": "New baby essentials",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic new baby essentials cart for commercial-engine evaluation.",
+    "planning_budget_minor": 30000,
+    "lines": [
+      {
+        "sku_id": "QM-BAB-0249-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BAB-0246-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0174-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_fresh_lunch_010",
+    "name": "Fresh lunch prep",
+    "location_id": "loc_qm_indiranagar",
+    "service_area_id": "sa_qm_indiranagar",
+    "description": "Synthetic fresh lunch prep cart for commercial-engine evaluation.",
+    "planning_budget_minor": 24000,
+    "lines": [
+      {
+        "sku_id": "QM-FPR-0064-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0193-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0039-B",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_party_snacks_011",
+    "name": "Small gathering snacks",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic small gathering snacks cart for commercial-engine evaluation.",
+    "planning_budget_minor": 30000,
+    "lines": [
+      {
+        "sku_id": "QM-SNK-0006-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-SNK-0010-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0043-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0183-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_fitness_refresh_012",
+    "name": "Fitness refresh",
+    "location_id": "loc_qm_bellandur",
+    "service_area_id": "sa_qm_bellandur",
+    "description": "Synthetic fitness refresh cart for commercial-engine evaluation.",
+    "planning_budget_minor": 20000,
+    "lines": [
+      {
+        "sku_id": "QM-BEV-0034-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0066-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0197-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_family_dinner_013",
+    "name": "Family dinner basket",
+    "location_id": "loc_qm_bellandur",
+    "service_area_id": "sa_qm_bellandur",
+    "description": "Synthetic family dinner basket cart for commercial-engine evaluation.",
+    "planning_budget_minor": 40000,
+    "lines": [
+      {
+        "sku_id": "QM-PAN-0188-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-FPR-0067-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-MTS-0099-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0042-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_bathroom_reset_014",
+    "name": "Bathroom reset",
+    "location_id": "loc_qm_indiranagar",
+    "service_area_id": "sa_qm_indiranagar",
+    "description": "Synthetic bathroom reset cart for commercial-engine evaluation.",
+    "planning_budget_minor": 22000,
+    "lines": [
+      {
+        "sku_id": "QM-HOU-0128-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0163-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0138-A",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "reference_cart_id": "rc_qm_weekend_grill_015",
+    "name": "Weekend grill basket",
+    "location_id": "loc_qm_koramangala",
+    "service_area_id": "sa_qm_koramangala",
+    "description": "Synthetic weekend grill basket cart for commercial-engine evaluation.",
+    "planning_budget_minor": 38000,
+    "lines": [
+      {
+        "sku_id": "QM-MTS-0096-A",
+        "quantity": 2
+      },
+      {
+        "sku_id": "QM-SNK-0010-A",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0043-B",
+        "quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0077-B",
+        "quantity": 1
+      }
+    ]
   }
 ]

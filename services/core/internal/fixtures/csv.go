@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func readCSV(path string) ([]map[string]string, error) {
@@ -111,20 +110,6 @@ func csvJSON(row map[string]string, key string, empty any) any {
 		return empty
 	}
 	return parsed
-}
-
-func csvTime(row map[string]string, key string) any {
-	v := csvString(row, key)
-	if v == "" {
-		return nil
-	}
-	if t, err := time.Parse(time.RFC3339, v); err == nil {
-		return t
-	}
-	if t, err := time.Parse("2006-01-02", v); err == nil {
-		return t
-	}
-	return nil
 }
 
 func jsonBytes(v any) []byte {

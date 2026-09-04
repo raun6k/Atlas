@@ -44,25 +44,30 @@ func loadMerchantPack(ctx context.Context, tx pgx.Tx, dir string) error {
 
 func loadMerchant(ctx context.Context, tx pgx.Tx, dir string) error {
 	var m struct {
-		MerchantID            string          `json:"merchant_id"`
-		DisplayName           string          `json:"display_name"`
-		LegalName             string          `json:"legal_name"`
-		Description           string          `json:"description"`
-		DefaultCurrency       string          `json:"default_currency"`
-		DefaultLocale         string          `json:"default_locale"`
-		CountryCode           string          `json:"country_code"`
-		DefaultTimezone       string          `json:"default_timezone"`
-		PricesIncludeTax      bool            `json:"prices_include_tax"`
-		WebsiteURL            *string         `json:"website_url"`
-		LogoURL               *string         `json:"logo_url"`
-		TermsURL              string          `json:"terms_url"`
-		PrivacyURL            string          `json:"privacy_url"`
-		ReturnPolicyURL       string          `json:"return_policy_url"`
-		CancellationPolicyURL string          `json:"cancellation_policy_url"`
-		SubstitutionPolicyURL *string         `json:"substitution_policy_url"`
-		SupportEmail          string          `json:"support_email"`
-		SupportPhone          *string         `json:"support_phone"`
-		Disclosures           json.RawMessage `json:"disclosures"`
+		MerchantID                 string          `json:"merchant_id"`
+		DisplayName                string          `json:"display_name"`
+		LegalName                  string          `json:"legal_name"`
+		Description                string          `json:"description"`
+		DefaultCurrency            string          `json:"default_currency"`
+		DefaultLocale              string          `json:"default_locale"`
+		CountryCode                string          `json:"country_code"`
+		DefaultTimezone            string          `json:"default_timezone"`
+		PricesIncludeTax           bool            `json:"prices_include_tax"`
+		WebsiteURL                 *string         `json:"website_url"`
+		LogoURL                    *string         `json:"logo_url"`
+		TermsURL                   string          `json:"terms_url"`
+		PrivacyURL                 string          `json:"privacy_url"`
+		ReturnPolicyURL            string          `json:"return_policy_url"`
+		CancellationPolicyURL      string          `json:"cancellation_policy_url"`
+		SubstitutionPolicyURL      *string         `json:"substitution_policy_url"`
+		SupportEmail               string          `json:"support_email"`
+		SupportPhone               *string         `json:"support_phone"`
+		Disclosures                json.RawMessage `json:"disclosures"`
+		BaseDeliveryFeeMinor       int64           `json:"base_delivery_fee_minor"`
+		MinimumOrderValueMinor     int64           `json:"minimum_order_value_minor"`
+		FreeDeliveryThresholdMinor *int64          `json:"free_delivery_threshold_minor"`
+		BaseHandlingFeeMinor       int64           `json:"base_handling_fee_minor"`
+		EtaMinMinutes              int             `json:"eta_min_minutes"`
 	}
 	if err := readJSON(filepath.Join(dir, "merchant.json"), &m); err != nil {
 		return err
@@ -93,12 +98,14 @@ func loadMerchant(ctx context.Context, tx pgx.Tx, dir string) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO merchant_profile (
 			singleton_key, merchant_id, display_name, legal_name, description, currency, locale, country,
 			timezone_display, prices_include_tax, website_url, logo_url, terms_url, privacy_url,
-			return_policy_url, cancellation_policy_url, substitution_policy_url, support_email, support_phone, disclosures)
-		VALUES ('singleton',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+			return_policy_url, cancellation_policy_url, substitution_policy_url, support_email, support_phone, disclosures,
+			base_delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, base_handling_fee_minor, eta_min_minutes)
+		VALUES ('singleton',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
 		nullIfEmpty(m.MerchantID), m.DisplayName, m.LegalName, m.Description, currency, locale, country, tz,
 		m.PricesIncludeTax, m.WebsiteURL, m.LogoURL, nullIfEmpty(m.TermsURL), nullIfEmpty(m.PrivacyURL),
 		nullIfEmpty(m.ReturnPolicyURL), nullIfEmpty(m.CancellationPolicyURL), m.SubstitutionPolicyURL,
-		nullIfEmpty(m.SupportEmail), m.SupportPhone, disc); err != nil {
+		nullIfEmpty(m.SupportEmail), m.SupportPhone, disc,
+		m.BaseDeliveryFeeMinor, m.MinimumOrderValueMinor, m.FreeDeliveryThresholdMinor, m.BaseHandlingFeeMinor, m.EtaMinMinutes); err != nil {
 		return err
 	}
 	return loadCapabilities(ctx, tx, dir, true)
@@ -120,6 +127,11 @@ func loadCapabilities(ctx context.Context, tx pgx.Tx, dir string, profileExists 
 }
 
 func loadLocations(ctx context.Context, tx pgx.Tx, dir string) error {
+	var delivery, mov, handling int64
+	var etaMin int
+	var free *int64
+	_ = tx.QueryRow(ctx, `SELECT base_delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, base_handling_fee_minor, eta_min_minutes
+		FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&delivery, &mov, &free, &handling, &etaMin)
 	rows, err := readCSV(filepath.Join(dir, "locations.csv"))
 	if err != nil {
 		return err
@@ -129,26 +141,32 @@ func loadLocations(ctx context.Context, tx pgx.Tx, dir string) error {
 		if id == "" {
 			continue
 		}
+		svc := csvString(row, "serviceability_reference")
+		if svc == "" {
+			svc = id
+		}
 		status := csvString(row, "status")
 		if status == "" {
 			status = "active"
 		}
-		hours := csvJSON(row, "operating_hours_json", map[string]any{})
-		modes := csvJSON(row, "fulfillment_modes_json", []string{"delivery"})
-		freePtr := csvIntPtr(row, "free_delivery_threshold_minor")
+		open := csvString(row, "hours_open")
+		closeAt := csvString(row, "hours_close")
+		tz := csvString(row, "timezone")
+		hours := map[string]any{}
+		if open != "" || closeAt != "" {
+			hours = map[string]any{"timezone": tz, "daily": map[string]string{"open": open, "close": closeAt}}
+		}
+		modes := []string{"delivery"}
 		if _, err := tx.Exec(ctx, `INSERT INTO locations (
 				location_id, name, neighbourhood, city, region, country, serviceability_reference, address_public,
 				active, status, timezone, operating_hours, fulfillment_hours, fulfillment_modes,
-				latitude, longitude, delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor,
+				delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor,
 				eta_min_minutes, eta_max_minutes, handling_fee_minor)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14,$15,$16,$17,$17,$18)`,
 			id, csvString(row, "name"), csvString(row, "neighbourhood"), csvString(row, "city"),
-			csvString(row, "region_code"), csvString(row, "country_code"), id, csvString(row, "display_address"),
-			status == "active", status, csvString(row, "timezone"), jsonBytes(hours), jsonBytes(modes),
-			csvFloatPtr(row, "latitude"), csvFloatPtr(row, "longitude"),
-			csvInt(row, "base_delivery_fee_minor", 0), csvInt(row, "minimum_order_value_minor", 0), freePtr,
-			csvInt(row, "fallback_eta_min_minutes", 0), csvInt(row, "fallback_eta_max_minutes", 0),
-			csvInt(row, "base_handling_fee_minor", 0)); err != nil {
+			csvString(row, "region_code"), csvString(row, "country_code"), svc, csvString(row, "display_address"),
+			status == "active", status, tz, jsonBytes(hours), jsonBytes(modes),
+			delivery, mov, free, etaMin, handling); err != nil {
 			return err
 		}
 	}
@@ -200,18 +218,21 @@ func loadProducts(ctx context.Context, tx pgx.Tx, dir string) error {
 			lifecycle = "active"
 		}
 		diet := csvJSON(row, "dietary_tags_json", []any{})
-		media := csvJSON(row, "media_json", []any{})
 		desc := csvString(row, "description")
+		nutrition := csvJSON(row, "nutrition_per_100g_json", map[string]any{})
+		rating := csvFloatPtr(row, "rating")
+		reviews := csvIntPtr(row, "reviews")
 		if _, err := tx.Exec(ctx, `INSERT INTO products (
-				product_id, name, brand, category, subcategory, canonical_description, dietary, lifecycle, image_refs,
-				product_url, allergen_tags, ingredients_text, aliases, country_of_origin_code, attributes, media, search_document)
+				product_id, name, brand, category, subcategory, canonical_description, dietary, lifecycle,
+				allergen_tags, ingredients_text, aliases, country_of_origin_code, attributes, rating, reviews,
+				nutrition_per_100g, search_document)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, to_tsvector('simple', $2||' '||$3||' '||$6))`,
 			id, csvString(row, "name"), csvString(row, "brand"), csvString(row, "category"), csvString(row, "subcategory"),
-			desc, jsonBytes(diet), lifecycle, jsonBytes(mediaURLs(media)),
-			nullIfEmpty(csvString(row, "product_url")), jsonBytes(csvJSON(row, "allergen_tags_json", []any{})),
+			desc, jsonBytes(diet), lifecycle,
+			jsonBytes(csvJSON(row, "allergen_tags_json", []any{})),
 			nullIfEmpty(csvString(row, "ingredients_text")), jsonBytes(csvJSON(row, "aliases_json", []any{})),
 			nullIfEmpty(csvString(row, "country_of_origin_code")), jsonBytes(csvJSON(row, "attributes_json", map[string]any{})),
-			jsonBytes(media)); err != nil {
+			rating, reviews, jsonBytes(nutrition)); err != nil {
 			return err
 		}
 	}
@@ -241,17 +262,9 @@ func loadSKUs(ctx context.Context, tx pgx.Tx, dir string) error {
 		if uom == "" {
 			uom = "pcs"
 		}
-		barcode := csvString(row, "gtin")
-		if barcode == "" {
-			barcode = csvString(row, "internal_barcode")
-		}
-		media := csvJSON(row, "media_json", []any{})
-		desc := csvString(row, "description_override")
+		gtin := csvString(row, "gtin")
 		var brand, parentDesc string
 		_ = tx.QueryRow(ctx, `SELECT brand, canonical_description FROM products WHERE product_id=$1`, prd).Scan(&brand, &parentDesc)
-		if desc == "" {
-			desc = parentDesc
-		}
 		storage := csvString(row, "storage_class")
 		var storageAny any
 		if storage != "" {
@@ -259,20 +272,16 @@ func loadSKUs(ctx context.Context, tx pgx.Tx, dir string) error {
 		}
 		maxQty := csvIntPtr(row, "max_order_quantity")
 		shelf := csvIntPtr(row, "shelf_life_days")
-		weight := csvIntPtr(row, "gross_weight_grams")
 		if _, err := tx.Exec(ctx, `INSERT INTO skus (
 				sku_id, product_id, name, brand, variant, pack_size, unit_of_measure, barcode, canonical_description,
-				dietary, attributes, lifecycle, image_refs, pack_count, gtin, description_override, media, storage_class,
-				perishable, shelf_life_days, min_order_quantity, max_order_quantity, quantity_step, gross_weight_grams,
-				dimensions, hsn_code, tax_rate_bps, search_document)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,
+				dietary, attributes, lifecycle, pack_count, gtin, storage_class,
+				perishable, shelf_life_days, max_order_quantity, hsn_code, search_document)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
 				to_tsvector('simple', $3||' '||$4||' '||$9))`,
-			id, prd, csvString(row, "name"), brand, csvString(row, "variant_label"), pack, uom, nullIfEmpty(barcode), desc,
-			[]byte("[]"), jsonBytes(csvJSON(row, "attributes_json", map[string]any{})), lifecycle, jsonBytes(mediaURLs(media)),
-			csvInt(row, "pack_count", 1), nullIfEmpty(csvString(row, "gtin")), nullIfEmpty(csvString(row, "description_override")),
-			jsonBytes(media), storageAny, csvBool(row, "perishable", false), shelf, csvInt(row, "min_order_quantity", 1), maxQty,
-			csvInt(row, "quantity_step", 1), weight, csvJSON(row, "dimensions_json", nil),
-			nullIfEmpty(csvString(row, "hsn_code")), csvInt(row, "tax_rate_bps", 0)); err != nil {
+			id, prd, csvString(row, "name"), brand, csvString(row, "variant_label"), pack, uom, nullIfEmpty(gtin), parentDesc,
+			[]byte("[]"), jsonBytes(csvJSON(row, "attributes_json", map[string]any{})), lifecycle,
+			csvInt(row, "pack_count", 1), nullIfEmpty(gtin), storageAny, csvBool(row, "perishable", false), shelf, maxQty,
+			nullIfEmpty(csvString(row, "hsn_code"))); err != nil {
 			return err
 		}
 	}
@@ -286,7 +295,8 @@ func loadOffers(ctx context.Context, tx pgx.Tx, dir string) error {
 		return err
 	}
 	var taxInclusive bool
-	_ = tx.QueryRow(ctx, `SELECT COALESCE(prices_include_tax, TRUE) FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&taxInclusive)
+	currency := "INR"
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(prices_include_tax, TRUE), COALESCE(NULLIF(currency, ''), 'INR') FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&taxInclusive, &currency)
 	for _, row := range rows {
 		loc := csvString(row, "location_id")
 		sku := csvString(row, "sku_id")
@@ -294,10 +304,6 @@ func loadOffers(ctx context.Context, tx pgx.Tx, dir string) error {
 			continue
 		}
 		assorted := csvBool(row, "assorted", true)
-		currency := csvString(row, "currency")
-		if currency == "" {
-			currency = "INR"
-		}
 		selling := csvInt(row, "selling_price_minor", 0)
 		cogs := csvInt(row, "unit_cogs_minor", 0)
 		variable := csvInt(row, "unit_variable_cost_minor", 0)
@@ -308,26 +314,17 @@ func loadOffers(ctx context.Context, tx pgx.Tx, dir string) error {
 			taxAmount = selling * taxRate / (10000 + taxRate)
 		}
 		margin := selling - cogs - variable
-		from := csvTime(row, "price_valid_from")
-		until := csvTime(row, "price_valid_until")
-		source := csvString(row, "price_source")
-		if source == "" {
-			source = "fixture"
-		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prices (
 				location_id, sku_id, currency, list_price_minor, selling_price_minor, tax_inclusive, tax_rate_bps,
 				tax_amount_minor, cogs_minor, variable_cost_minor, supplier_funding_minor, contribution_margin_minor,
-				effective_from, effective_to, price_source)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,COALESCE($12, now()),$13,$14)`,
-			loc, sku, currency, csvInt(row, "mrp_minor", 0), selling, taxInclusive, taxRate, taxAmount, cogs, variable, margin,
-			from, until, source); err != nil {
+				price_source)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,'fixture')`,
+			loc, sku, currency, csvInt(row, "mrp_minor", 0), selling, taxInclusive, taxRate, taxAmount, cogs, variable, margin); err != nil {
 			return err
 		}
 		onHand := int(csvInt(row, "on_hand_quantity", 0))
-		reserved := int(csvInt(row, "reserved_quantity", 0))
 		safety := int(csvInt(row, "safety_buffer", 0))
-		low := int(csvInt(row, "low_stock_threshold", 0))
-		sellable := onHand - reserved - safety
+		sellable := onHand - safety
 		if sellable < 0 {
 			sellable = 0
 		}
@@ -336,14 +333,12 @@ func loadOffers(ctx context.Context, tx pgx.Tx, dir string) error {
 			status = "not_assorted"
 		} else if sellable == 0 {
 			status = "out"
-		} else if low > 0 && sellable < low {
-			status = "low"
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO inventory (
 				location_id, sku_id, assorted, on_hand_quantity, reserved_quantity, safety_buffer, stock_status,
 				stock_confidence, expiry_risk, low_stock_threshold)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,'medium','low',$8)`,
-			loc, sku, assorted, onHand, reserved, safety, status, low); err != nil {
+			VALUES ($1,$2,$3,$4,0,$5,$6,'medium','low',0)`,
+			loc, sku, assorted, onHand, safety, status); err != nil {
 			return err
 		}
 	}
@@ -362,24 +357,15 @@ func loadRelationships(ctx context.Context, tx pgx.Tx, dir string) error {
 		if src == "" || tgt == "" || rel == "" {
 			continue
 		}
-		srcType := csvString(row, "source_entity_type")
-		if srcType == "" {
-			srcType = "sku"
-		}
-		tgtType := csvString(row, "target_entity_type")
-		if tgtType == "" {
-			tgtType = "sku"
-		}
 		bps := csvInt(row, "confidence_bps", 0)
 		conf := float64(bps) / 10000.0
 		if _, err := tx.Exec(ctx, `INSERT INTO product_relationships (
-				source_id, target_id, relationship_type, confidence, provenance, source_entity_type, target_entity_type,
-				confidence_bps, priority, reason_code, reason_text, enabled, metadata)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+				source_id, target_id, relationship_type, confidence, source_entity_type, target_entity_type,
+				confidence_bps, priority, reason_text)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			ON CONFLICT DO NOTHING`,
-			src, tgt, rel, conf, csvString(row, "provenance_code"), srcType, tgtType, bps,
-			csvInt(row, "priority", 0), nullIfEmpty(csvString(row, "reason_code")), nullIfEmpty(csvString(row, "reason_text")),
-			csvBool(row, "enabled", true), jsonBytes(csvJSON(row, "metadata_json", map[string]any{}))); err != nil {
+			src, tgt, rel, conf, entityTypeFromID(src), entityTypeFromID(tgt), bps,
+			csvInt(row, "priority", 0), nullIfEmpty(csvString(row, "reason_text"))); err != nil {
 			return err
 		}
 	}
@@ -406,14 +392,14 @@ func loadPromotions(ctx context.Context, tx pgx.Tx, dir string) error {
 		starts := parseJSONTime(p["starts_at"])
 		ends := parseJSONTime(p["ends_at"])
 		if _, err := tx.Exec(ctx, `INSERT INTO promotions (
-				promotion_id, type, name, description, eligible_sku_ids, excluded_sku_ids, minimum_quantity,
+				promotion_id, type, name, description, eligible_sku_ids, minimum_quantity,
 				discount_amount_minor, stacking, stacking_group, stacking_priority, location_ids, supplier_funding_minor,
-				starts_at, ends_at, enabled, application_mode, code, condition, benefit, funding, commercial_objective)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,0,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
-			id, ptype, name, strField(p, "description"), jsonBytes(p["eligible_sku_ids"]), jsonBytes(p["excluded_sku_ids"]),
+				starts_at, ends_at, enabled, application_mode, code, condition, benefit, funding)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,0,$11,$12,$13,$14,$15,$16,$17,$18)`,
+			id, ptype, name, strField(p, "description"), jsonBytes(p["eligible_sku_ids"]),
 			minQty, discount, p["stacking_group"], asInt(p["stacking_priority"]), jsonBytes(p["location_ids"]),
 			starts, ends, enabled, strField(p, "application_mode"), p["code"], jsonBytes(p["condition"]), jsonBytes(p["benefit"]),
-			jsonBytes(p["funding"]), p["commercial_objective"]); err != nil {
+			jsonBytes(p["funding"])); err != nil {
 			return err
 		}
 	}
@@ -441,25 +427,16 @@ func loadBundles(ctx context.Context, tx pgx.Tx, dir string) error {
 				qty[sku] += int(asInt(m["quantity"]))
 			}
 		}
-		var locIDs []string
-		if offers, ok := b["offers"].([]any); ok {
-			for _, off := range offers {
-				m, _ := off.(map[string]any)
-				if loc, _ := m["location_id"].(string); loc != "" {
-					locIDs = append(locIDs, loc)
-				}
-			}
-		}
+		locIDs := b["location_ids"]
 		enabled := true
-		if st, _ := b["status"].(string); st != "" && st != "active" {
-			enabled = false
+		if v, ok := b["enabled"].(bool); ok {
+			enabled = v
 		}
+		discount := asInt(b["amount_off_minor"])
 		if _, err := tx.Exec(ctx, `INSERT INTO bundles (
-				bundle_id, name, description, status, media, commercial_objective, items, offers, sku_quantities,
-				location_ids, enabled)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-			id, strField(b, "name"), strField(b, "description"), strField(b, "status"), jsonBytes(b["media"]),
-			b["commercial_objective"], jsonBytes(b["items"]), jsonBytes(b["offers"]), jsonBytes(qty), jsonBytes(locIDs), enabled); err != nil {
+				bundle_id, name, description, items, sku_quantities, location_ids, enabled, discount_amount_minor)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			id, strField(b, "name"), strField(b, "description"), jsonBytes(b["items"]), jsonBytes(qty), jsonBytes(locIDs), enabled, discount); err != nil {
 			return err
 		}
 	}
@@ -482,29 +459,20 @@ func loadStrategies(ctx context.Context, tx pgx.Tx, dir string) error {
 		}
 		enabled, _ := s["enabled"].(bool)
 		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategies (
-				strategy_type, enabled, revision, priority, objective_metric, config, guardrails, experiment_key)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(s["config"]),
-			jsonBytes(s["guardrails"]), s["experiment_key"]); err != nil {
+				strategy_type, enabled, revision, priority, objective_metric, config)
+			VALUES ($1,$2,$3,$4,$5,$6)`,
+			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(s["config"])); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func mediaURLs(media any) []string {
-	arr, ok := media.([]any)
-	if !ok {
-		return []string{}
+func entityTypeFromID(id string) string {
+	if strings.HasPrefix(id, "prd_") {
+		return "product"
 	}
-	var out []string
-	for _, item := range arr {
-		m, _ := item.(map[string]any)
-		if u, _ := m["url"].(string); u != "" {
-			out = append(out, u)
-		}
-	}
-	return out
+	return "sku"
 }
 
 func nullIfEmpty(s string) any {

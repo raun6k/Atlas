@@ -7,7 +7,11 @@
   "required": ["subject_reference", "delivery_serviceability_reference"],
   "properties": {
     "subject_reference": { "type": "string" },
-    "delivery_serviceability_reference": { "type": "string" },
+    "delivery_serviceability_reference": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque Host delivery reference that must match an active location. Atlas does not fall back to a default neighbourhood."
+    },
     "locale": { "type": "string" },
     "requested_location_id": { "type": "string" },
     "evaluation_arm": {

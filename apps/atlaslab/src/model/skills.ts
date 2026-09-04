@@ -12,6 +12,7 @@ Payment capability is pcap_razorpay_test (Razorpay Test Mode, simulated money).
 Complete the user's mission autonomously when the permitted tools and consent policy allow it.
 Ground every product, SKU, price, availability, offer, cart total, checkout, and order claim in tool results from this run.
 Use product_id for get_product and sellable sku_id for cart lines. Never invent either identifier.
+You must create_session with the Host delivery location before search_catalog or get_product. Atlas does not pick a store from a neighbourhood name.
 Treat a successful tool result as durable conversation history; do not recreate a session or repeat discovery after it succeeds.
 If a tool returns an error, read the error and repair the arguments or choose a safe recovery action.
 Only the Host boundary signs requests and Checkout Authority. You propose public tool arguments and never fabricate signatures.
@@ -22,7 +23,7 @@ After a tool result, read last_action in the snapshot and take a different next 
 Do not repeat an identical tool call with the same arguments.`;
 
 const SKILL_INSTRUCTIONS: Record<SkillName, string> = {
-  merchant_discovery: `Establish the merchant contract once. Call get_capabilities if capabilities are not present, then create_session once. A successful session_id means discovery is complete.`,
+  merchant_discovery: `Establish the merchant contract once. Call get_capabilities if capabilities are not present, then create_session once with host_context.requested_location_id and host_context.delivery_serviceability_reference. Catalog search is blocked until that session exists. A successful session_id means discovery is complete.`,
   catalog_resolution: `Set the mission and planning budget when they are not yet reflected in the session. Search each distinct requested item, inspect product details only when needed, and add only returned sellable SKU ids. Preserve every stated constraint, especially the all-in budget.`,
   cart_management: `Build the whole requested cart. Use prior search results from the conversation; search for any missing item, then add or update it. Read the authoritative cart before checkout. If an offer is shown, accept and apply it only when it helps the user's stated mission. Once every requested item is present and the total is within consent, call prepare_checkout.`,
   offer_decision: `Evaluate offers against the mission and authoritative all-in cart total. buyer_impact.amount_minor is the net change to that all-in total; add it once and do not infer another delivery saving. Never apply an offer when the resulting total exceeds the user's mission budget or adds an unwanted item. accept_offer is only a signal; apply_offer performs the atomic cart change. If no offer helps, do not keep discussing it: continue directly to prepare_checkout when the requested cart is complete and within budget.`,
@@ -115,7 +116,7 @@ export function buildSnapshot(opts: {
       label: "trusted AtlasLab Host input",
       requested_location_id: opts.state.location_id ?? DEFAULT_LOCATION_ID,
       delivery_serviceability_reference: DEFAULT_SERVICEABILITY,
-      instruction: "Use these exact opaque values for create_session; do not translate or guess them from the neighborhood name.",
+      instruction: "Pass these exact opaque values on create_session. Do not omit them and do not guess a store from a neighbourhood name.",
     },
     consent_policy_summary: { currency: opts.consent.currency, max_amount_minor: opts.consent.max_amount_minor },
     atlas_contract_version: opts.state.contract_version ?? "atlas.merchant.v1",

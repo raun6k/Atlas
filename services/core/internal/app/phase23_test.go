@@ -189,7 +189,7 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	if cur.SnapshotID != "fix_quickmart_v1" {
 		t.Fatalf("snapshot %s", cur.SnapshotID)
 	}
-	if cur.Digest != "sha256:35ad9efa6b0ff5cff1f4c0394571c6b9e7fdbf948e02d698a6be7b83ff9e15b8" {
+	if cur.Digest != "sha256:063ade0a5a4033666d34908574c3544e8638a33bf21c7aa9a207265086c08d74" {
 		t.Fatalf("digest %s", cur.Digest)
 	}
 	again, err := k.ResetFixtures(ctx)

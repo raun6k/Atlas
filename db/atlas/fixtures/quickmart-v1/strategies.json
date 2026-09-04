@@ -2,61 +2,88 @@
   {
     "strategy_type": "THRESHOLD",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-threshold-2026-09",
+    "priority": 100,
+    "objective_metric": "commercial_margin_minor",
+    "config": {
+      "minimum_cart_value_minor": 49900,
+      "target_increment_minor": 15000,
+      "max_suggestions": 1,
+      "location_aware": true
+    }
   },
   {
     "strategy_type": "PROMOTION",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-promotion-2026-09",
+    "priority": 90,
+    "objective_metric": "promotion_qualification",
+    "config": {
+      "lookahead_quantity": 3,
+      "include_location_scoped": true,
+      "max_suggestions": 2,
+      "prefer_automatic": true
+    }
   },
   {
     "strategy_type": "BUNDLE",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-bundle-2026-09",
+    "priority": 80,
+    "objective_metric": "bundle_completion",
+    "config": {
+      "max_items_to_add": 3,
+      "max_suggestions": 2,
+      "require_all_items_sellable": true,
+      "location_aware": true
+    }
   },
   {
     "strategy_type": "CROSS_SELL",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-cross-sell-2026-09",
+    "priority": 70,
+    "objective_metric": "basket_attach_rate",
+    "config": {
+      "relationship_types": [
+        "USED_WITH",
+        "BUNDLE_COMPATIBLE"
+      ],
+      "max_suggestions": 3,
+      "min_confidence_bps": 7000,
+      "location_aware": true
+    }
   },
   {
     "strategy_type": "COMPLEMENT",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-complement-2026-09",
+    "priority": 60,
+    "objective_metric": "basket_completeness",
+    "config": {
+      "relationship_types": [
+        "COMPLEMENT",
+        "CONSUMED_WITH"
+      ],
+      "max_suggestions": 3,
+      "min_confidence_bps": 7500,
+      "avoid_existing_products": true
+    }
   },
   {
     "strategy_type": "UPSELL",
     "enabled": true,
-    "revision": "",
-    "priority": 0,
-    "objective_metric": "",
-    "config": {},
-    "guardrails": {},
-    "experiment_key": null
+    "revision": "qm-v1-upsell-2026-09",
+    "priority": 50,
+    "objective_metric": "average_order_value_minor",
+    "config": {
+      "relationship_types": [
+        "UPGRADE"
+      ],
+      "max_suggestions": 2,
+      "min_confidence_bps": 7000,
+      "max_increment_minor": 25000,
+      "location_aware": true
+    }
   }
 ]

@@ -218,11 +218,7 @@ export function enrichPublicToolArgs(opts: {
   }
   if (opts.tool === "create_session") {
     if (args.subject_reference == null) args.subject_reference = `lab:${opts.runId}`;
-    if (args.delivery_serviceability_reference == null) args.delivery_serviceability_reference = DEFAULT_SERVICEABILITY;
     if (args.locale == null) args.locale = "";
-    if (args.requested_location_id == null) {
-      args.requested_location_id = opts.state.location_id ?? DEFAULT_LOCATION_ID;
-    }
   }
   if (opts.tool === "set_intent") {
     if (args.mission == null && opts.mission) args.mission = opts.mission;

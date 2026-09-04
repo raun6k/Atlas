@@ -128,6 +128,11 @@ func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceabil
 }
 
 func (k *Kernel) resolveLocation(ctx context.Context, tx pgx.Tx, requested, serviceability string) (string, error) {
+	requested = strings.TrimSpace(requested)
+	serviceability = strings.TrimSpace(serviceability)
+	if requested == "" && serviceability == "" {
+		return "", apperr.New(apperr.InvalidArgument, "delivery location is required")
+	}
 	if requested != "" {
 		var id string
 		var active bool
@@ -139,9 +144,6 @@ func (k *Kernel) resolveLocation(ctx context.Context, tx pgx.Tx, requested, serv
 	}
 	var id string
 	err := tx.QueryRow(ctx, `SELECT location_id FROM locations WHERE serviceability_reference=$1 AND active=TRUE`, serviceability).Scan(&id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		err = tx.QueryRow(ctx, `SELECT location_id FROM locations WHERE is_reference_location=TRUE`).Scan(&id)
-	}
 	if err != nil {
 		return "", apperr.New(apperr.InvalidArgument, "delivery location is not serviceable")
 	}
@@ -518,10 +520,8 @@ func (k *Kernel) GetProduct(ctx context.Context, m Meta, sessionID, productID, l
 	if err != nil {
 		return Envelope{}, ProductView{}, err
 	}
-	loc := locationID
-	if loc == "" {
-		loc = s.LocationID
-	}
+	_ = locationID
+	loc := s.LocationID
 	var p ProductView
 	var diet []byte
 	err = tx.QueryRow(ctx, `SELECT product_id, name, brand, category, subcategory, canonical_description, dietary, lifecycle FROM products WHERE product_id=$1`, productID).

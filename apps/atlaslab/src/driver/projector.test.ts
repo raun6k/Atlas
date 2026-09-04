@@ -85,3 +85,26 @@ test("complete checkout projects the order identifier for follow-up reads", () =
   assert.equal(next.merchant_order_id, "ord_123");
   assert.equal(next.payment_status, "PAYMENT_PROCESSING");
 });
+
+test("create_session does not invent a default neighbourhood", () => {
+  const args = enrichPublicToolArgs({
+    tool: "create_session",
+    args: {},
+    state: {},
+    runId: "run_1",
+  });
+  assert.equal(args.subject_reference, "lab:run_1");
+  assert.equal(args.delivery_serviceability_reference, undefined);
+  assert.equal(args.requested_location_id, undefined);
+});
+
+test("create_session keeps buyer-supplied delivery refs", () => {
+  const args = enrichPublicToolArgs({
+    tool: "create_session",
+    args: { delivery_ref: "blr_bellandur", location_id: "loc_qm_bellandur" },
+    state: {},
+    runId: "run_1",
+  });
+  assert.equal(args.delivery_serviceability_reference, "blr_bellandur");
+  assert.equal(args.requested_location_id, "loc_qm_bellandur");
+});

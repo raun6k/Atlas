@@ -1,1 +1,4 @@
-location_id,name,neighbourhood,city,region_code,country_code,display_address,latitude,longitude,status,timezone,operating_hours_json,fulfillment_modes_json,base_delivery_fee_minor,minimum_order_value_minor,free_delivery_threshold_minor,base_handling_fee_minor,fallback_eta_min_minutes,fallback_eta_max_minutes
+location_id,name,neighbourhood,city,region_code,country_code,display_address,status,timezone,hours_open,hours_close,serviceability_reference
+loc_qm_koramangala,QuickMart Koramangala Dark Store,Koramangala 5th Block,Bengaluru,KA,IN,"5th Block, Koramangala, Bengaluru 560095",active,Asia/Kolkata,06:00,23:30,blr_koramangala_5th_block
+loc_qm_bellandur,QuickMart Bellandur Dark Store,Bellandur,Bengaluru,KA,IN,"Green Glen Layout, Bellandur, Bengaluru 560103",active,Asia/Kolkata,06:00,23:30,blr_bellandur
+loc_qm_indiranagar,QuickMart Indiranagar Dark Store,Indiranagar,Bengaluru,KA,IN,"12th Main Road, Indiranagar, Bengaluru 560038",active,Asia/Kolkata,06:00,23:30,blr_indiranagar

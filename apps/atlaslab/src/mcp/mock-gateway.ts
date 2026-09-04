@@ -132,11 +132,18 @@ export class MockGateway implements McpClient {
           ],
         });
       case "create_session": {
+        const requested = String(req.arguments.requested_location_id ?? req.arguments.location_id ?? "").trim();
+        const serviceability = String(
+          req.arguments.delivery_serviceability_reference ?? req.arguments.delivery_ref ?? "",
+        ).trim();
+        if (!requested && !serviceability) {
+          return this.err(req, "INVALID_ARGUMENT", false);
+        }
         const session_id = `ses_${this.sessions.size + 1}`;
         const cart_id = `cart_${this.sessions.size + 1}`;
-        const location_id = String(
-          req.arguments.requested_location_id ?? req.arguments.location_id ?? "loc_qm_koramangala",
-        );
+        const location_id =
+          requested ||
+          (serviceability === "blr_koramangala_5th_block" ? "loc_qm_koramangala" : serviceability);
         const created: MockSession = {
           session_id,
           cart_id,
@@ -155,11 +162,13 @@ export class MockGateway implements McpClient {
         return this.ok(req, this.sessionPayload(session));
       }
       case "search_catalog": {
+        if (!session) return this.err(req, "INVALID_ARGUMENT", false);
         const q = String(req.arguments.query ?? "").toLowerCase();
         const hits = Object.values(CATALOG).filter((item) => item.query.some((term) => q.includes(term)));
         return this.ok(req, { results: hits });
       }
       case "get_product": {
+        if (!session) return this.err(req, "INVALID_ARGUMENT", false);
         const productId = String(req.arguments.product_id ?? "");
         const skus = Object.values(CATALOG).filter((item) => item.product_id === productId);
         return this.ok(req, { product_id: productId, skus });

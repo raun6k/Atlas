@@ -1,16 +1,41 @@
 [
   {
-    "service_area_id": "",
-    "location_id": "",
-    "name": "",
-    "status": "",
-    "priority": 0,
-    "postal_codes": [],
-    "geometry": null,
-    "delivery_fee_override_minor": null,
-    "minimum_order_value_override_minor": null,
-    "free_delivery_threshold_override_minor": null,
-    "eta_adjustment_min_minutes": 0,
-    "eta_adjustment_max_minutes": 0
+    "service_area_id": "sa_qm_koramangala",
+    "location_id": "loc_qm_koramangala",
+    "name": "Koramangala Service Area",
+    "status": "active",
+    "postal_codes": [
+      "560095",
+      "560034",
+      "560047",
+      "560029",
+      "560030"
+    ]
+  },
+  {
+    "service_area_id": "sa_qm_bellandur",
+    "location_id": "loc_qm_bellandur",
+    "name": "Bellandur Service Area",
+    "status": "active",
+    "postal_codes": [
+      "560103",
+      "560102",
+      "560035",
+      "560087",
+      "560037"
+    ]
+  },
+  {
+    "service_area_id": "sa_qm_indiranagar",
+    "location_id": "loc_qm_indiranagar",
+    "name": "Indiranagar Service Area",
+    "status": "active",
+    "postal_codes": [
+      "560038",
+      "560008",
+      "560017",
+      "560071",
+      "560075"
+    ]
   }
 ]
