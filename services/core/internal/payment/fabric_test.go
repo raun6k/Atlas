@@ -168,6 +168,10 @@ func TestCapturedReconciledRequiresFetchAndBinding(t *testing.T) {
 	if !converted {
 		t.Fatal("expected reservation convert in the confirm transaction")
 	}
+	kinds := auditKindSet(h, res.PaymentAttemptID)
+	if !kinds["PROVIDER_EVIDENCE_EVALUATED"] || !kinds["ASYNC_DECISION_APPLIED"] {
+		t.Fatalf("expected evidence and async audit, got %v", kinds)
+	}
 }
 
 func TestFetchCapturedWithoutBindingStaysNonTerminal(t *testing.T) {
@@ -518,6 +522,32 @@ func TestOutcomeUnknownThenRecoverCancelled(t *testing.T) {
 	if h.attempt(res.PaymentAttemptID).State != StateCancelledVerified {
 		t.Fatalf("got %s", h.attempt(res.PaymentAttemptID).State)
 	}
+}
+
+func TestOutcomeUnknownWritesAsyncDecision(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	_ = h.store.RunInTx(context.Background(), func(tx Tx) error {
+		return h.svc.applyUnknown(tx, a, ReasonPossibleSubmission)
+	})
+	kinds := auditKindSet(h, res.PaymentAttemptID)
+	if !kinds["OUTCOME_UNKNOWN"] || !kinds["ASYNC_DECISION_APPLIED"] {
+		t.Fatalf("expected unknown + async, got %v", kinds)
+	}
+}
+
+func auditKindSet(h *harness, attemptID string) map[string]bool {
+	h.t.Helper()
+	kinds := map[string]bool{}
+	_ = h.store.RunInTx(context.Background(), func(tx Tx) error {
+		for _, e := range tx.ListAudit(attemptID) {
+			kinds[e.Kind] = true
+		}
+		return nil
+	})
+	return kinds
 }
 
 func TestRegisterHook(t *testing.T) {

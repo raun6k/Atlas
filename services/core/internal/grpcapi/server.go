@@ -399,11 +399,7 @@ func (s *Server) ListAuditEvents(ctx context.Context, in *v1.ListAuditEventsRequ
 	}
 	resp := &v1.ListAuditEventsResponse{Envelope: toEnv(env), NextCursor: cursor}
 	for _, e := range events {
-		resp.Events = append(resp.Events, &v1.AuditEvent{
-			AuditEventId: e.ID, RecordSequence: e.Sequence, EventKind: e.Kind, OccurredAt: e.OccurredAt, RequestId: e.RequestID,
-			OperationId: e.OperationID, Action: e.Action, PrimaryResourceType: e.ResourceType, PrimaryResourceId: e.ResourceID,
-			SummarySentence: e.Summary, AttentionCode: e.Attention, EventBodyJson: string(e.BodyJSON),
-		})
+		resp.Events = append(resp.Events, toAuditEvent(e))
 	}
 	return resp, nil
 }
@@ -413,11 +409,34 @@ func (s *Server) GetAuditEvent(ctx context.Context, in *v1.GetAuditEventRequest)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.GetAuditEventResponse{Envelope: toEnv(env), Event: &v1.AuditEvent{
-		AuditEventId: e.ID, RecordSequence: e.Sequence, EventKind: e.Kind, OccurredAt: e.OccurredAt, RequestId: e.RequestID,
-		OperationId: e.OperationID, Action: e.Action, PrimaryResourceType: e.ResourceType, PrimaryResourceId: e.ResourceID,
-		SummarySentence: e.Summary, EventBodyJson: string(e.BodyJSON),
-	}}, nil
+	return &v1.GetAuditEventResponse{Envelope: toEnv(env), Event: toAuditEvent(e)}, nil
+}
+
+func (s *Server) GetOperationTimeline(ctx context.Context, in *v1.GetOperationTimelineRequest) (*v1.GetOperationTimelineResponse, error) {
+	env, events, stages, err := s.K.GetOperationTimeline(ctx, meta(in.Meta), in.OperationId)
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	resp := &v1.GetOperationTimelineResponse{Envelope: toEnv(env)}
+	for _, e := range events {
+		resp.Events = append(resp.Events, toAuditEvent(e))
+	}
+	for _, st := range stages {
+		resp.Stages = append(resp.Stages, &v1.AssuranceStage{Stage: st, Reached: true})
+	}
+	return resp, nil
+}
+
+func (s *Server) GetResourceTimeline(ctx context.Context, in *v1.GetResourceTimelineRequest) (*v1.GetResourceTimelineResponse, error) {
+	env, events, err := s.K.GetResourceTimeline(ctx, meta(in.Meta), in.ResourceType, in.ResourceId)
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	resp := &v1.GetResourceTimelineResponse{Envelope: toEnv(env)}
+	for _, e := range events {
+		resp.Events = append(resp.Events, toAuditEvent(e))
+	}
+	return resp, nil
 }
 
 func (s *Server) CreateAuditExport(ctx context.Context, in *v1.CreateAuditExportRequest) (*v1.CreateAuditExportResponse, error) {
@@ -760,6 +779,14 @@ func toMut(out app.CartMutation) *v1.CartMutationResult {
 
 func toEnv(e app.Envelope) *v1.Envelope {
 	return &v1.Envelope{ContractVersion: e.ContractVersion, RequestId: e.RequestID, OccurredAt: timestamppb.New(e.OccurredAt), OperationId: e.OperationID}
+}
+
+func toAuditEvent(e app.AuditEventView) *v1.AuditEvent {
+	return &v1.AuditEvent{
+		AuditEventId: e.ID, RecordSequence: e.Sequence, EventKind: e.Kind, OccurredAt: e.OccurredAt, RequestId: e.RequestID,
+		OperationId: e.OperationID, Action: e.Action, PrimaryResourceType: e.ResourceType, PrimaryResourceId: e.ResourceID,
+		SummarySentence: e.Summary, AttentionCode: e.Attention, EventBodyJson: string(e.BodyJSON),
+	}
 }
 
 func toSession(s app.SessionSummary) *v1.SessionSummary {

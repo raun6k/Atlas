@@ -358,12 +358,17 @@ func (s *Service) applyUnknown(tx Tx, a PaymentAttempt, reason string) error {
 	}); err != nil {
 		return err
 	}
-	return tx.InsertAudit(AuditEvent{
+	if err := tx.InsertAudit(AuditEvent{
 		AuditEventID: NewAuditID(), Kind: "OUTCOME_UNKNOWN", PaymentAttemptID: a.PaymentAttemptID, OrderID: a.MerchantOrderID,
 		SafeBody: map[string]any{
 			"effect_disposition": DispositionExternalUnknown, "reason_code": reason,
 			"duplicate_attempt_frozen": true, "fulfillment_frozen": true, "hold_release_frozen": true,
 		},
 		OccurredAt: tx.Now(),
+	}); err != nil {
+		return err
+	}
+	return recordAsyncDecision(tx, a, "OUTCOME_UNKNOWN", "Atlas froze this Test Mode payment because the provider outcome is unknown.", map[string]any{
+		"effect_disposition": DispositionExternalUnknown, "reason_code": reason,
 	})
 }

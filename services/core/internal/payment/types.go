@@ -77,6 +77,8 @@ type PaymentAttempt struct {
 	HasWebhookBinding   bool
 	IdempotencyKey      string
 	HostID              string
+	OperationID         string
+	RequestID           string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -161,6 +163,9 @@ type WorkerJob struct {
 	AvailableAt  time.Time
 	AttemptCount int
 	Done         bool
+	Failed       bool
+	OperationID  string
+	LastError    string
 }
 
 type AuditEvent struct {
@@ -172,6 +177,8 @@ type AuditEvent struct {
 	RecordSequence   int64
 	SafeBody         map[string]any
 	OccurredAt       time.Time
+	OperationID      string
+	RequestID        string
 }
 
 const (

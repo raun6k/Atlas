@@ -100,6 +100,8 @@ func (s *Service) AfterPendingOrder(ctx context.Context, in PendingOrder) error 
 			Amount:              Money{in.AmountMinor, in.Currency},
 			IdempotencyKey:      in.IdempotencyKey,
 			HostID:              in.HostID,
+			OperationID:         in.OperationID,
+			RequestID:           in.RequestID,
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}); err != nil {
@@ -113,6 +115,7 @@ func (s *Service) AfterPendingOrder(ctx context.Context, in PendingOrder) error 
 			}),
 			DedupKey:    "create-order:" + in.PaymentAttemptID,
 			AvailableAt: now,
+			OperationID: in.OperationID,
 		}); err != nil {
 			return err
 		}

@@ -33,8 +33,9 @@ func (k *Kernel) beginMutation(ctx context.Context, m Meta, scope string, input 
 	}
 	op := newOp()
 	if m.ApprovedHostID != "" {
-		if _, err := k.hostStatus(ctx, tx, m.ApprovedHostID); err != nil {
+		if err := k.assertHostGate(ctx, tx, m); err != nil {
 			_ = tx.Rollback(ctx)
+			k.recordGateDecision(ctx, m, op, "", "", "DENY", gateReasonCodes(err), "Atlas denied the Approved Host before the command ran.")
 			return nil, nil, "", err
 		}
 	}
@@ -52,6 +53,7 @@ func (k *Kernel) beginMutation(ctx context.Context, m Meta, scope string, input 
 	if !m.SkipProof && m.ApprovedHostID != "" {
 		if _, err := trust.VerifyHostProof(ctx, tx, m.HostRequestProof, m.ApprovedHostID, m.Tool, m.RequestID, m.IdempotencyKey, m.Arguments, k.Now(), k.Cfg.HostAudience, k.Cfg.HostProofTTL); err != nil {
 			_ = tx.Rollback(ctx)
+			k.recordGateDecision(ctx, m, op, "", "", "DENY", gateReasonCodes(err), "Atlas denied the Approved Host because the request proof did not verify.")
 			return nil, nil, "", err
 		}
 	}
@@ -369,7 +371,7 @@ func (k *Kernel) skuPriceQty(ctx context.Context, tx pgx.Tx, locationID, skuID s
 	if err != nil {
 		return "", "", 0, 0, err
 	}
-	if lifecycle != "sellable" || !assorted || stock == "out_of_stock" {
+	if (lifecycle != "sellable" && lifecycle != "active") || !assorted || stock == "out_of_stock" {
 		return "", "", 0, 0, apperr.New(apperr.ItemUnavailable, "SKU is not sellable")
 	}
 	return productID, name, price, inventory.Sellable(onHand, reserved, buffer), nil

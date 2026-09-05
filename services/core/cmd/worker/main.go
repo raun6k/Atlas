@@ -68,6 +68,9 @@ func main() {
 		}
 		if jobErr != nil {
 			log.Printf("job %s %s: %v", jobType, jobID, jobErr)
+			if err := jobs.Fail(ctx, db, jobID, jobErr); err != nil {
+				log.Printf("job fail persist %s: %v", jobID, err)
+			}
 			continue
 		}
 		_ = jobs.Complete(ctx, db, jobID)

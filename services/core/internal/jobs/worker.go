@@ -86,7 +86,7 @@ func GenerateExport(ctx context.Context, db *store.DB, exportID, outDir string) 
 		return err
 	}
 	_, _ = tx.Exec(ctx, `UPDATE audit_exports SET status='GENERATING' WHERE export_id=$1`, exportID)
-	rows, err := tx.Query(ctx, `SELECT audit_event_id, record_sequence, event_kind, occurred_at, COALESCE(action,''), COALESCE(summary_sentence,'') FROM audit_events WHERE record_sequence <= $1 ORDER BY record_sequence LIMIT 10000`, maxSeq)
+	rows, err := tx.Query(ctx, `SELECT audit_event_id, record_sequence, event_kind, occurred_at::text, COALESCE(action,''), COALESCE(summary_sentence,'') FROM audit_events WHERE record_sequence <= $1 ORDER BY record_sequence LIMIT 10000`, maxSeq)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,19 @@ func Claim(ctx context.Context, db *store.DB, workerID string, types []string, l
 }
 
 func Complete(ctx context.Context, db *store.DB, jobID string) error {
-	_, err := db.Pool.Exec(ctx, `UPDATE jobs SET status='COMPLETED' WHERE job_id=$1`, jobID)
+	_, err := db.Pool.Exec(ctx, `UPDATE jobs SET status='COMPLETED', last_error=NULL WHERE job_id=$1`, jobID)
+	return err
+}
+
+func Fail(ctx context.Context, db *store.DB, jobID string, jobErr error) error {
+	msg := "job failed"
+	if jobErr != nil {
+		msg = jobErr.Error()
+		if len(msg) > 2000 {
+			msg = msg[:2000]
+		}
+	}
+	_, err := db.Pool.Exec(ctx, `UPDATE jobs SET status='FAILED', last_error=$2, lease_owner=NULL, lease_expires_at=NULL WHERE job_id=$1`, jobID, msg)
 	return err
 }
 

@@ -50,20 +50,20 @@ type Envelope struct {
 }
 
 type SessionSummary struct {
-	SessionID              string
-	SessionContextVersion  int64
-	LocationID             string
-	Status                 string
-	CartID                 string
-	CartVersion            int64
-	PlanningBudgetMinor    int64
-	HasBudget              bool
-	Mission                string
-	Currency               string
-	HostID                 string
-	SubjectReference       string
-	EvaluationArm          string
-	Constraints            map[string]string
+	SessionID             string
+	SessionContextVersion int64
+	LocationID            string
+	Status                string
+	CartID                string
+	CartVersion           int64
+	PlanningBudgetMinor   int64
+	HasBudget             bool
+	Mission               string
+	Currency              string
+	HostID                string
+	SubjectReference      string
+	EvaluationArm         string
+	Constraints           map[string]string
 }
 
 type CartView struct {
@@ -96,18 +96,18 @@ type TotalsView struct {
 }
 
 type OfferView struct {
-	OfferID                string
-	StrategyType           string
-	SessionContextVersion  int64
-	CartVersion            int64
-	ExpiresAt              time.Time
-	Status                 string
-	GroundedReason         string
-	Terms                  string
-	PatchJSON              []byte
-	BuyerImpactMinor       int64
-	BaseAllInMinor         int64
-	PatchedAllInMinor      int64
+	OfferID               string
+	StrategyType          string
+	SessionContextVersion int64
+	CartVersion           int64
+	ExpiresAt             time.Time
+	Status                string
+	GroundedReason        string
+	Terms                 string
+	PatchJSON             []byte
+	BuyerImpactMinor      int64
+	BaseAllInMinor        int64
+	PatchedAllInMinor     int64
 }
 
 type CartMutation struct {

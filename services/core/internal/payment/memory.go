@@ -304,6 +304,14 @@ func (t *memTx) ListJobs() []WorkerJob {
 }
 
 func (t *memTx) InsertAudit(e AuditEvent) error {
+	if e.OperationID == "" && e.PaymentAttemptID != "" {
+		if a, ok := t.store.attempts[e.PaymentAttemptID]; ok {
+			e.OperationID = a.OperationID
+			if e.RequestID == "" {
+				e.RequestID = a.RequestID
+			}
+		}
+	}
 	e.RecordSequence = t.NextRecordSequence()
 	t.store.audits = append(t.store.audits, e)
 	return nil

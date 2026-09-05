@@ -36,6 +36,8 @@ func LoadDir(ctx context.Context, db *store.DB, fixtureDir, hostPEMPath string) 
 			execution_passports, policy_decisions, reservations, checkout_proposals,
 			offer_events, offers, opportunity_candidates, cart_lines, carts, shopping_sessions,
 			replay_nonces, idempotency_records, audit_events, audit_exports, jobs, outbox_events,
+			payment_audit_events, payment_hold_flags, provider_reconciliations, provider_events,
+			test_runner_jobs, refund_reservations, refunds, payment_attempts,
 			inventory, prices, product_relationships, bundles, promotions, commercial_strategies,
 			search_events, buyer_routine_items, buyer_routines, buyer_order_lines, buyer_orders,
 			campaigns, buyers, service_areas, skus, products, locations, merchant_profile, host_keys, approved_hosts,

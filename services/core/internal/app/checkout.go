@@ -220,12 +220,14 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 	}
 	auth, err := trust.VerifyCheckoutAuthority(ctx, tx, authority, m.ApprovedHostID, proposalID, quoteHash, "pcap_razorpay_test", amount, "INR", k.Now(), k.Cfg.HostAudience, k.Cfg.CheckoutAuthorityTTL)
 	if err != nil {
+		k.recordGateDecision(ctx, m, op, sessionID, proposalID, "DENY", gateReasonCodes(err), "Atlas denied complete checkout because checkout authority did not verify.")
 		return Envelope{}, OrderView{}, err
 	}
 	_ = auth
-	polID := ids.New(ids.Policy)
-	if _, err := tx.Exec(ctx, `INSERT INTO policy_decisions (policy_decision_id, session_id, checkout_proposal_id, result, reason_codes, revision, input_digest) VALUES ($1,$2,$3,'ALLOW',ARRAY['TRUST_GATE_ALLOW'],'tg_v1',$4)`,
-		polID, sessionID, proposalID, quoteHash); err != nil {
+	polID, err := insertAllowPolicy(ctx, tx, m, op, sessionID, proposalID, quoteHash, []string{
+		"HOST_ACTIVE", "PROOF_VALID", "AUTHORITY_VALID", "AMOUNT_BOUND", "CAPABILITY_TEST", "TRUST_GATE_ALLOW",
+	})
+	if err != nil {
 		return Envelope{}, OrderView{}, err
 	}
 	passID := ids.New(ids.Passport)

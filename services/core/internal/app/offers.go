@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"atlas.dev/core/internal/apperr"
+	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/cart"
 	"atlas.dev/core/internal/commerce"
 	"atlas.dev/core/internal/ids"
@@ -58,13 +59,13 @@ func (k *Kernel) currentOffers(ctx context.Context, tx pgx.Tx, s SessionSummary)
 	return out, rows.Err()
 }
 
-func (k *Kernel) writeOfferEvent(ctx context.Context, tx pgx.Tx, offerID, eventType string, payload map[string]any) error {
+func (k *Kernel) writeOfferEvent(ctx context.Context, tx pgx.Tx, offerID, eventType string, payload map[string]any, requestID, operationID string) error {
 	if offerID == "" {
 		return nil
 	}
 	body, _ := json.Marshal(payload)
-	_, err := tx.Exec(ctx, `INSERT INTO offer_events (offer_event_id, offer_id, event_type, payload) VALUES ($1,$2,$3,$4)`,
-		ids.New(ids.OfferEvent), offerID, eventType, body)
+	_, err := tx.Exec(ctx, `INSERT INTO offer_events (offer_event_id, offer_id, event_type, payload, request_id, operation_id) VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''))`,
+		ids.New(ids.OfferEvent), offerID, eventType, body, requestID, operationID)
 	return err
 }
 
@@ -179,7 +180,7 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 	return cctx, in, nil
 }
 
-func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) ([]OfferView, []string, error) {
+func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface, requestID, operationID string) ([]OfferView, []string, error) {
 	cctx, in, err := k.commerceInputs(ctx, tx, s, cv, surface)
 	if err != nil {
 		return nil, nil, err
@@ -187,9 +188,10 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 	if !anyStrategyEnabled(cctx.Enabled) {
 		return nil, nil, nil
 	}
-	cands := commerce.Select(cctx, in)
+	cands, dropped := commerce.SelectTrace(cctx, in)
 	exp := k.Now().Add(k.Cfg.OfferTTL)
 	var views []OfferView
+	var shown []map[string]any
 	for i, c := range cands {
 		oid := ids.New(ids.Offer)
 		cid := ids.New(ids.Candidate)
@@ -211,16 +213,42 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 		}
 		if err := k.writeOfferEvent(ctx, tx, oid, "OFFER_SHOWN", map[string]any{
 			"display_order": i, "session_id": s.SessionID, "cart_version": s.CartVersion, "strategy": c.Strategy,
-		}); err != nil {
+		}, requestID, operationID); err != nil {
 			return nil, nil, err
 		}
+		shown = append(shown, map[string]any{
+			"offer_id": oid, "strategy": c.Strategy, "eligibility": c.Eligibility, "display_order": i, "drop_reason": "",
+		})
 		views = append(views, OfferView{
 			OfferID: oid, StrategyType: c.Strategy, SessionContextVersion: s.SessionContextVersion, CartVersion: s.CartVersion,
 			ExpiresAt: exp, Status: "SHOWN", GroundedReason: c.Reason, Terms: c.Terms, PatchJSON: patch, BuyerImpactMinor: c.BuyerImpact,
 			BaseAllInMinor: c.BaseAllInMinor, PatchedAllInMinor: c.PatchedAllIn,
 		})
 	}
+	var droppedPublic []map[string]any
+	for _, d := range dropped {
+		droppedPublic = append(droppedPublic, map[string]any{
+			"strategy": d.Strategy, "eligibility": d.Eligibility, "drop_reason": d.Reason,
+		})
+	}
+	if err := k.recordCommercialDecision(ctx, tx, requestID, operationID, s.SessionID, surface, shown, droppedPublic); err != nil {
+		return nil, nil, err
+	}
 	return views, nil, nil
+}
+
+func (k *Kernel) recordCommercialDecision(ctx context.Context, tx pgx.Tx, requestID, operationID, sessionID, surface string, shown, dropped []map[string]any) error {
+	if requestID == "" && operationID == "" {
+		return nil
+	}
+	body := map[string]any{"surface": surface, "session_id": sessionID, "shown": shown, "dropped": dropped}
+	_, err := audit.Append(ctx, tx, audit.Event{
+		Kind: "COMMERCIAL_DECISION_RECORDED", RequestID: requestID, OperationID: operationID,
+		PrincipalType: "ATLAS_SYSTEM", Channel: "mcp", Action: "select_offers",
+		ResourceType: "session", ResourceID: sessionID, Body: body,
+		Summary: "Atlas recorded why commercial offers were shown or dropped.",
+	})
+	return err
 }
 
 func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID string, expectedSession, expectedCart int64) (CartMutation, error) {
@@ -280,7 +308,7 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		}
 		if err := k.writeOfferEvent(ctx, tx, offerID, "OFFER_APPLIED", map[string]any{
 			"session_id": sessionID, "buyer_impact_minor": sim.BuyerImpact, "strategy": strategy,
-		}); err != nil {
+		}, m.RequestID, ""); err != nil {
 			return err
 		}
 		appliedQty := 0

@@ -52,13 +52,13 @@ func (t *pgTx) NextRecordSequence() int64 {
 
 func scanAttempt(row pgx.Row) (PaymentAttempt, error) {
 	var a PaymentAttempt
-	var rzpOrder, rzpPay, effect, reason *string
+	var rzpOrder, rzpPay, effect, reason, opID, reqID *string
 	err := row.Scan(
 		&a.PaymentAttemptID, &a.CheckoutProposalID, &a.MerchantOrderID, &a.ExecutionPassportID,
 		&a.CapabilityID, &a.State, &a.Version, &a.Amount.AmountMinor, &a.Amount.Currency,
 		&rzpOrder, &rzpPay, &a.DuplicateFrozen, &a.FulfillmentFrozen, &a.HoldReleaseFrozen,
 		&effect, &reason, &a.HasCallbackBinding, &a.HasWebhookBinding,
-		&a.IdempotencyKey, &a.HostID, &a.CreatedAt, &a.UpdatedAt,
+		&a.IdempotencyKey, &a.HostID, &a.CreatedAt, &a.UpdatedAt, &opID, &reqID,
 	)
 	if err != nil {
 		return PaymentAttempt{}, err
@@ -75,13 +75,20 @@ func scanAttempt(row pgx.Row) (PaymentAttempt, error) {
 	if reason != nil {
 		a.ReasonCode = *reason
 	}
+	if opID != nil {
+		a.OperationID = *opID
+	}
+	if reqID != nil {
+		a.RequestID = *reqID
+	}
 	return a, nil
 }
 
 const attemptCols = `payment_attempt_id, checkout_proposal_id, merchant_order_id, execution_passport_id,
 	capability_id, state, version, amount_minor, currency, razorpay_order_id, razorpay_payment_id,
 	duplicate_attempt_frozen, fulfillment_frozen, hold_release_frozen, effect_disposition, reason_code,
-	has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at`
+	has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at,
+	COALESCE(operation_id,''), COALESCE(request_id,'')`
 
 func (t *pgTx) GetAttemptByID(id string) (PaymentAttempt, bool) {
 	a, err := scanAttempt(t.tx.QueryRow(t.ctx, `SELECT `+attemptCols+` FROM payment_attempts WHERE payment_attempt_id=$1`, id))
@@ -124,13 +131,14 @@ func (t *pgTx) InsertAttempt(a PaymentAttempt) error {
 			payment_attempt_id, checkout_proposal_id, merchant_order_id, execution_passport_id,
 			capability_id, state, version, amount_minor, currency, razorpay_order_id, razorpay_payment_id,
 			duplicate_attempt_frozen, fulfillment_frozen, hold_release_frozen, effect_disposition, reason_code,
-			has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),NULLIF($11,''),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+			has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at,
+			operation_id, request_id
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),NULLIF($11,''),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NULLIF($23,''),NULLIF($24,''))`,
 		a.PaymentAttemptID, a.CheckoutProposalID, a.MerchantOrderID, a.ExecutionPassportID,
 		a.CapabilityID, string(a.State), a.Version, a.Amount.AmountMinor, a.Amount.Currency,
 		a.RazorpayOrderID, a.RazorpayPaymentID, a.DuplicateFrozen, a.FulfillmentFrozen, a.HoldReleaseFrozen,
 		nullIfEmpty(a.EffectDisposition), nullIfEmpty(a.ReasonCode), a.HasCallbackBinding, a.HasWebhookBinding,
-		a.IdempotencyKey, a.HostID, a.CreatedAt, a.UpdatedAt,
+		a.IdempotencyKey, a.HostID, a.CreatedAt, a.UpdatedAt, a.OperationID, a.RequestID,
 	)
 	return err
 }
@@ -410,10 +418,10 @@ func (t *pgTx) EnqueueJob(j WorkerJob) error {
 		payload = []byte(`{}`)
 	}
 	_, err := t.tx.Exec(t.ctx, `
-		INSERT INTO jobs (job_id, job_type, payload, dedupe_key, status, available_at)
-		VALUES ($1,$2,$3::jsonb,NULLIF($4,''),'PENDING',$5)
+		INSERT INTO jobs (job_id, job_type, payload, operation_id, dedupe_key, status, available_at)
+		VALUES ($1,$2,$3::jsonb,NULLIF($4,''),NULLIF($5,''),'PENDING',$6)
 		ON CONFLICT (dedupe_key) DO NOTHING`,
-		j.JobID, j.Type, payload, j.DedupKey, j.AvailableAt,
+		j.JobID, j.Type, payload, j.OperationID, j.DedupKey, j.AvailableAt,
 	)
 	return err
 }
@@ -467,17 +475,25 @@ func (t *pgTx) ListJobs() []WorkerJob {
 }
 
 func (t *pgTx) InsertAudit(e AuditEvent) error {
+	if e.OperationID == "" && e.PaymentAttemptID != "" {
+		if a, ok := t.GetAttemptByID(e.PaymentAttemptID); ok {
+			e.OperationID = a.OperationID
+			if e.RequestID == "" {
+				e.RequestID = a.RequestID
+			}
+		}
+	}
 	body, _ := json.Marshal(e.SafeBody)
 	_, err := t.tx.Exec(t.ctx, `
-		INSERT INTO payment_audit_events (audit_event_id, kind, payment_attempt_id, order_id, refund_id, safe_body, occurred_at)
-		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7)`,
-		e.AuditEventID, e.Kind, nullIfEmpty(e.PaymentAttemptID), nullIfEmpty(e.OrderID), nullIfEmpty(e.RefundID), body, e.OccurredAt,
+		INSERT INTO payment_audit_events (audit_event_id, kind, payment_attempt_id, order_id, refund_id, safe_body, occurred_at, operation_id, request_id)
+		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,NULLIF($8,''),NULLIF($9,''))`,
+		e.AuditEventID, e.Kind, nullIfEmpty(e.PaymentAttemptID), nullIfEmpty(e.OrderID), nullIfEmpty(e.RefundID), body, e.OccurredAt, e.OperationID, e.RequestID,
 	)
 	return err
 }
 
 func (t *pgTx) ListAudit(attemptID string) []AuditEvent {
-	rows, err := t.tx.Query(t.ctx, `SELECT audit_event_id, kind, COALESCE(payment_attempt_id,''), COALESCE(order_id,''), COALESCE(refund_id,''), safe_body, occurred_at, record_sequence FROM payment_audit_events WHERE payment_attempt_id=$1 ORDER BY record_sequence`, attemptID)
+	rows, err := t.tx.Query(t.ctx, `SELECT audit_event_id, kind, COALESCE(payment_attempt_id,''), COALESCE(order_id,''), COALESCE(refund_id,''), safe_body, occurred_at, record_sequence, COALESCE(operation_id,''), COALESCE(request_id,'') FROM payment_audit_events WHERE payment_attempt_id=$1 ORDER BY record_sequence`, attemptID)
 	if err != nil {
 		return nil
 	}
@@ -486,7 +502,7 @@ func (t *pgTx) ListAudit(attemptID string) []AuditEvent {
 	for rows.Next() {
 		var e AuditEvent
 		var body []byte
-		if err := rows.Scan(&e.AuditEventID, &e.Kind, &e.PaymentAttemptID, &e.OrderID, &e.RefundID, &body, &e.OccurredAt, &e.RecordSequence); err == nil {
+		if err := rows.Scan(&e.AuditEventID, &e.Kind, &e.PaymentAttemptID, &e.OrderID, &e.RefundID, &body, &e.OccurredAt, &e.RecordSequence, &e.OperationID, &e.RequestID); err == nil {
 			_ = json.Unmarshal(body, &e.SafeBody)
 			out = append(out, e)
 		}

@@ -206,7 +206,7 @@ func (k *Kernel) SetIntent(ctx context.Context, m Meta, sessionID string, expect
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, "set_intent")
+	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, "set_intent", m.RequestID, op)
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -402,7 +402,7 @@ func (k *Kernel) mutateCart(ctx context.Context, m Meta, tool, sessionID, cartID
 	if err != nil {
 		return CartMutation{}, err
 	}
-	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, tool)
+	offers, _, err := k.regenerateOffers(ctx, tx, session, cv, tool, m.RequestID, op)
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -506,7 +506,7 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 		if _, err := k.invalidateOffers(ctx, tx, s.SessionID, "search_catalog"); err != nil {
 			return Envelope{}, nil, "", nil, err
 		}
-		offers, _, err = k.regenerateOffers(ctx, tx, s, cv, "search_catalog")
+		offers, _, err = k.regenerateOffers(ctx, tx, s, cv, "search_catalog", m.RequestID, "")
 		if err != nil {
 			return Envelope{}, nil, "", nil, err
 		}

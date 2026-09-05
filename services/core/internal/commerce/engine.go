@@ -23,6 +23,13 @@ type Candidate struct {
 	Eligibility    string
 }
 
+// Drop is a public commercial decision without private scores.
+type Drop struct {
+	Strategy    string
+	Eligibility string
+	Reason      string
+}
+
 type OfferEconomics struct {
 	ItemCostMinor     int64 `json:"item_cost_minor,omitempty"`
 	ThresholdGapMinor int64 `json:"threshold_gap_minor,omitempty"`
@@ -110,8 +117,13 @@ var strategyOrder = []string{
 }
 
 func Select(ctx Context, in Inputs) []Candidate {
+	shown, _ := SelectTrace(ctx, in)
+	return shown
+}
+
+func SelectTrace(ctx Context, in Inputs) ([]Candidate, []Drop) {
 	if ctx.EvaluationArm == "CONTROL" {
-		return nil
+		return nil, []Drop{{Reason: "CONTROL_ARM"}}
 	}
 	if ctx.Now.IsZero() {
 		ctx.Now = time.Now().UTC()
@@ -127,21 +139,27 @@ func Select(ctx Context, in Inputs) []Candidate {
 		}
 	}
 	var scored []Candidate
+	var dropped []Drop
 	for _, c := range raw {
 		if len(c.Patch.Lines) == 0 {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Reason: "EMPTY_PATCH"})
 			continue
 		}
 		if !constraintOK(ctx, in, c) {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Reason: "CONSTRAINT"})
 			continue
 		}
 		sim, err := Simulate(ctx, in, c, ctx.Now)
 		if err != nil {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Reason: "SIMULATE_FAILED"})
 			continue
 		}
 		if sim.Eligibility != "OK" {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: sim.Eligibility, Reason: sim.Eligibility})
 			continue
 		}
 		if c.Relevance <= 0 && sim.Rank <= 0 {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: sim.Eligibility, Reason: "RANK_ZERO"})
 			continue
 		}
 		c.BuyerImpact = sim.BuyerImpact
@@ -168,7 +186,8 @@ func Select(ctx Context, in Inputs) []Candidate {
 		}
 		return candidateKey(scored[i]) < candidateKey(scored[j])
 	})
-	return conflictFilter(scored, 3)
+	shown, extra := conflictFilter(scored, 3)
+	return shown, append(dropped, extra...)
 }
 
 func strategyIndex(s string) int {
@@ -221,13 +240,19 @@ func skuIDs(skus map[string]CatalogSKU) []string {
 	return ids
 }
 
-func conflictFilter(in []Candidate, n int) []Candidate {
+func conflictFilter(in []Candidate, n int) ([]Candidate, []Drop) {
 	usedSKU := map[string]bool{}
 	usedStrat := map[string]bool{}
 	usedSource := map[string]bool{}
 	var out []Candidate
+	var dropped []Drop
 	for _, c := range in {
+		if len(out) >= n {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: c.Eligibility, Reason: "SLOT_CAP"})
+			continue
+		}
 		if usedStrat[c.Strategy] {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: c.Eligibility, Reason: "STRATEGY_DUP"})
 			continue
 		}
 		conflict := false
@@ -241,6 +266,7 @@ func conflictFilter(in []Candidate, n int) []Candidate {
 			}
 		}
 		if conflict {
+			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: c.Eligibility, Reason: "CONFLICT"})
 			continue
 		}
 		usedStrat[c.Strategy] = true
@@ -251,11 +277,8 @@ func conflictFilter(in []Candidate, n int) []Candidate {
 			usedSKU[l.SKUID] = true
 		}
 		out = append(out, c)
-		if len(out) >= n {
-			break
-		}
 	}
-	return out
+	return out, dropped
 }
 
 func contains(ids []string, id string) bool {

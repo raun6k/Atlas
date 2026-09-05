@@ -33,11 +33,11 @@ func TestHostSecurityNegatives(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "sku_qm_eggs_white_6", "quantity": int32(1)}
+	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-SNK-0001-A", "quantity": int32(1)}
 
 	t.Run("missing_proof", func(t *testing.T) {
 		m := app.Meta{RequestID: rid(), IdempotencyKey: rid(), ApprovedHostID: host, Tool: "add_cart_item", Arguments: addArgs, RequireIdempotency: true}
-		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN got %v", err)
 		}
@@ -46,7 +46,7 @@ func TestHostSecurityNegatives(t *testing.T) {
 	t.Run("bad_audience", func(t *testing.T) {
 		m := signed(t, priv, host, "add_cart_item", addArgs)
 		m.HostRequestProof = signProof(t, priv, host, "add_cart_item", m.RequestID, m.IdempotencyKey, addArgs, proofOpts{audience: "not-atlas"})
-		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN got %v", err)
 		}
@@ -55,7 +55,7 @@ func TestHostSecurityNegatives(t *testing.T) {
 	t.Run("expired_proof", func(t *testing.T) {
 		m := signed(t, priv, host, "add_cart_item", addArgs)
 		m.HostRequestProof = signProof(t, priv, host, "add_cart_item", m.RequestID, m.IdempotencyKey, addArgs, proofOpts{expired: true})
-		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN got %v", err)
 		}
@@ -63,8 +63,8 @@ func TestHostSecurityNegatives(t *testing.T) {
 
 	t.Run("digest_mismatch", func(t *testing.T) {
 		m := signed(t, priv, host, "add_cart_item", addArgs)
-		m.Arguments = map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "sku_qm_banana_500g", "quantity": int32(1)}
-		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+		m.Arguments = map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-SNK-0003-B", "quantity": int32(1)}
+		_, err := k.AddItem(ctx, m, created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN got %v", err)
 		}
@@ -74,13 +74,13 @@ func TestHostSecurityNegatives(t *testing.T) {
 		nonce := rid()
 		m1 := signed(t, priv, host, "add_cart_item", addArgs)
 		m1.HostRequestProof = signProof(t, priv, host, "add_cart_item", m1.RequestID, m1.IdempotencyKey, addArgs, proofOpts{jti: nonce})
-		if _, err := k.AddItem(ctx, m1, created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1); err != nil {
+		if _, err := k.AddItem(ctx, m1, created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1); err != nil {
 			t.Fatal(err)
 		}
-		addArgs2 := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(1), "sku_id": "sku_qm_banana_500g", "quantity": int32(1)}
+		addArgs2 := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(1), "sku_id": "QM-SNK-0003-B", "quantity": int32(1)}
 		m2 := signed(t, priv, host, "add_cart_item", addArgs2)
 		m2.HostRequestProof = signProof(t, priv, host, "add_cart_item", m2.RequestID, m2.IdempotencyKey, addArgs2, proofOpts{jti: nonce})
-		_, err := k.AddItem(ctx, m2, created.Session.SessionID, created.Session.CartID, 1, "sku_qm_banana_500g", 1)
+		_, err := k.AddItem(ctx, m2, created.Session.SessionID, created.Session.CartID, 1, "QM-SNK-0003-B", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN replay got %v", err)
 		}
@@ -93,7 +93,7 @@ func TestHostSecurityNegatives(t *testing.T) {
 		defer func() {
 			_, _ = k.Pool().Exec(ctx, `UPDATE host_keys SET status='ACTIVE' WHERE key_id='host_atlaslab_test_key'`)
 		}()
-		_, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+		_, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 		if !apperr.Is(err, apperr.HostForbidden) {
 			t.Fatalf("want HOST_FORBIDDEN revoked got %v", err)
 		}
@@ -207,12 +207,12 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "sku_qm_eggs_white_6", "quantity": int32(1)}
-	cart, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "sku_qm_eggs_white_6", 1)
+	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-SNK-0001-A", "quantity": int32(1)}
+	cart, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "QM-SNK-0001-A", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.Pool().Exec(ctx, `UPDATE inventory SET on_hand_quantity = reserved_quantity + safety_buffer WHERE sku_id='sku_qm_eggs_white_6' AND location_id=$1`, created.Session.LocationID); err != nil {
+	if _, err := k.Pool().Exec(ctx, `UPDATE inventory SET on_hand_quantity = reserved_quantity + safety_buffer WHERE sku_id='QM-SNK-0001-A' AND location_id=$1`, created.Session.LocationID); err != nil {
 		t.Fatal(err)
 	}
 	prepArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
@@ -221,7 +221,7 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 		t.Fatalf("want INVENTORY_CHANGED hold failure got %v", err)
 	}
 	var reserved int
-	if err := k.Pool().QueryRow(ctx, `SELECT reserved_quantity FROM inventory WHERE sku_id='sku_qm_eggs_white_6' AND location_id=$1`, created.Session.LocationID).Scan(&reserved); err != nil {
+	if err := k.Pool().QueryRow(ctx, `SELECT reserved_quantity FROM inventory WHERE sku_id='QM-SNK-0001-A' AND location_id=$1`, created.Session.LocationID).Scan(&reserved); err != nil {
 		t.Fatal(err)
 	}
 	if reserved != 0 {
@@ -276,9 +276,9 @@ func TestAuthorityAmountMismatchAndPromptSafety(t *testing.T) {
 		}
 		return out
 	}
-	c1 := add("sku_qm_eggs_white_6", 0)
-	c2 := add("sku_qm_britannia_white_400g", c1.Session.CartVersion)
-	cart := add("sku_qm_banana_500g", c2.Session.CartVersion)
+	c1 := add("QM-SNK-0001-A", 0)
+	c2 := add("QM-SNK-0002-B", c1.Session.CartVersion)
+	cart := add("QM-SNK-0003-B", c2.Session.CartVersion)
 	prepArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
 	_, _, _, prop, err := k.PrepareCheckout(ctx, signed(t, priv, host, "prepare_checkout", prepArgs), created.Session.SessionID, created.Session.CartID, cart.Session.SessionContextVersion, cart.Cart.Version)
 	if err != nil {

@@ -104,6 +104,9 @@ func (s *Service) ReconcilePayment(ctx context.Context, attemptID string) error 
 				if err := s.recordReconcile(tx, a, captured.Status, "WAITING_EVENT_BINDING", "fetch shows captured but no authenticated callback/webhook binding"); err != nil {
 					return err
 				}
+				if err := recordEvidence(tx, a, "WAITING_EVENT_BINDING", "fetch shows captured but no authenticated callback/webhook binding", captured.Status); err != nil {
+					return err
+				}
 				if a.State != StateOutcomeUnknown {
 					a.State = StateReconciling
 				}
@@ -191,6 +194,14 @@ func (s *Service) confirmCaptured(tx Tx, a PaymentAttempt, p provider.Payment, o
 	if err := s.recordReconcile(tx, a, p.Status, "CAPTURED_RECONCILED", ""); err != nil {
 		return err
 	}
+	if err := recordEvidence(tx, a, "CAPTURED_RECONCILED", "", p.Status); err != nil {
+		return err
+	}
+	if err := recordAsyncDecision(tx, a, "", "Atlas applied a captured Test Mode payment after provider fetch and event binding.", map[string]any{
+		"razorpay_payment_id": p.ID, "order_id": mo.OrderID,
+	}); err != nil {
+		return err
+	}
 	return tx.InsertAudit(AuditEvent{
 		AuditEventID: NewAuditID(), Kind: "ORDER_CONFIRMED",
 		PaymentAttemptID: a.PaymentAttemptID, OrderID: mo.OrderID,
@@ -219,11 +230,19 @@ func (s *Service) failVerified(tx Tx, a PaymentAttempt, terminal State) error {
 			return err
 		}
 	}
-	return tx.InsertAudit(AuditEvent{
+	if err := tx.InsertAudit(AuditEvent{
 		AuditEventID: NewAuditID(), Kind: string(terminal),
 		PaymentAttemptID: a.PaymentAttemptID, OrderID: a.MerchantOrderID,
 		SafeBody:   map[string]any{"proven_no_captured_payment": true},
 		OccurredAt: tx.Now(),
+	}); err != nil {
+		return err
+	}
+	if err := recordEvidence(tx, a, string(terminal), "provider fetch proves no captured payment", string(terminal)); err != nil {
+		return err
+	}
+	return recordAsyncDecision(tx, a, "", "Atlas applied a verified Test Mode payment failure.", map[string]any{
+		"proven_no_captured_payment": true, "terminal": string(terminal),
 	})
 }
 

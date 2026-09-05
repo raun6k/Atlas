@@ -58,6 +58,7 @@ func (k *Kernel) ListAuditEvents(ctx context.Context, m Meta, kind, resourceType
 		if err := rows.Scan(&e.ID, &e.Sequence, &e.Kind, &e.OccurredAt, &e.RequestID, &e.OperationID, &e.Action, &e.ResourceType, &e.ResourceID, &e.Summary, &e.Attention, &e.BodyJSON); err != nil {
 			return Envelope{}, nil, "", err
 		}
+		e.BodyJSON = redactPrivateJSON(e.BodyJSON)
 		out = append(out, e)
 	}
 	var cursor string
@@ -81,6 +82,7 @@ func (k *Kernel) GetAuditEvent(ctx context.Context, m Meta, id string) (Envelope
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Envelope{}, AuditEventView{}, apperr.New(apperr.NotFound, "audit event not found")
 	}
+	e.BodyJSON = redactPrivateJSON(e.BodyJSON)
 	return k.withRequest(k.env(), m.RequestID, ""), e, err
 }
 
@@ -131,16 +133,18 @@ func (k *Kernel) Attention(ctx context.Context, m Meta) (Envelope, map[string]an
 	if err := k.requireScope(m, "audit:read"); err != nil {
 		return Envelope{}, nil, err
 	}
-	var unknown, denied int
+	var unknown, denied, failedJobs, authDenied int
 	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM audit_events WHERE attention_code IS NOT NULL AND attention_code <> ''`).Scan(&unknown)
-	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE status='PENDING_PAYMENT'`).Scan(&denied)
+	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM payment_attempts WHERE state='OUTCOME_UNKNOWN'`).Scan(&denied)
+	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE status='FAILED'`).Scan(&failedJobs)
+	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM policy_decisions WHERE result='DENY'`).Scan(&authDenied)
 	headline := "No unresolved merchant attention."
-	if unknown+denied > 0 {
+	if unknown+denied+failedJobs+authDenied > 0 {
 		headline = "Unresolved merchant attention items exist."
 	}
 	return k.withRequest(k.env(), m.RequestID, ""), map[string]any{
-		"completeness": "COMPLETE", "unresolved_money": denied, "evidence_rejected": 0, "authorization_security": 0,
-		"commerce_replan": 0, "recovery_delayed": 0, "headline": headline, "needs_attention_count": unknown + denied,
+		"completeness": "COMPLETE", "unresolved_money": denied, "evidence_rejected": 0, "authorization_security": authDenied,
+		"commerce_replan": 0, "recovery_delayed": failedJobs, "headline": headline, "needs_attention_count": unknown + denied + failedJobs + authDenied,
 	}, nil
 }
 

@@ -74,6 +74,16 @@ func TestBudgetSuppressesOffer(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("expected budget suppression, got %+v", got)
 	}
+	_, dropped := SelectTrace(ctx, in)
+	found := false
+	for _, d := range dropped {
+		if d.Reason == "OVER_BUDGET" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected OVER_BUDGET drop, got %+v", dropped)
+	}
 }
 
 func TestControlArmSelectsNoOffer(t *testing.T) {
@@ -82,6 +92,10 @@ func TestControlArmSelectsNoOffer(t *testing.T) {
 	got := Select(ctx, in)
 	if len(got) != 0 {
 		t.Fatalf("control must select NO_OFFER, got %+v", got)
+	}
+	_, dropped := SelectTrace(ctx, in)
+	if len(dropped) != 1 || dropped[0].Reason != "CONTROL_ARM" {
+		t.Fatalf("control drop %+v", dropped)
 	}
 }
 
