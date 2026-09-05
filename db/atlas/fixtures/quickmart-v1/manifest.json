@@ -6,7 +6,7 @@
   "files": [
     {
       "path": "merchant.json",
-      "sha256": "a52adba2ef29bd92a71322760e5c14c2c39aa332d4fdc7147ee421b42c09fed9"
+      "sha256": "07c89eb6d2a5e13694be98b209fb134a2b5d8a5e14787719ccf9535b042cbde8"
     },
     {
       "path": "locations.csv",
@@ -18,7 +18,7 @@
     },
     {
       "path": "products.csv",
-      "sha256": "9cfbab2b7bc08e881202fcd82b387b5f248f98c76c35af41e1453b62ece4ca40"
+      "sha256": "7a7e4a2121fc56439dd10a0f9cc5291fa9aeecddcde312f2524b9eba172bc7c6"
     },
     {
       "path": "skus.csv",
@@ -34,7 +34,7 @@
     },
     {
       "path": "promotions.json",
-      "sha256": "5c38de8fc150e4aa73cdd97860cf134af52f87947414dc4af90365516c192b30"
+      "sha256": "0408aa8265472313f5d786f0bf8fd7f789b60212411fd6ddda4bd7a72f730202"
     },
     {
       "path": "bundles.json",
@@ -42,11 +42,35 @@
     },
     {
       "path": "strategies.json",
-      "sha256": "1b1a1cf0eda061cc83ac3b13c878605d4785cf0275c8c33b54b2cc8a45e422d2"
+      "sha256": "9e3893b776d834125f765ae1e7563d079a39fd86de2ce03724a648d679e1230e"
     },
     {
       "path": "agent_capabilities.json",
       "sha256": "448cbbfb1f8b9c393efeef7066caddbfaef14b1794aa089082c6f9d05fa49a81"
+    },
+    {
+      "path": "buyers.csv",
+      "sha256": "8a6e5aaaeb7c86c04d1629b4904eb578a4a1e8c0fc10ff693431d7bfa6a2cd1b"
+    },
+    {
+      "path": "campaigns.json",
+      "sha256": "c2da54673f18947a8b226ea203831272d1930f202b8a073b0d4a092b9e01e8fb"
+    },
+    {
+      "path": "orders.csv",
+      "sha256": "523a9252afe5cbbeb4c445aae6aa885e152c41fb7c02ae50a5fa553009cfd9ee"
+    },
+    {
+      "path": "order_lines.csv",
+      "sha256": "9d9c6175c39c78d59c147477f6a2bbc2d153329991475a26c405b1eea9e78549"
+    },
+    {
+      "path": "search_events.csv",
+      "sha256": "705b72eb62f4777a57e721614defb522d6fc50450c2f25e551735a462ddbb934"
+    },
+    {
+      "path": "routines.json",
+      "sha256": "9c0b7ee92f6e382b18b531577b92a5e3988d6a3fc5a168ff41ad64c12f63f280"
     }
   ]
 }

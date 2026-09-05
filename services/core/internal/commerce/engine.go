@@ -1,6 +1,7 @@
 package commerce
 
 import (
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ type Candidate struct {
 	Patch          Patch
 	BuyerImpact    int64
 	Rank           float64
+	Relevance      float64
+	Vars           map[string]string
 	BaseAllInMinor int64
 	PatchedAllIn   int64
 	Eligibility    string
@@ -50,17 +53,29 @@ type Context struct {
 	Mission                    string
 	EvaluationArm              string
 	Now                        time.Time
+	BuyerID                    string
+	Query                      string
 }
 
 type CatalogSKU struct {
-	SKUID        string
-	ProductID    string
-	Name         string
-	SellingMinor int64
-	Sellable     int
-	Category     string
-	Brand        string
-	COGSMinor    *int64
+	SKUID         string
+	ProductID     string
+	Name          string
+	SellingMinor  int64
+	Sellable      int
+	Category      string
+	CategoryID    string
+	SubcategoryID string
+	Brand         string
+	BrandID       string
+	COGSMinor     *int64
+	PackSize      int
+	PackCount     int
+	NetUnit       string
+	ShelfLifeDays *int
+	Rating        float64
+	Reviews       int
+	ProductActive bool
 }
 
 type GraphEdge struct {
@@ -75,9 +90,17 @@ type Inputs struct {
 	Bundles    []cart.Bundle
 	SKUs       map[string]CatalogSKU
 	Edges      []GraphEdge
+	Buyer      BuyerSignals
+	Market     BasketIndex
+	Campaigns  []Campaign
+	PromoTerms map[string]PromoTerms
+	Copy       map[string]BuyerCopy
 }
 
-var strategyOrder = []string{"THRESHOLD", "PROMOTION", "BUNDLE", "COMPLEMENT", "UPSELL", "CROSS_SELL"}
+var strategyOrder = []string{
+	"REORDER", "REPLENISHMENT", "ROUTINE", "CART_COMPLETION", "BASKET_REC", "FBT",
+	"LARGER_PACK", "FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO",
+}
 
 func Select(ctx Context, in Inputs) []Candidate {
 	if ctx.EvaluationArm == "CONTROL" {
@@ -111,17 +134,21 @@ func Select(ctx Context, in Inputs) []Candidate {
 		if sim.Eligibility != "OK" {
 			continue
 		}
-		if sim.Rank <= 0 {
+		if c.Relevance <= 0 && sim.Rank <= 0 {
 			continue
 		}
 		c.BuyerImpact = sim.BuyerImpact
 		c.Rank = sim.Rank
+		if c.Relevance > 0 {
+			c.Rank = c.Relevance*10000 + math.Max(0, sim.Rank)/1000
+		}
 		c.BaseAllInMinor = sim.BaseAllInMinor
 		c.PatchedAllIn = sim.PatchedAllInMinor
 		c.Eligibility = sim.Eligibility
 		if sim.ContributionDeltaMinor == nil {
 			c.Eligibility = "ECONOMICS_INCOMPLETE"
 		}
+		applyBuyerCopy(&c, in)
 		scored = append(scored, c)
 	}
 	sort.SliceStable(scored, func(i, j int) bool {
@@ -176,60 +203,6 @@ func constraintOK(ctx Context, in Inputs, c Candidate) bool {
 		}
 	}
 	return true
-}
-
-func graphAdd(ctx Context, in Inputs, types []string, strategy, reason string) []Candidate {
-	inCart := map[string]bool{}
-	for _, l := range ctx.Lines {
-		inCart[l.SKUID] = true
-		inCart[l.ProductID] = true
-	}
-	seen := map[string]bool{}
-	var out []Candidate
-	edges := append([]GraphEdge(nil), in.Edges...)
-	sort.Slice(edges, func(i, j int) bool {
-		if edges[i].Source != edges[j].Source {
-			return edges[i].Source < edges[j].Source
-		}
-		return edges[i].Target < edges[j].Target
-	})
-	for _, e := range edges {
-		if !inList(types, e.Type) {
-			continue
-		}
-		if e.Confidence > 0 && e.Confidence < 0.3 {
-			continue
-		}
-		if !inCart[e.Source] {
-			continue
-		}
-		sku, ok := resolveTarget(in.SKUs, e.Target)
-		if !ok || inCart[sku.SKUID] || sku.Sellable < 1 || seen[sku.SKUID] {
-			continue
-		}
-		seen[sku.SKUID] = true
-		out = append(out, Candidate{
-			Strategy: strategy,
-			Reason:   reason + ": " + sku.Name,
-			Terms:    e.Type,
-			Patch:    Patch{Type: "ADD_ITEM", Lines: []PatchLine{{SKUID: sku.SKUID, Quantity: 1, Op: "ADD"}}},
-		})
-	}
-	return out
-}
-
-func resolveTarget(skus map[string]CatalogSKU, target string) (CatalogSKU, bool) {
-	if sku, ok := skus[target]; ok {
-		return sku, true
-	}
-	ids := skuIDs(skus)
-	for _, id := range ids {
-		s := skus[id]
-		if s.ProductID == target {
-			return s, true
-		}
-	}
-	return CatalogSKU{}, false
 }
 
 func skuIDs(skus map[string]CatalogSKU) []string {

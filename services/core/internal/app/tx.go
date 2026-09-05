@@ -212,8 +212,14 @@ func (k *Kernel) lineModels(ctx context.Context, tx pgx.Tx, cartID string) ([]ca
 func (k *Kernel) locationFees(ctx context.Context, tx pgx.Tx, locationID string) (cart.LocationFees, error) {
 	var f cart.LocationFees
 	err := tx.QueryRow(ctx, `
-		SELECT delivery_fee_minor, handling_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor
-		FROM locations WHERE location_id=$1`, locationID).Scan(&f.DeliveryFeeMinor, &f.HandlingFeeMinor, &f.MinimumOrderValueMinor, &f.FreeDeliveryThresholdMinor)
+		SELECT l.delivery_fee_minor, l.handling_fee_minor, l.minimum_order_value_minor, COALESCE(l.free_delivery_threshold_minor,0),
+		       COALESCE(m.delivery_fee_after_threshold_minor,0), COALESCE(m.small_order_threshold_minor,0),
+		       COALESCE(m.small_order_fee_minor,0), COALESCE(m.fee_after_small_order_threshold_minor,0)
+		FROM locations l
+		LEFT JOIN merchant_profile m ON m.singleton_key='singleton'
+		WHERE l.location_id=$1`, locationID).Scan(
+		&f.DeliveryFeeMinor, &f.HandlingFeeMinor, &f.MinimumOrderValueMinor, &f.FreeDeliveryThresholdMinor,
+		&f.DeliveryFeeAfterThresholdMinor, &f.SmallOrderThresholdMinor, &f.SmallOrderFeeMinor, &f.FeeAfterSmallOrderThresholdMinor)
 	return f, err
 }
 
@@ -410,5 +416,3 @@ func mustJSON(v any) []byte {
 }
 
 func newLineID() string { return ids.New(ids.Line) }
-
-

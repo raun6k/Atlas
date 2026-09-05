@@ -10,7 +10,6 @@ const (
 	SurfaceRemoveCartItem = "remove_cart_item"
 )
 
-// DefaultSurfaces is the fixture assignment for the six cart-offer strategies.
 var DefaultSurfaces = []string{
 	SurfaceSetIntent,
 	SurfaceSearchCatalog,
@@ -39,11 +38,22 @@ func KnownTypes() map[string]bool {
 	return out
 }
 
+var EngineStrategyTypes = []string{
+	"REORDER", "REPLENISHMENT", "PAST_PURCHASE", "CART_COMPLETION", "BASKET_REC", "FBT",
+	"SEARCH_RANKING", "ROUTINE", "LARGER_PACK", "FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO",
+}
+
 func init() {
-	Register(thresholdStrategy{})
-	Register(promotionStrategy{})
-	Register(bundleStrategy{})
-	Register(crossSellStrategy{})
-	Register(complementStrategy{})
-	Register(upsellStrategy{})
+	Register(reorderStrategy{})
+	Register(replenishmentStrategy{})
+	Register(pastPurchaseStrategy{})
+	Register(cartCompletionStrategy{})
+	Register(basketRecStrategy{})
+	Register(fbtStrategy{})
+	Register(searchRankingStrategy{})
+	Register(routineStrategy{})
+	Register(largerPackStrategy{})
+	Register(freeDeliveryStrategy{})
+	Register(smallOrderStrategy{})
+	Register(brandPromoStrategy{})
 }

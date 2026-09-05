@@ -9,6 +9,7 @@ import (
 
 	"atlas.dev/core/internal/apperr"
 	"atlas.dev/core/internal/audit"
+	"atlas.dev/core/internal/commerce"
 	"atlas.dev/core/internal/ids"
 
 	"github.com/jackc/pgx/v5"
@@ -442,7 +443,7 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 		JOIN products pr ON pr.product_id = s.product_id
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$1
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$1
-		WHERE s.lifecycle='sellable' AND i.assorted=TRUE
+		WHERE s.lifecycle IN ('sellable','active') AND i.assorted=TRUE
 		  AND ($2 = '' OR s.name ILIKE '%'||$2||'%' OR pr.name ILIKE '%'||$2||'%' OR s.brand ILIKE '%'||$2||'%' OR pr.canonical_description ILIKE '%'||$2||'%' OR s.name % $2 OR pr.name % $2)
 		  AND ($3 = '' OR pr.category = $3)
 		  AND ($4 = '' OR s.brand = $4)
@@ -473,9 +474,32 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 	if err != nil {
 		return Envelope{}, nil, "", nil, err
 	}
-	cctx, _, err := k.commerceInputs(ctx, tx, s, cv, "search_catalog")
+	cctx, in, err := k.commerceInputs(ctx, tx, s, cv, "search_catalog")
 	if err != nil {
 		return Envelope{}, nil, "", nil, err
+	}
+	cctx.Query = q
+	if cctx.Enabled["SEARCH_RANKING"] || cctx.Enabled["PAST_PURCHASE"] {
+		hits := make([]commerce.RankedHit, len(items))
+		for i, it := range items {
+			sku := in.SKUs[it.SKUID]
+			hits[i] = commerce.RankedHit{
+				SKUID: it.SKUID, QueryRelevance: commerce.QueryRelevance(q, it.Name, it.Brand, it.Category),
+				PriceMinor: it.SellingMinor, Rating: sku.Rating, Sellable: int(it.Sellable),
+				ProductID: it.ProductID, Brand: it.Brand, BrandID: sku.BrandID, CategoryID: sku.CategoryID,
+			}
+		}
+		ranked := commerce.RankCatalog(cctx, in, hits)
+		byID := make(map[string]SKUView, len(items))
+		for _, it := range items {
+			byID[it.SKUID] = it
+		}
+		items = items[:0]
+		for _, h := range ranked {
+			if v, ok := byID[h.SKUID]; ok {
+				items = append(items, v)
+			}
+		}
 	}
 	var offers []OfferView
 	if anyStrategyEnabled(cctx.Enabled) {

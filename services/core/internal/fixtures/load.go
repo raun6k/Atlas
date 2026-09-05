@@ -21,6 +21,9 @@ func loadMerchantPack(ctx context.Context, tx pgx.Tx, dir string) error {
 	if err := loadServiceAreas(ctx, tx, dir); err != nil {
 		return err
 	}
+	if err := loadBuyers(ctx, tx, dir); err != nil {
+		return err
+	}
 	if err := loadProducts(ctx, tx, dir); err != nil {
 		return err
 	}
@@ -33,41 +36,57 @@ func loadMerchantPack(ctx context.Context, tx pgx.Tx, dir string) error {
 	if err := loadRelationships(ctx, tx, dir); err != nil {
 		return err
 	}
+	if err := loadCampaigns(ctx, tx, dir); err != nil {
+		return err
+	}
 	if err := loadPromotions(ctx, tx, dir); err != nil {
 		return err
 	}
 	if err := loadBundles(ctx, tx, dir); err != nil {
 		return err
 	}
-	return loadStrategies(ctx, tx, dir)
+	if err := loadStrategies(ctx, tx, dir); err != nil {
+		return err
+	}
+	if err := loadBuyerOrders(ctx, tx, dir); err != nil {
+		return err
+	}
+	if err := loadSearchEvents(ctx, tx, dir); err != nil {
+		return err
+	}
+	return loadRoutines(ctx, tx, dir)
 }
 
 func loadMerchant(ctx context.Context, tx pgx.Tx, dir string) error {
 	var m struct {
-		MerchantID                 string          `json:"merchant_id"`
-		DisplayName                string          `json:"display_name"`
-		LegalName                  string          `json:"legal_name"`
-		Description                string          `json:"description"`
-		DefaultCurrency            string          `json:"default_currency"`
-		DefaultLocale              string          `json:"default_locale"`
-		CountryCode                string          `json:"country_code"`
-		DefaultTimezone            string          `json:"default_timezone"`
-		PricesIncludeTax           bool            `json:"prices_include_tax"`
-		WebsiteURL                 *string         `json:"website_url"`
-		LogoURL                    *string         `json:"logo_url"`
-		TermsURL                   string          `json:"terms_url"`
-		PrivacyURL                 string          `json:"privacy_url"`
-		ReturnPolicyURL            string          `json:"return_policy_url"`
-		CancellationPolicyURL      string          `json:"cancellation_policy_url"`
-		SubstitutionPolicyURL      *string         `json:"substitution_policy_url"`
-		SupportEmail               string          `json:"support_email"`
-		SupportPhone               *string         `json:"support_phone"`
-		Disclosures                json.RawMessage `json:"disclosures"`
-		BaseDeliveryFeeMinor       int64           `json:"base_delivery_fee_minor"`
-		MinimumOrderValueMinor     int64           `json:"minimum_order_value_minor"`
-		FreeDeliveryThresholdMinor *int64          `json:"free_delivery_threshold_minor"`
-		BaseHandlingFeeMinor       int64           `json:"base_handling_fee_minor"`
-		EtaMinMinutes              int             `json:"eta_min_minutes"`
+		MerchantID                       string          `json:"merchant_id"`
+		DisplayName                      string          `json:"display_name"`
+		LegalName                        string          `json:"legal_name"`
+		Description                      string          `json:"description"`
+		DefaultCurrency                  string          `json:"default_currency"`
+		DefaultLocale                    string          `json:"default_locale"`
+		CountryCode                      string          `json:"country_code"`
+		DefaultTimezone                  string          `json:"default_timezone"`
+		PricesIncludeTax                 bool            `json:"prices_include_tax"`
+		WebsiteURL                       *string         `json:"website_url"`
+		LogoURL                          *string         `json:"logo_url"`
+		TermsURL                         string          `json:"terms_url"`
+		PrivacyURL                       string          `json:"privacy_url"`
+		ReturnPolicyURL                  string          `json:"return_policy_url"`
+		CancellationPolicyURL            string          `json:"cancellation_policy_url"`
+		SubstitutionPolicyURL            *string         `json:"substitution_policy_url"`
+		SupportEmail                     string          `json:"support_email"`
+		SupportPhone                     *string         `json:"support_phone"`
+		Disclosures                      json.RawMessage `json:"disclosures"`
+		BaseDeliveryFeeMinor             int64           `json:"base_delivery_fee_minor"`
+		MinimumOrderValueMinor           int64           `json:"minimum_order_value_minor"`
+		FreeDeliveryThresholdMinor       *int64          `json:"free_delivery_threshold_minor"`
+		DeliveryFeeAfterThresholdMinor   int64           `json:"delivery_fee_after_threshold_minor"`
+		SmallOrderThresholdMinor         int64           `json:"small_order_threshold_minor"`
+		SmallOrderFeeMinor               int64           `json:"small_order_fee_minor"`
+		FeeAfterSmallOrderThresholdMinor int64           `json:"fee_after_small_order_threshold_minor"`
+		BaseHandlingFeeMinor             int64           `json:"base_handling_fee_minor"`
+		EtaMinMinutes                    int             `json:"eta_min_minutes"`
 	}
 	if err := readJSON(filepath.Join(dir, "merchant.json"), &m); err != nil {
 		return err
@@ -99,13 +118,15 @@ func loadMerchant(ctx context.Context, tx pgx.Tx, dir string) error {
 			singleton_key, merchant_id, display_name, legal_name, description, currency, locale, country,
 			timezone_display, prices_include_tax, website_url, logo_url, terms_url, privacy_url,
 			return_policy_url, cancellation_policy_url, substitution_policy_url, support_email, support_phone, disclosures,
-			base_delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, base_handling_fee_minor, eta_min_minutes)
-		VALUES ('singleton',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+			base_delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, base_handling_fee_minor, eta_min_minutes,
+			small_order_threshold_minor, small_order_fee_minor, fee_after_small_order_threshold_minor, delivery_fee_after_threshold_minor)
+		VALUES ('singleton',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
 		nullIfEmpty(m.MerchantID), m.DisplayName, m.LegalName, m.Description, currency, locale, country, tz,
 		m.PricesIncludeTax, m.WebsiteURL, m.LogoURL, nullIfEmpty(m.TermsURL), nullIfEmpty(m.PrivacyURL),
 		nullIfEmpty(m.ReturnPolicyURL), nullIfEmpty(m.CancellationPolicyURL), m.SubstitutionPolicyURL,
 		nullIfEmpty(m.SupportEmail), m.SupportPhone, disc,
-		m.BaseDeliveryFeeMinor, m.MinimumOrderValueMinor, m.FreeDeliveryThresholdMinor, m.BaseHandlingFeeMinor, m.EtaMinMinutes); err != nil {
+		m.BaseDeliveryFeeMinor, m.MinimumOrderValueMinor, m.FreeDeliveryThresholdMinor, m.BaseHandlingFeeMinor, m.EtaMinMinutes,
+		m.SmallOrderThresholdMinor, m.SmallOrderFeeMinor, m.FeeAfterSmallOrderThresholdMinor, m.DeliveryFeeAfterThresholdMinor); err != nil {
 		return err
 	}
 	return loadCapabilities(ctx, tx, dir, true)
@@ -223,12 +244,14 @@ func loadProducts(ctx context.Context, tx pgx.Tx, dir string) error {
 		rating := csvFloatPtr(row, "rating")
 		reviews := csvIntPtr(row, "reviews")
 		if _, err := tx.Exec(ctx, `INSERT INTO products (
-				product_id, name, brand, category, subcategory, canonical_description, dietary, lifecycle,
+				product_id, name, brand, brand_id, category, category_id, subcategory, subcategory_id,
+				canonical_description, dietary, lifecycle,
 				allergen_tags, ingredients_text, aliases, country_of_origin_code, attributes, rating, reviews,
 				nutrition_per_100g, search_document)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, to_tsvector('simple', $2||' '||$3||' '||$6))`,
-			id, csvString(row, "name"), csvString(row, "brand"), csvString(row, "category"), csvString(row, "subcategory"),
-			desc, jsonBytes(diet), lifecycle,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, to_tsvector('simple', $2||' '||$3||' '||$9))`,
+			id, csvString(row, "name"), csvString(row, "brand"), nullIfEmpty(csvString(row, "brand_id")),
+			csvString(row, "category"), nullIfEmpty(csvString(row, "category_id")),
+			csvString(row, "subcategory"), nullIfEmpty(csvString(row, "subcategory_id")), desc, jsonBytes(diet), lifecycle,
 			jsonBytes(csvJSON(row, "allergen_tags_json", []any{})),
 			nullIfEmpty(csvString(row, "ingredients_text")), jsonBytes(csvJSON(row, "aliases_json", []any{})),
 			nullIfEmpty(csvString(row, "country_of_origin_code")), jsonBytes(csvJSON(row, "attributes_json", map[string]any{})),
@@ -388,18 +411,24 @@ func loadPromotions(ctx context.Context, tx pgx.Tx, dir string) error {
 		discount := asInt(ben["discount_amount_minor"])
 		ptype, _ := p["promotion_type"].(string)
 		name, _ := p["name"].(string)
+		campaignID := strField(p, "campaign_id")
+		brand := strField(p, "brand")
+		brandID := strField(p, "brand_id")
+		campaignBudget := asInt(p["campaign_budget_minor"])
+		budgetConsumed := asInt(p["budget_consumed_minor"])
 		enabled, _ := p["enabled"].(bool)
 		starts := parseJSONTime(p["starts_at"])
 		ends := parseJSONTime(p["ends_at"])
 		if _, err := tx.Exec(ctx, `INSERT INTO promotions (
-				promotion_id, type, name, description, eligible_sku_ids, minimum_quantity,
+				promotion_id, type, name, description, campaign_id, brand, brand_id,
+				campaign_budget_minor, budget_consumed_minor, eligible_sku_ids, minimum_quantity,
 				discount_amount_minor, stacking, stacking_group, stacking_priority, location_ids, supplier_funding_minor,
 				starts_at, ends_at, enabled, application_mode, code, condition, benefit, funding)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,0,$11,$12,$13,$14,$15,$16,$17,$18)`,
-			id, ptype, name, strField(p, "description"), jsonBytes(p["eligible_sku_ids"]),
-			minQty, discount, p["stacking_group"], asInt(p["stacking_priority"]), jsonBytes(p["location_ids"]),
-			starts, ends, enabled, strField(p, "application_mode"), p["code"], jsonBytes(p["condition"]), jsonBytes(p["benefit"]),
-			jsonBytes(p["funding"])); err != nil {
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14,$15,0,$16,$17,$18,$19,$20,$21,$22,$23)`,
+			id, ptype, name, strField(p, "description"), nullIfEmpty(campaignID), nullIfEmpty(brand), nullIfEmpty(brandID), campaignBudget, budgetConsumed,
+			jsonBytes(p["eligible_sku_ids"]), minQty, discount, p["stacking_group"], asInt(p["stacking_priority"]),
+			jsonBytes(p["location_ids"]), starts, ends, enabled, strField(p, "application_mode"), p["code"],
+			jsonBytes(p["condition"]), jsonBytes(p["benefit"]), jsonBytes(p["funding"])); err != nil {
 			return err
 		}
 	}
@@ -458,10 +487,19 @@ func loadStrategies(ctx context.Context, tx pgx.Tx, dir string) error {
 			rev = "unspecified"
 		}
 		enabled, _ := s["enabled"].(bool)
+		cfg := map[string]any{}
+		if raw, ok := s["config"].(map[string]any); ok {
+			for k, v := range raw {
+				cfg[k] = v
+			}
+		}
+		if buyer, ok := s["buyer"]; ok {
+			cfg["buyer"] = buyer
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategies (
 				strategy_type, enabled, revision, priority, objective_metric, config, surfaces)
 			VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(s["config"]), stringSlice(s["surfaces"])); err != nil {
+			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(cfg), stringSlice(s["surfaces"])); err != nil {
 			return err
 		}
 	}

@@ -49,7 +49,7 @@ On `CART_VERSION_CONFLICT`: `get_cart` and retry the mutation with the returned 
 - **Discovery:** `get_capabilities` asserts `pcap_razorpay_test` and Test Mode; refuse unknown tool names.
 - **Catalog SKU:** search “coke zero” must return `sku_qm_coke_zero_*` not a 750 ml regular Coke as the canonical variant; `get_product` `prd_qm_coca_cola_zero` lists both SKUs.
 - **Stale cart:** two overlapping adds with expected version 0; second must surface `CART_VERSION_CONFLICT` and recover via `get_cart`.
-- **Coke buy-3:** cart two `sku_qm_coke_750ml`; expect a `PROMOTION` Offer; `accept_offer` then `apply_offer`; checkout applies ₹30 when quantity is 3.
+- **Coke buy-3:** cart two `sku_qm_coke_750ml`; expect a `BRAND_PROMO` Offer; `accept_offer` then `apply_offer`; checkout applies ₹30 when quantity is 3.
 - **Requote:** `prepare_checkout` then operator inventory invalidation fixture hook (test-only) then `complete_checkout` must not succeed on the stale proposal (`REQUOTE_REQUIRED`).
 - **Payment unknown:** simulation `AMBIGUOUS_THEN_SUCCESS`; driver must not start a second payment; poll until reconciled.
 - **Payment failure:** terminal `FAILED_VERIFIED`; no fulfillment.

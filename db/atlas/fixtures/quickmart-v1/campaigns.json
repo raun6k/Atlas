@@ -1,0 +1,71 @@
+[
+  {
+    "campaign_id": "camp_qm_crispkettle_brand_days_2026",
+    "brand_id": "brand_qm_crispkettle",
+    "brand": "CrispKettle",
+    "name": "CrispKettle brand days",
+    "campaign_type": "BRAND_FUNDED",
+    "status": "ACTIVE",
+    "objective": "incremental_brand_units",
+    "target_category_id": "cat_qm_snacks",
+    "promotion_ids": [
+      "promo_qm_brand_crispkettle_01"
+    ],
+    "discount_rate": 10,
+    "discount_cap_minor": 1000,
+    "eligible_sku_count": 20,
+    "budget_minor": 200000,
+    "budget_consumed_minor": 0,
+    "budget_remaining_minor": 200000,
+    "brand_funding_pct": 70,
+    "merchant_funding_pct": 30,
+    "start_at": "2026-09-05T00:00:00+05:30",
+    "end_at": "2026-10-31T23:59:59+05:30"
+  },
+  {
+    "campaign_id": "camp_qm_fizzyleaf_refresh_2026",
+    "brand_id": "brand_qm_fizzyleaf",
+    "brand": "FizzyLeaf",
+    "name": "FizzyLeaf refresh offer",
+    "campaign_type": "BRAND_FUNDED",
+    "status": "ACTIVE",
+    "objective": "brand_trial_and_repeat",
+    "target_category_id": "cat_qm_beverages",
+    "promotion_ids": [
+      "promo_qm_brand_fizzyleaf_01"
+    ],
+    "discount_rate": 12,
+    "discount_cap_minor": 750,
+    "eligible_sku_count": 20,
+    "budget_minor": 175000,
+    "budget_consumed_minor": 0,
+    "budget_remaining_minor": 175000,
+    "brand_funding_pct": 60,
+    "merchant_funding_pct": 40,
+    "start_at": "2026-09-05T00:00:00+05:30",
+    "end_at": "2026-10-31T23:59:59+05:30"
+  },
+  {
+    "campaign_id": "camp_qm_carebloom_personal_care_2026",
+    "brand_id": "brand_qm_carebloom",
+    "brand": "CareBloom",
+    "name": "CareBloom personal care event",
+    "campaign_type": "BRAND_FUNDED",
+    "status": "ACTIVE",
+    "objective": "repeat_personal_care_purchase",
+    "target_category_id": "cat_qm_personal_care",
+    "promotion_ids": [
+      "promo_qm_brand_carebloom_01"
+    ],
+    "discount_rate": 15,
+    "discount_cap_minor": 1800,
+    "eligible_sku_count": 10,
+    "budget_minor": 250000,
+    "budget_consumed_minor": 0,
+    "budget_remaining_minor": 250000,
+    "brand_funding_pct": 80,
+    "merchant_funding_pct": 20,
+    "start_at": "2026-09-05T00:00:00+05:30",
+    "end_at": "2026-10-31T23:59:59+05:30"
+  }
+]

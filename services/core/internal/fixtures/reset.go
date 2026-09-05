@@ -37,7 +37,8 @@ func LoadDir(ctx context.Context, db *store.DB, fixtureDir, hostPEMPath string) 
 			offer_events, offers, opportunity_candidates, cart_lines, carts, shopping_sessions,
 			replay_nonces, idempotency_records, audit_events, audit_exports, jobs, outbox_events,
 			inventory, prices, product_relationships, bundles, promotions, commercial_strategies,
-			service_areas, skus, products, locations, merchant_profile, host_keys, approved_hosts,
+			search_events, buyer_routine_items, buyer_routines, buyer_order_lines, buyer_orders,
+			campaigns, buyers, service_areas, skus, products, locations, merchant_profile, host_keys, approved_hosts,
 			operator_credentials, fixture_control_credentials, fixture_state
 		RESTART IDENTITY CASCADE`); err != nil {
 		return ResetResult{}, err

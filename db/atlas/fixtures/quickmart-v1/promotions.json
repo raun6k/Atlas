@@ -662,5 +662,175 @@
     "starts_at": "2026-09-01T00:00:00+05:30",
     "ends_at": "2026-10-31T23:59:59+05:30",
     "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_brand_crispkettle_01",
+    "promotion_type": "BRAND_CAMPAIGN",
+    "name": "CrispKettle brand days",
+    "description": "Brand-funded percentage saving on eligible CrispKettle products.",
+    "application_mode": "automatic",
+    "code": null,
+    "campaign_id": "camp_qm_crispkettle_brand_days_2026",
+    "brand": "CrispKettle",
+    "brand_id": "brand_qm_crispkettle",
+    "condition": {
+      "minimum_quantity": 1,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "percentage",
+      "discount_rate": 10,
+      "discount_amount_minor": 600,
+      "discount_cap_minor": 1000
+    },
+    "stacking_group": "brand_campaign",
+    "stacking_priority": 30,
+    "funding": {
+      "brand_funding_pct": 70,
+      "merchant_funding_pct": 30,
+      "supplier_funded_minor": 0
+    },
+    "campaign_budget_minor": 200000,
+    "budget_consumed_minor": 0,
+    "eligible_sku_ids": [
+      "QM-SNK-0001-A",
+      "QM-SNK-0001-B",
+      "QM-SNK-0004-A",
+      "QM-SNK-0004-B",
+      "QM-SNK-0007-A",
+      "QM-SNK-0007-B",
+      "QM-SNK-0010-A",
+      "QM-SNK-0010-B",
+      "QM-SNK-0013-A",
+      "QM-SNK-0013-B",
+      "QM-SNK-0016-A",
+      "QM-SNK-0016-B",
+      "QM-SNK-0019-A",
+      "QM-SNK-0019-B",
+      "QM-SNK-0022-A",
+      "QM-SNK-0022-B",
+      "QM-SNK-0025-A",
+      "QM-SNK-0025-B",
+      "QM-SNK-0028-A",
+      "QM-SNK-0028-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-05T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_brand_fizzyleaf_01",
+    "promotion_type": "BRAND_CAMPAIGN",
+    "name": "FizzyLeaf refresh offer",
+    "description": "Brand-funded percentage saving on eligible FizzyLeaf products.",
+    "application_mode": "automatic",
+    "code": null,
+    "campaign_id": "camp_qm_fizzyleaf_refresh_2026",
+    "brand": "FizzyLeaf",
+    "brand_id": "brand_qm_fizzyleaf",
+    "condition": {
+      "minimum_quantity": 1,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "percentage",
+      "discount_rate": 12,
+      "discount_amount_minor": 600,
+      "discount_cap_minor": 750
+    },
+    "stacking_group": "brand_campaign",
+    "stacking_priority": 30,
+    "funding": {
+      "brand_funding_pct": 60,
+      "merchant_funding_pct": 40,
+      "supplier_funded_minor": 0
+    },
+    "campaign_budget_minor": 175000,
+    "budget_consumed_minor": 0,
+    "eligible_sku_ids": [
+      "QM-BEV-0031-A",
+      "QM-BEV-0031-B",
+      "QM-BEV-0034-A",
+      "QM-BEV-0034-B",
+      "QM-BEV-0037-A",
+      "QM-BEV-0037-B",
+      "QM-BEV-0040-A",
+      "QM-BEV-0040-B",
+      "QM-BEV-0043-A",
+      "QM-BEV-0043-B",
+      "QM-BEV-0046-A",
+      "QM-BEV-0046-B",
+      "QM-BEV-0049-A",
+      "QM-BEV-0049-B",
+      "QM-BEV-0052-A",
+      "QM-BEV-0052-B",
+      "QM-BEV-0055-A",
+      "QM-BEV-0055-B",
+      "QM-BEV-0058-A",
+      "QM-BEV-0058-B"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-05T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
+  },
+  {
+    "promotion_id": "promo_qm_brand_carebloom_01",
+    "promotion_type": "BRAND_CAMPAIGN",
+    "name": "CareBloom personal care event",
+    "description": "Brand-funded percentage saving on eligible CareBloom products.",
+    "application_mode": "automatic",
+    "code": null,
+    "campaign_id": "camp_qm_carebloom_personal_care_2026",
+    "brand": "CareBloom",
+    "brand_id": "brand_qm_carebloom",
+    "condition": {
+      "minimum_quantity": 1,
+      "minimum_cart_value_minor": 0
+    },
+    "benefit": {
+      "type": "percentage",
+      "discount_rate": 15,
+      "discount_amount_minor": 1300,
+      "discount_cap_minor": 1800
+    },
+    "stacking_group": "brand_campaign",
+    "stacking_priority": 30,
+    "funding": {
+      "brand_funding_pct": 80,
+      "merchant_funding_pct": 20,
+      "supplier_funded_minor": 0
+    },
+    "campaign_budget_minor": 250000,
+    "budget_consumed_minor": 0,
+    "eligible_sku_ids": [
+      "QM-PER-0151-A",
+      "QM-PER-0154-A",
+      "QM-PER-0157-A",
+      "QM-PER-0160-A",
+      "QM-PER-0163-A",
+      "QM-PER-0166-A",
+      "QM-PER-0169-A",
+      "QM-PER-0172-A",
+      "QM-PER-0175-A",
+      "QM-PER-0178-A"
+    ],
+    "location_ids": [
+      "loc_qm_koramangala",
+      "loc_qm_bellandur",
+      "loc_qm_indiranagar"
+    ],
+    "starts_at": "2026-09-05T00:00:00+05:30",
+    "ends_at": "2026-10-31T23:59:59+05:30",
+    "enabled": true
   }
 ]

@@ -30,7 +30,7 @@
     "BENCHMARK_MODEL"
   ],
   "title": "Coke buy-3 promotion",
-  "purpose": "Accept then apply PROMOTION offer",
+  "purpose": "Accept then apply BRAND_PROMO offer",
   "family": "Offers",
   "difficulty": "medium",
   "tags": [
@@ -38,7 +38,7 @@
   ],
   "user_mission": "Buy Coke 750ml and take the buy-3 promotion.",
   "structured_requirements": {
-    "offer_strategy": "PROMOTION"
+    "offer_strategy": "BRAND_PROMO"
   },
   "forbidden_outcomes": [
     "apply_without_accept"

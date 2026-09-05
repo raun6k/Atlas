@@ -1,0 +1,290 @@
+[
+  {
+    "routine_id": "rtn_qm_01_weekly_breakfast",
+    "buyer_id": "buyer_qm_01",
+    "name": "Weekly Breakfast Essentials",
+    "cadence_days": 7,
+    "last_ordered_at": "2026-08-29T08:16:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-BEV-0052-A",
+        "usual_quantity": 2
+      },
+      {
+        "sku_id": "QM-FPR-0061-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_01_snack_night",
+    "buyer_id": "buyer_qm_01",
+    "name": "Fortnightly Snack Night",
+    "cadence_days": 14,
+    "last_ordered_at": "2026-08-16T19:55:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-SNK-0011-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0031-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_02_household_restock",
+    "buyer_id": "buyer_qm_02",
+    "name": "Monthly Household Restock",
+    "cadence_days": 28,
+    "last_ordered_at": "2026-08-09T12:02:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-HOU-0121-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0126-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_02_pantry_staples",
+    "buyer_id": "buyer_qm_02",
+    "name": "Monthly Pantry Staples",
+    "cadence_days": 30,
+    "last_ordered_at": "2026-08-30T10:20:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-PAN-0183-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0181-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0201-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_03_coffee",
+    "buyer_id": "buyer_qm_03",
+    "name": "Coffee Restock",
+    "cadence_days": 20,
+    "last_ordered_at": "2026-09-03T09:12:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-BEV-0047-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_04_crispkettle_snacks",
+    "buyer_id": "buyer_qm_04",
+    "name": "CrispKettle Snack Replenishment",
+    "cadence_days": 21,
+    "last_ordered_at": "2026-08-03T18:10:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-SNK-0004-A",
+        "usual_quantity": 2
+      },
+      {
+        "sku_id": "QM-SNK-0019-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_04_evening_drinks",
+    "buyer_id": "buyer_qm_04",
+    "name": "Evening Drinks Restock",
+    "cadence_days": 30,
+    "last_ordered_at": "2026-07-06T18:15:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-BEV-0034-A",
+        "usual_quantity": 2
+      },
+      {
+        "sku_id": "QM-BEV-0047-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_05_fresh_pantry",
+    "buyer_id": "buyer_qm_05",
+    "name": "Fresh and Pantry Refill",
+    "cadence_days": 28,
+    "last_ordered_at": "2026-07-19T12:05:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-FPR-0064-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0184-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0154-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_05_breakfast_drinks",
+    "buyer_id": "buyer_qm_05",
+    "name": "Breakfast Drinks",
+    "cadence_days": 14,
+    "last_ordered_at": "2026-06-21T12:15:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-BEV-0034-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-FPR-0062-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_06_family_household",
+    "buyer_id": "buyer_qm_06",
+    "name": "Family Household Top-up",
+    "cadence_days": 35,
+    "last_ordered_at": "2026-08-15T09:22:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-MTS-0094-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-HOU-0127-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-BAB-0242-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_07_movie_snacks",
+    "buyer_id": "buyer_qm_07",
+    "name": "Movie Night Snacks",
+    "cadence_days": 21,
+    "last_ordered_at": "2026-07-17T18:35:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-SNK-0022-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0047-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_08_weekend_cooking",
+    "buyer_id": "buyer_qm_08",
+    "name": "Weekend Cooking Basket",
+    "cadence_days": 14,
+    "last_ordered_at": "2026-08-08T13:15:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-FPR-0065-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-MTS-0094-B",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PAN-0184-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_09_personal_care",
+    "buyer_id": "buyer_qm_09",
+    "name": "Personal Care Restock",
+    "cadence_days": 35,
+    "last_ordered_at": "2026-08-20T10:00:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-PER-0154-A",
+        "usual_quantity": 2
+      },
+      {
+        "sku_id": "QM-PER-0158-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_10_pet_mealtime",
+    "buyer_id": "buyer_qm_10",
+    "name": "Pet Mealtime Restock",
+    "cadence_days": 28,
+    "last_ordered_at": "2026-08-01T20:05:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-PET-0218-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PET-0214-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_11_baby_care",
+    "buyer_id": "buyer_qm_11",
+    "name": "Baby Care Essentials",
+    "cadence_days": 30,
+    "last_ordered_at": "2026-08-16T08:30:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-BAB-0243-A",
+        "usual_quantity": 2
+      },
+      {
+        "sku_id": "QM-BAB-0244-A",
+        "usual_quantity": 1
+      }
+    ]
+  },
+  {
+    "routine_id": "rtn_qm_12_weekend_essentials",
+    "buyer_id": "buyer_qm_12",
+    "name": "Weekend Essentials",
+    "cadence_days": 21,
+    "last_ordered_at": "2026-08-29T16:00:00+05:30",
+    "items": [
+      {
+        "sku_id": "QM-SNK-0004-B",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-BEV-0047-A",
+        "usual_quantity": 1
+      },
+      {
+        "sku_id": "QM-PER-0154-A",
+        "usual_quantity": 1
+      }
+    ]
+  }
+]

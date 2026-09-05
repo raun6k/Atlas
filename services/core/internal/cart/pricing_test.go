@@ -59,6 +59,21 @@ func TestPriceCartFreeDeliveryUsesNetMerchandise(t *testing.T) {
 	}
 }
 
+func TestPriceCartSmallOrderFee(t *testing.T) {
+	now := time.Now().UTC()
+	lines := []Line{{SKUID: "sku_a", Quantity: 1, UnitMinor: 1000, LineMinor: 1000}}
+	loc := LocationFees{SmallOrderThresholdMinor: 2000, SmallOrderFeeMinor: 400}
+	got := PriceCart(lines, loc, nil, nil, "loc", now)
+	if got.HandlingFeeMinor != 400 {
+		t.Fatalf("small-order fee %d", got.HandlingFeeMinor)
+	}
+	lines[0].UnitMinor, lines[0].LineMinor = 2500, 2500
+	got = PriceCart(lines, loc, nil, nil, "loc", now)
+	if got.HandlingFeeMinor != 0 {
+		t.Fatalf("fee after threshold %d", got.HandlingFeeMinor)
+	}
+}
+
 func TestPriceCartMinimumOrder(t *testing.T) {
 	now := time.Now().UTC()
 	lines := []Line{{SKUID: "sku_a", Quantity: 1, UnitMinor: 100, LineMinor: 100}}

@@ -329,7 +329,7 @@ export class MockGateway implements McpClient {
     if (coke && coke.quantity >= 2 && !session.offers.some((o) => o.offer_id === "off_coke_buy3")) {
       session.offers.push({
         offer_id: "off_coke_buy3",
-        strategy: "PROMOTION",
+        strategy: "BRAND_PROMO",
         status: "SHOWN",
         sku_id: "sku_qm_coke_750ml",
         preview: { quantity: 3, discount_minor: 3000 },

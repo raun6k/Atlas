@@ -375,27 +375,27 @@ func TestStrategySurfacesUpdate(t *testing.T) {
 	}
 	found := false
 	for _, r := range rows {
-		if r.Type != "THRESHOLD" {
+		if r.Type != "FREE_DELIVERY" {
 			continue
 		}
 		found = true
 		if len(r.Surfaces) == 0 {
-			t.Fatal("THRESHOLD should have default surfaces")
+			t.Fatal("FREE_DELIVERY should have surfaces")
 		}
 	}
 	if !found {
-		t.Fatal("THRESHOLD missing")
+		t.Fatal("FREE_DELIVERY missing")
 	}
 	updated, err := k.UpdateStrategyConfigs(ctx, app.Meta{
 		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
 	}, []app.StrategyRow{{
-		Type: "THRESHOLD", Enabled: true, Revision: "test-surfaces", Surfaces: []string{"get_cart"},
+		Type: "FREE_DELIVERY", Enabled: true, Revision: "test-surfaces", Surfaces: []string{"get_cart"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range updated {
-		if r.Type != "THRESHOLD" {
+		if r.Type != "FREE_DELIVERY" {
 			continue
 		}
 		if len(r.Surfaces) != 1 || r.Surfaces[0] != "get_cart" {

@@ -8,10 +8,11 @@ import (
 )
 
 func allOn() map[string]bool {
-	return map[string]bool{
-		"THRESHOLD": true, "PROMOTION": true, "BUNDLE": true,
-		"CROSS_SELL": true, "COMPLEMENT": true, "UPSELL": true,
+	out := map[string]bool{}
+	for _, t := range EngineStrategyTypes {
+		out[t] = true
 	}
+	return out
 }
 
 func fixtureInputs() (Context, Inputs) {
@@ -24,6 +25,7 @@ func fixtureInputs() (Context, Inputs) {
 		DeliveryFeeMinor:           3500,
 		Fees: cart.LocationFees{
 			DeliveryFeeMinor: 3500, FreeDeliveryThresholdMinor: 5000,
+			SmallOrderThresholdMinor: 2000, SmallOrderFeeMinor: 400,
 		},
 		Now: now,
 		Lines: []cart.Line{{
@@ -37,18 +39,22 @@ func fixtureInputs() (Context, Inputs) {
 			ID: "prm_qty", Type: "QUANTITY", Name: "Buy 2 save 1", EligibleSKUs: []string{"sku_a"},
 			MinimumQty: 2, DiscountMinor: 100, LocationIDs: []string{"loc_qm_koramangala"}, Enabled: true,
 			StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
+		}, {
+			ID: "prm_brand", Type: "BRAND_CAMPAIGN", Name: "Brand days", EligibleSKUs: []string{"sku_e"},
+			MinimumQty: 1, DiscountMinor: 200, LocationIDs: []string{"loc_qm_koramangala"}, Enabled: true,
+			StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
 		}},
 		Bundles: []cart.Bundle{{
 			ID: "bun_ab", Name: "A+B", SKUQuantities: map[string]int{"sku_a": 1, "sku_b": 1},
 			DiscountMinor: 200, LocationIDs: []string{"loc_qm_koramangala"},
 		}},
 		SKUs: map[string]CatalogSKU{
-			"sku_a":  {SKUID: "sku_a", ProductID: "prd_a", Name: "Item A", SellingMinor: 1000, Sellable: 10},
-			"sku_b":  {SKUID: "sku_b", ProductID: "prd_b", Name: "Item B", SellingMinor: 4000, Sellable: 10},
-			"sku_c":  {SKUID: "sku_c", ProductID: "prd_c", Name: "Item C", SellingMinor: 500, Sellable: 10},
-			"sku_d":  {SKUID: "sku_d", ProductID: "prd_d", Name: "Item D", SellingMinor: 600, Sellable: 10},
-			"sku_up": {SKUID: "sku_up", ProductID: "prd_a", Name: "Item A+", SellingMinor: 2000, Sellable: 10},
-			"sku_e":  {SKUID: "sku_e", ProductID: "prd_e", Name: "Item E", SellingMinor: 5000, Sellable: 10},
+			"sku_a":  {SKUID: "sku_a", ProductID: "prd_a", Name: "Item A", SellingMinor: 1000, Sellable: 10, PackSize: 1, Brand: "BrandA"},
+			"sku_b":  {SKUID: "sku_b", ProductID: "prd_b", Name: "Item B", SellingMinor: 4000, Sellable: 10, PackSize: 1},
+			"sku_c":  {SKUID: "sku_c", ProductID: "prd_c", Name: "Item C", SellingMinor: 500, Sellable: 10, PackSize: 1, BrandID: "brand_c"},
+			"sku_d":  {SKUID: "sku_d", ProductID: "prd_d", Name: "Item D", SellingMinor: 600, Sellable: 10, PackSize: 1},
+			"sku_up": {SKUID: "sku_up", ProductID: "prd_a", Name: "Item A+", SellingMinor: 1600, Sellable: 10, PackSize: 2, NetUnit: "g"},
+			"sku_e":  {SKUID: "sku_e", ProductID: "prd_e", Name: "Item E", SellingMinor: 5000, Sellable: 10, PackSize: 1, BrandID: "brand_e"},
 		},
 		Edges: []GraphEdge{
 			{Source: "sku_a", Target: "sku_c", Type: "USED_WITH"},
@@ -59,37 +65,11 @@ func fixtureInputs() (Context, Inputs) {
 	return ctx, in
 }
 
-func TestSixStrategiesIndependently(t *testing.T) {
-	base, in := fixtureInputs()
-	want := []string{"THRESHOLD", "PROMOTION", "BUNDLE", "CROSS_SELL", "COMPLEMENT", "UPSELL"}
-	for _, strat := range want {
-		ctx := base
-		ctx.Enabled = map[string]bool{strat: true}
-		got := Select(ctx, in)
-		if len(got) == 0 {
-			t.Fatalf("%s produced no candidates", strat)
-		}
-		if got[0].Strategy != strat {
-			t.Fatalf("%s: got %s", strat, got[0].Strategy)
-		}
-		if len(got[0].Patch.Lines) == 0 {
-			t.Fatalf("%s missing patch lines", strat)
-		}
-		sim, err := Simulate(ctx, in, got[0], ctx.Now)
-		if err != nil {
-			t.Fatalf("%s simulate: %v", strat, err)
-		}
-		if sim.BuyerImpact != got[0].BuyerImpact {
-			t.Fatalf("%s buyer impact %d != simulated %d", strat, got[0].BuyerImpact, sim.BuyerImpact)
-		}
-	}
-}
-
 func TestBudgetSuppressesOffer(t *testing.T) {
-	ctx, in := fixtureInputs()
-	ctx.Enabled = map[string]bool{"CROSS_SELL": true}
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"FBT": true}
 	ctx.HasBudget = true
-	ctx.BudgetMinor = 4600
+	ctx.BudgetMinor = 5200
 	got := Select(ctx, in)
 	if len(got) != 0 {
 		t.Fatalf("expected budget suppression, got %+v", got)
@@ -106,10 +86,10 @@ func TestControlArmSelectsNoOffer(t *testing.T) {
 }
 
 func TestMissingCOGSDoesNotBecomeZero(t *testing.T) {
-	ctx, in := fixtureInputs()
-	ctx.Enabled = map[string]bool{"CROSS_SELL": true}
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"FBT": true}
 	sim, err := Simulate(ctx, in, Candidate{
-		Strategy: "CROSS_SELL",
+		Strategy: "FBT",
 		Patch:    Patch{Type: "ADD_ITEM", Lines: []PatchLine{{SKUID: "sku_c", Quantity: 1, Op: "ADD"}}},
 	}, ctx.Now)
 	if err != nil {
@@ -128,7 +108,7 @@ func TestMissingCOGSDoesNotBecomeZero(t *testing.T) {
 }
 
 func TestConflictFilterOneSKUOneStrategy(t *testing.T) {
-	ctx, in := fixtureInputs()
+	ctx, in := withSignals(fixtureInputs())
 	got := Select(ctx, in)
 	if len(got) == 0 || len(got) > 3 {
 		t.Fatalf("want 1-3 offers, got %d", len(got))
@@ -151,7 +131,7 @@ func TestConflictFilterOneSKUOneStrategy(t *testing.T) {
 
 func TestKnownTypesRegistered(t *testing.T) {
 	got := KnownTypes()
-	for _, want := range []string{"THRESHOLD", "PROMOTION", "BUNDLE", "CROSS_SELL", "COMPLEMENT", "UPSELL"} {
+	for _, want := range EngineStrategyTypes {
 		if !got[want] {
 			t.Fatalf("missing registry type %s", want)
 		}
@@ -168,8 +148,8 @@ func TestSelectDisabledStrategies(t *testing.T) {
 }
 
 func TestDeterministicTieBreak(t *testing.T) {
-	ctx, in := fixtureInputs()
-	ctx.Enabled = map[string]bool{"CROSS_SELL": true, "COMPLEMENT": true}
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"FBT": true, "BASKET_REC": true}
 	a := Select(ctx, in)
 	b := Select(ctx, in)
 	if len(a) != len(b) {
@@ -179,5 +159,121 @@ func TestDeterministicTieBreak(t *testing.T) {
 		if candidateKey(a[i]) != candidateKey(b[i]) {
 			t.Fatalf("tie-break unstable")
 		}
+	}
+}
+
+func withSignals(ctx Context, in Inputs) (Context, Inputs) {
+	now := ctx.Now
+	ctx.Lines = append(ctx.Lines, cart.Line{
+		LineID: "ln_d", SKUID: "sku_d", ProductID: "prd_d", Name: "Item D",
+		Quantity: 1, UnitMinor: 600, LineMinor: 600,
+	})
+	personal := []PurchaseEvent{
+		{OrderID: "o1", SKUID: "sku_c", ProductID: "prd_c", BrandID: "brand_c", Quantity: 1, OrderedAt: now.Add(-14 * 24 * time.Hour)},
+		{OrderID: "o2", SKUID: "sku_c", ProductID: "prd_c", BrandID: "brand_c", Quantity: 1, OrderedAt: now.Add(-7 * 24 * time.Hour)},
+		{OrderID: "o2", SKUID: "sku_d", ProductID: "prd_d", Quantity: 1, OrderedAt: now.Add(-7 * 24 * time.Hour)},
+	}
+	market := []PurchaseEvent{
+		{OrderID: "m1", SKUID: "sku_a", Quantity: 1, OrderedAt: now},
+		{OrderID: "m1", SKUID: "sku_c", Quantity: 1, OrderedAt: now},
+		{OrderID: "m2", SKUID: "sku_a", Quantity: 1, OrderedAt: now},
+		{OrderID: "m2", SKUID: "sku_c", Quantity: 1, OrderedAt: now},
+		{OrderID: "m3", SKUID: "sku_a", Quantity: 1, OrderedAt: now},
+		{OrderID: "m3", SKUID: "sku_d", Quantity: 1, OrderedAt: now},
+		{OrderID: "m4", SKUID: "sku_a", Quantity: 1, OrderedAt: now},
+		{OrderID: "m4", SKUID: "sku_c", Quantity: 1, OrderedAt: now},
+	}
+	in.Buyer = BuildBuyerSignals("buyer_qm_01", personal, nil, []Routine{{
+		ID: "rtn", Name: "Weekly C", CadenceDays: 7, LastOrderedAt: now.Add(-8 * 24 * time.Hour),
+		Items: []RoutineItem{{SKUID: "sku_c", UsualQuantity: 1}},
+	}}, now)
+	in.Market = BuildBasketIndex(market, personal)
+	in.PromoTerms = map[string]PromoTerms{
+		"prm_brand": {DiscountRate: 10, DiscountCap: 500, BrandFundPct: 80, MerchantFundPct: 20},
+	}
+	in.Campaigns = []Campaign{{ID: "camp", PromotionIDs: []string{"prm_brand"}, BudgetMinor: 100000, BrandFundingPct: 80, MerchantFundingPct: 20}}
+	return ctx, in
+}
+
+func TestFormulaStrategiesIndependently(t *testing.T) {
+	base, in := withSignals(fixtureInputs())
+	want := []string{"REORDER", "REPLENISHMENT", "CART_COMPLETION", "BASKET_REC", "FBT", "ROUTINE", "LARGER_PACK", "FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO"}
+	for _, strat := range want {
+		ctx := base
+		ctx.Enabled = map[string]bool{strat: true}
+		got := Select(ctx, in)
+		if len(got) == 0 {
+			t.Fatalf("%s produced no candidates", strat)
+		}
+		if got[0].Strategy != strat {
+			t.Fatalf("%s: got %s", strat, got[0].Strategy)
+		}
+		if got[0].Reason == "" || got[0].Terms == "" {
+			t.Fatalf("%s missing buyer copy reason/terms", strat)
+		}
+	}
+}
+
+func TestRankingStrategiesEmitNoPatch(t *testing.T) {
+	ctx, in := withSignals(fixtureInputs())
+	for _, strat := range []string{"PAST_PURCHASE", "SEARCH_RANKING"} {
+		ctx.Enabled = map[string]bool{strat: true}
+		if got := Select(ctx, in); len(got) != 0 {
+			t.Fatalf("%s must not emit cart patches", strat)
+		}
+	}
+	hits := []RankedHit{
+		{SKUID: "sku_e", QueryRelevance: 0.8, PriceMinor: 5000, Sellable: 10},
+		{SKUID: "sku_c", QueryRelevance: 0.7, PriceMinor: 500, Sellable: 10, ProductID: "prd_c", BrandID: "brand_c"},
+	}
+	ctx.Enabled = map[string]bool{"PAST_PURCHASE": true, "SEARCH_RANKING": true}
+	ranked := RankCatalog(ctx, in, hits)
+	if ranked[0].SKUID != "sku_c" {
+		t.Fatalf("expected history boost for sku_c, got %s", ranked[0].SKUID)
+	}
+}
+
+func TestDisabledFormulaStrategy(t *testing.T) {
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"REORDER": false}
+	got := Select(ctx, in)
+	for _, c := range got {
+		if c.Strategy == "REORDER" {
+			t.Fatal("disabled REORDER leaked")
+		}
+	}
+}
+
+func TestBuyerCopyJSONOverride(t *testing.T) {
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"REORDER": true}
+	in.Copy = map[string]BuyerCopy{
+		"REORDER": {
+			Headline: "Again please",
+			Reason:   "Please add {{sku_name}} to the cart.",
+			Terms:    "Custom terms for {{sku_name}}",
+		},
+	}
+	got := Select(ctx, in)
+	if len(got) == 0 {
+		t.Fatal("expected reorder")
+	}
+	if got[0].Reason != "Please add Item C to the cart." {
+		t.Fatalf("reason %q", got[0].Reason)
+	}
+	if got[0].Terms != "Again please" {
+		t.Fatalf("headline/terms %q", got[0].Terms)
+	}
+}
+
+func TestRenderTemplate(t *testing.T) {
+	got := RenderTemplate("Add {{sku_name}} for {{price}}", map[string]string{"sku_name": "Milk", "price": "₹22"})
+	if got != "Add Milk for ₹22" {
+		t.Fatalf("got %q", got)
+	}
+	raw := []byte(`{"min_score":0.2,"buyer":{"headline":"Hi","reason":"Because {{sku_name}}","terms":"T"}}`)
+	c := BuyerCopyFromConfig(raw)
+	if c.Headline != "Hi" || c.Reason != "Because {{sku_name}}" {
+		t.Fatalf("%+v", c)
 	}
 }

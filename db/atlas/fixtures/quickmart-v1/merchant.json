@@ -10,9 +10,13 @@
   "prices_include_tax": true,
   "website_url": "https://quickmart.example",
   "support_email": "support@quickmart.example",
-  "base_delivery_fee_minor": 3500,
-  "minimum_order_value_minor": 9900,
+  "base_delivery_fee_minor": 3000,
+  "minimum_order_value_minor": 4900,
+  "small_order_threshold_minor": 9900,
+  "small_order_fee_minor": 3000,
+  "fee_after_small_order_threshold_minor": 0,
   "free_delivery_threshold_minor": 19900,
-  "base_handling_fee_minor": 0,
-  "eta_min_minutes": 10
+  "delivery_fee_after_threshold_minor": 0,
+  "base_handling_fee_minor": 12,
+  "eta_min_minutes": 8
 }

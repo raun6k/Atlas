@@ -1,95 +1,170 @@
 [
   {
-    "strategy_type": "THRESHOLD",
+    "strategy_type": "REORDER",
     "enabled": true,
-    "revision": "qm-v1-threshold-2026-09",
-    "priority": 100,
-    "objective_metric": "commercial_margin_minor",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "minimum_cart_value_minor": 49900,
-      "target_increment_minor": 15000,
-      "max_suggestions": 1,
-      "location_aware": true
-    }
+    "revision": "qm-v1-reorder-2026-09",
+    "priority": 95,
+    "objective_metric": "repeat_purchase_rate",
+    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
+    "buyer": {
+      "headline": "Buy again",
+      "reason": "Add {{sku_name}} — you usually repurchase this about every {{median_days}} days.",
+      "terms": "Buy again · qty {{quantity}}"
+    },
+    "config": {"min_score": 0.25, "lookback_days": 90}
   },
   {
-    "strategy_type": "PROMOTION",
+    "strategy_type": "REPLENISHMENT",
     "enabled": true,
-    "revision": "qm-v1-promotion-2026-09",
-    "priority": 90,
-    "objective_metric": "promotion_qualification",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "lookahead_quantity": 3,
-      "include_location_scoped": true,
-      "max_suggestions": 2,
-      "prefer_automatic": true
-    }
+    "revision": "qm-v1-replenishment-2026-09",
+    "priority": 94,
+    "objective_metric": "runout_prevention",
+    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
+    "buyer": {
+      "headline": "Running low",
+      "reason": "{{sku_name}} looks due. Last bought {{days_since}} days ago (typical gap {{median_days}} days).",
+      "terms": "Replenish · qty {{quantity}}"
+    },
+    "config": {"min_score": 0.45}
   },
   {
-    "strategy_type": "BUNDLE",
+    "strategy_type": "PAST_PURCHASE",
     "enabled": true,
-    "revision": "qm-v1-bundle-2026-09",
-    "priority": 80,
-    "objective_metric": "bundle_completion",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "max_items_to_add": 3,
-      "max_suggestions": 2,
-      "require_all_items_sellable": true,
-      "location_aware": true
-    }
+    "revision": "qm-v1-past-purchase-2026-09",
+    "priority": 40,
+    "objective_metric": "search_conversion",
+    "surfaces": ["search_catalog"],
+    "buyer": {
+      "headline": "Your usual pick",
+      "reason": "Prefer products you have bought before when ranking search.",
+      "terms": "History boost"
+    },
+    "config": {"recency_tau_days": 45}
   },
   {
-    "strategy_type": "CROSS_SELL",
+    "strategy_type": "CART_COMPLETION",
     "enabled": true,
-    "revision": "qm-v1-cross-sell-2026-09",
-    "priority": 70,
-    "objective_metric": "basket_attach_rate",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "relationship_types": [
-        "USED_WITH",
-        "BUNDLE_COMPATIBLE"
-      ],
-      "max_suggestions": 3,
-      "min_confidence_bps": 7000,
-      "location_aware": true
-    }
-  },
-  {
-    "strategy_type": "COMPLEMENT",
-    "enabled": true,
-    "revision": "qm-v1-complement-2026-09",
-    "priority": 60,
+    "revision": "qm-v1-cart-completion-2026-09",
+    "priority": 85,
     "objective_metric": "basket_completeness",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "relationship_types": [
-        "COMPLEMENT",
-        "CONSUMED_WITH"
-      ],
-      "max_suggestions": 3,
-      "min_confidence_bps": 7500,
-      "avoid_existing_products": true
-    }
+    "surfaces": ["get_cart", "add_cart_item", "update_cart_item"],
+    "buyer": {
+      "headline": "Complete this shop",
+      "reason": "{{sku_name}} is often missing from baskets like yours.",
+      "terms": "Suggested add-on"
+    },
+    "config": {"min_cart_skus": 2, "min_score": 0.2}
   },
   {
-    "strategy_type": "UPSELL",
+    "strategy_type": "BASKET_REC",
     "enabled": true,
-    "revision": "qm-v1-upsell-2026-09",
-    "priority": 50,
-    "objective_metric": "average_order_value_minor",
-    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-    "config": {
-      "relationship_types": [
-        "UPGRADE"
-      ],
-      "max_suggestions": 2,
-      "min_confidence_bps": 7000,
-      "max_increment_minor": 25000,
-      "location_aware": true
-    }
+    "revision": "qm-v1-basket-rec-2026-09",
+    "priority": 72,
+    "objective_metric": "attach_rate",
+    "surfaces": ["get_cart", "add_cart_item", "update_cart_item"],
+    "buyer": {
+      "headline": "Goes with your cart",
+      "reason": "{{sku_name}} is a relevant add for what you already picked.",
+      "terms": "Cart recommendation"
+    },
+    "config": {"min_score": 0.15}
+  },
+  {
+    "strategy_type": "FBT",
+    "enabled": true,
+    "revision": "qm-v1-fbt-2026-09",
+    "priority": 71,
+    "objective_metric": "complement_attach_rate",
+    "surfaces": ["search_catalog", "get_cart", "add_cart_item"],
+    "buyer": {
+      "headline": "Frequently bought together",
+      "reason": "Shoppers who buy {{anchor_name}} often add {{sku_name}}.",
+      "terms": "Often paired"
+    },
+    "config": {"min_score": 0.05}
+  },
+  {
+    "strategy_type": "SEARCH_RANKING",
+    "enabled": true,
+    "revision": "qm-v1-search-ranking-2026-09",
+    "priority": 35,
+    "objective_metric": "search_conversion",
+    "surfaces": ["search_catalog"],
+    "buyer": {
+      "headline": "Personalized ranking",
+      "reason": "Reorder search using your preferences and this query.",
+      "terms": "Personalized search"
+    },
+    "config": {}
+  },
+  {
+    "strategy_type": "ROUTINE",
+    "enabled": true,
+    "revision": "qm-v1-routine-2026-09",
+    "priority": 93,
+    "objective_metric": "routine_completion",
+    "surfaces": ["set_intent", "get_cart"],
+    "buyer": {
+      "headline": "{{routine_name}}",
+      "reason": "Restock {{routine_name}} (every {{cadence_days}} days). Adds {{item_count}} usual items, starting with {{sku_name}}.",
+      "terms": "Routine basket"
+    },
+    "config": {"min_due_score": 0.6}
+  },
+  {
+    "strategy_type": "LARGER_PACK",
+    "enabled": true,
+    "revision": "qm-v1-larger-pack-2026-09",
+    "priority": 55,
+    "objective_metric": "unit_price_saving",
+    "surfaces": ["search_catalog", "get_cart", "add_cart_item", "update_cart_item"],
+    "buyer": {
+      "headline": "Better unit price",
+      "reason": "Switch {{current_name}} to {{sku_name}} to save {{saving_pct}} on unit price.",
+      "terms": "Larger pack"
+    },
+    "config": {}
+  },
+  {
+    "strategy_type": "FREE_DELIVERY",
+    "enabled": true,
+    "revision": "qm-v1-free-delivery-2026-09",
+    "priority": 88,
+    "objective_metric": "fee_avoidance",
+    "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
+    "buyer": {
+      "headline": "Unlock free delivery",
+      "reason": "Add {{sku_name}} ({{price}}). You are {{gap}} short of free delivery, and this avoids a {{fee_saving}} fee.",
+      "terms": "Free delivery top-up"
+    },
+    "config": {}
+  },
+  {
+    "strategy_type": "SMALL_ORDER",
+    "enabled": true,
+    "revision": "qm-v1-small-order-2026-09",
+    "priority": 87,
+    "objective_metric": "fee_avoidance",
+    "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
+    "buyer": {
+      "headline": "Avoid the small-order fee",
+      "reason": "Add {{sku_name}} ({{price}}). You are {{gap}} under the small-order threshold; this avoids a {{fee_saving}} fee.",
+      "terms": "Small-order top-up"
+    },
+    "config": {}
+  },
+  {
+    "strategy_type": "BRAND_PROMO",
+    "enabled": true,
+    "revision": "qm-v1-brand-promo-2026-09",
+    "priority": 82,
+    "objective_metric": "brand_funded_contribution",
+    "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
+    "buyer": {
+      "headline": "{{promo_name}}",
+      "reason": "{{promo_name}} on {{sku_name}} — {{discount}} off with brand-funded support.",
+      "terms": "Brand offer"
+    },
+    "config": {}
   }
 ]

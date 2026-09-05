@@ -16,15 +16,15 @@ type Line struct {
 }
 
 type Totals struct {
-	MerchandiseMinor   int64
-	DiscountsMinor     int64
-	DeliveryFeeMinor   int64
-	HandlingFeeMinor   int64
-	TaxMinor           int64
-	AllInMinor         int64
-	Currency           string
-	MinimumOrderMet    bool
-	AppliedBundleIDs   []string
+	MerchandiseMinor    int64
+	DiscountsMinor      int64
+	DeliveryFeeMinor    int64
+	HandlingFeeMinor    int64
+	TaxMinor            int64
+	AllInMinor          int64
+	Currency            string
+	MinimumOrderMet     bool
+	AppliedBundleIDs    []string
 	AppliedPromotionIDs []string
 }
 
@@ -53,10 +53,14 @@ type Bundle struct {
 }
 
 type LocationFees struct {
-	DeliveryFeeMinor           int64
-	HandlingFeeMinor           int64
-	MinimumOrderValueMinor     int64
-	FreeDeliveryThresholdMinor int64
+	DeliveryFeeMinor                 int64
+	HandlingFeeMinor                 int64
+	MinimumOrderValueMinor           int64
+	FreeDeliveryThresholdMinor       int64
+	DeliveryFeeAfterThresholdMinor   int64
+	SmallOrderThresholdMinor         int64
+	SmallOrderFeeMinor               int64
+	FeeAfterSmallOrderThresholdMinor int64
 }
 
 // PriceCart is the canonical repricer for cart, offer simulation, apply, and checkout.
@@ -123,15 +127,21 @@ func PriceCart(lines []Line, loc LocationFees, promotions []Promotion, bundles [
 	net := merch - discounts
 	delivery := loc.DeliveryFeeMinor
 	if loc.FreeDeliveryThresholdMinor > 0 && net >= loc.FreeDeliveryThresholdMinor {
-		delivery = 0
+		delivery = loc.DeliveryFeeAfterThresholdMinor
 	}
-	allIn := net + delivery + loc.HandlingFeeMinor
+	small := int64(0)
+	if loc.SmallOrderThresholdMinor > 0 && net < loc.SmallOrderThresholdMinor {
+		small = loc.SmallOrderFeeMinor
+	} else if loc.SmallOrderThresholdMinor > 0 {
+		small = loc.FeeAfterSmallOrderThresholdMinor
+	}
+	allIn := net + delivery + loc.HandlingFeeMinor + small
 	minMet := loc.MinimumOrderValueMinor <= 0 || net >= loc.MinimumOrderValueMinor
 	return Totals{
 		MerchandiseMinor:    merch,
 		DiscountsMinor:      discounts,
 		DeliveryFeeMinor:    delivery,
-		HandlingFeeMinor:    loc.HandlingFeeMinor,
+		HandlingFeeMinor:    loc.HandlingFeeMinor + small,
 		TaxMinor:            0,
 		AllInMinor:          allIn,
 		Currency:            "INR",

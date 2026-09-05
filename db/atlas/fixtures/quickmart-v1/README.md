@@ -13,7 +13,7 @@ There is no default store. `create_session` must supply a matching `delivery_ser
 | Service areas | 1 pincode list per store. |
 | Catalog | 250 products, 350 SKUs, 720 location×SKU offers (Koramangala 300, Bellandur 210, Indiranagar 210). |
 | Graph | 500 product-level edges. |
-| Promotions | 18 automatic promotions, Sep–Oct 2026. |
+| Promotions | 21 automatic promotions, including 3 brand-funded campaigns, Sep–Oct 2026. |
 | Bundles | 20 Koramangala bundles. |
 | Strategies | All six Commercial Engine types enabled. |
 | Reference carts | Synthetic carts for evaluation — not loaded into Postgres. |
@@ -35,6 +35,12 @@ Categories: snacks, beverages, fresh produce, meat and seafood, household, perso
 | `bundles.json` | yes | Bundles |
 | `strategies.json` | yes | Commercial Engine strategies |
 | `agent_capabilities.json` | yes | Agent-facing capability flags |
+| `buyers.csv` | no | Supplemental buyer-to-location history |
+| `campaigns.json` | no | Supplemental campaign roll-up for brand-funded promotions |
+| `routines.json` | no | Supplemental recurring-basket history |
+| `orders.csv` | no | Supplemental completed-order history |
+| `order_lines.csv` | no | Supplemental historical order contents and line totals |
+| `search_events.csv` | no | Supplemental search-to-cart behavior events |
 | `manifest.json` | digest only | Snapshot metadata and per-file SHA-256 |
 | `tests/reference_carts.json` | no | Test carts only |
 
@@ -147,8 +153,11 @@ One row per product family. Lifecycle: `active`, `inactive`, `archived`. JSON co
 | `product_id` | string | Primary key (`prd_qm_…`) |
 | `name` | string | Product name |
 | `brand` | string | Brand |
+| `brand_id` | string | Stable brand key (`brand_qm_…`) |
 | `category` | string | Category slug |
+| `category_id` | string | Stable category key (`cat_qm_…`) |
 | `subcategory` | string | Subcategory slug |
+| `subcategory_id` | string | Stable subcategory key (`subcat_qm_…`) |
 | `description` | string | Canonical description |
 | `dietary_tags_json` | JSON array | e.g. `["vegetarian"]` |
 | `allergen_tags_json` | JSON array | e.g. `["wheat","gluten","milk"]` |
@@ -162,8 +171,8 @@ One row per product family. Lifecycle: `active`, `inactive`, `archived`. JSON co
 | `nutrition_per_100g_json` | JSON object | Per 100 g: `energy` (kcal), `protein`, `total_sugar`, `added_sugar`, `total_fat` (grams) |
 
 ```csv
-product_id,name,brand,category,subcategory,description,dietary_tags_json,allergen_tags_json,ingredients_text,aliases_json,country_of_origin_code,attributes_json,lifecycle,rating,reviews,nutrition_per_100g_json
-"prd_qm_crispkettle_tea_biscuits_plain","Tea Biscuits Plain","CrispKettle","snacks","biscuits_chips_namkeen","Crunchy ready-to-eat snack for tea breaks, travel, sharing and quick hunger occasions.","[""vegetarian""]","[""wheat"",""gluten"",""milk"",""peanuts""]","Cereals, pulses or potatoes, edible vegetable oil, spices, sugar and salt","[""tea biscuits plain"",""biscuits"",""crispkettle tea biscuits plain""]","IN","{""storage"":""ambient"",""pack_size"":""100 g""}","active","4.4","488","{""energy"":500,""protein"":8,""total_sugar"":10,""added_sugar"":7,""total_fat"":25}"
+product_id,name,brand,brand_id,category,category_id,subcategory,subcategory_id,description,dietary_tags_json,allergen_tags_json,ingredients_text,aliases_json,country_of_origin_code,attributes_json,lifecycle,rating,reviews,nutrition_per_100g_json
+"prd_qm_crispkettle_tea_biscuits_plain","Tea Biscuits Plain","CrispKettle","brand_qm_crispkettle","snacks","cat_qm_snacks","biscuits_chips_namkeen","subcat_qm_biscuits_chips_namkeen","Crunchy ready-to-eat snack for tea breaks, travel, sharing and quick hunger occasions.","[""vegetarian""]","[""wheat"",""gluten"",""milk"",""peanuts""]","Cereals, pulses or potatoes, edible vegetable oil, spices, sugar and salt","[""tea biscuits plain"",""biscuits"",""crispkettle tea biscuits plain""]","IN","{""storage"":""ambient"",""pack_size"":""100 g""}","active","4.4","488","{""energy"":500,""protein"":8,""total_sugar"":10,""added_sugar"":7,""total_fat"":25}"
 ```
 
 ---
@@ -253,16 +262,25 @@ Array of promotions. Loader skips a blank `promotion_id`. Times are RFC 3339.
 | `promotion_type` | string | e.g. `CATEGORY_BASKET`, `MULTI_BUY` |
 | `name` | string | Display name |
 | `description` | string | Buyer/internal copy |
+| `campaign_id` | string \| null | Stable campaign key for campaign-backed promotions |
+| `brand` | string \| null | Brand display name for a brand-funded promotion |
+| `brand_id` | string \| null | Stable brand key used for ID-based campaign matching |
 | `application_mode` | string | `automatic` (or a code-gated mode) |
 | `code` | string \| null | Promo code, if any |
 | `condition.minimum_quantity` | int | Min qualifying units |
 | `condition.minimum_cart_value_minor` | int | Min cart value (paise) |
-| `benefit.type` | string | e.g. `fixed_amount` |
-| `benefit.discount_amount_minor` | int | Discount (paise) |
+| `benefit.type` | string | `fixed_amount` or `percentage` |
+| `benefit.discount_rate` | number \| null | Percentage points for percentage benefits (`10` means 10%) |
+| `benefit.discount_amount_minor` | int \| null | Fixed discount fallback (paise) |
+| `benefit.discount_cap_minor` | int \| null | Maximum discount for a percentage benefit (paise) |
 | `stacking_group` | string | Mutual-exclusion group |
 | `stacking_priority` | int | Higher wins inside the group |
-| `funding.merchant_funded_minor` | int | Merchant-funded portion |
-| `funding.supplier_funded_minor` | int | Supplier-funded portion |
+| `funding.merchant_funded_minor` | int \| null | Legacy rupee split for fixed promotions |
+| `funding.supplier_funded_minor` | int \| null | Supplier-funded portion |
+| `funding.brand_funding_pct` | number \| null | Brand share of the discount |
+| `funding.merchant_funding_pct` | number \| null | Merchant share of the discount |
+| `campaign_budget_minor` | int \| null | Campaign budget (paise) |
+| `budget_consumed_minor` | int \| null | Consumed campaign budget to date (paise) |
 | `eligible_sku_ids` | string[] | Qualifying SKUs |
 | `location_ids` | string[] | Stores where it applies |
 | `starts_at` / `ends_at` | string | Inclusive window |
@@ -286,6 +304,31 @@ Array of promotions. Loader skips a blank `promotion_id`. Times are RFC 3339.
   "starts_at": "2026-09-01T00:00:00+05:30",
   "ends_at": "2026-10-31T23:59:59+05:30",
   "enabled": true
+}
+```
+
+Brand-funded campaigns use stable IDs in addition to display names. The fixture keeps `discount_amount_minor` as a compatibility fallback for the current fixed-amount pricing path while recording the percentage terms and cap from the campaign specification.
+
+```json
+{
+  "promotion_id": "promo_qm_brand_crispkettle_01",
+  "promotion_type": "BRAND_CAMPAIGN",
+  "name": "CrispKettle brand days",
+  "campaign_id": "camp_qm_crispkettle_brand_days_2026",
+  "brand": "CrispKettle",
+  "brand_id": "brand_qm_crispkettle",
+  "benefit": {
+    "type": "percentage",
+    "discount_rate": 10,
+    "discount_amount_minor": 600,
+    "discount_cap_minor": 1000
+  },
+  "funding": {
+    "brand_funding_pct": 70,
+    "merchant_funding_pct": 30
+  },
+  "campaign_budget_minor": 200000,
+  "budget_consumed_minor": 0
 }
 ```
 
@@ -326,7 +369,11 @@ Array of bundles. Loader skips a blank `bundle_id`. `amount_off_minor` is the bu
 
 ### `strategies.json`
 
-Commercial Engine types such as `THRESHOLD`, `PROMOTION`, `BUNDLE`, `CROSS_SELL`, `COMPLEMENT`, `UPSELL`. `config` is strategy-specific JSON. `surfaces` lists buyer-agent tools that may calculate and attach offers.
+Commercial Engine types (the previous THRESHOLD / PROMOTION / BUNDLE / CROSS_SELL / COMPLEMENT / UPSELL set was replaced by these 12):
+
+`REORDER`, `REPLENISHMENT`, `PAST_PURCHASE`, `CART_COMPLETION`, `BASKET_REC`, `FBT`, `SEARCH_RANKING`, `ROUTINE`, `LARGER_PACK`, `FREE_DELIVERY`, `SMALL_ORDER`, `BRAND_PROMO`.
+
+Each row can be enabled or disabled independently. Edit **`buyer`** to change what the Buyer Agent reads (`headline` → offer terms, `reason` → grounded reason). Placeholders are `{{sku_name}}`, `{{quantity}}`, `{{price}}`, `{{gap}}`, and other strategy-specific keys. `config` is scoring knobs. `surfaces` lists buyer-agent tools that may calculate and attach offers (or rerank search for `PAST_PURCHASE` and `SEARCH_RANKING`).
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -335,23 +382,24 @@ Commercial Engine types such as `THRESHOLD`, `PROMOTION`, `BUNDLE`, `CROSS_SELL`
 | `revision` | string | Config revision label |
 | `priority` | int | Higher runs first |
 | `objective_metric` | string | What the strategy optimizes |
-| `surfaces` | string[] | Buyer tools that may show this strategy (`set_intent`, `search_catalog`, `get_cart`, `add_cart_item`, `update_cart_item`, `remove_cart_item`) |
-| `config` | object | Type-specific knobs |
+| `surfaces` | string[] | Buyer tools that may show this strategy |
+| `buyer` | object | Copy shown to the Buyer Agent (`headline`, `reason`, `terms`) |
+| `config` | object | Type-specific scoring knobs |
 
 ```json
 {
-  "strategy_type": "THRESHOLD",
+  "strategy_type": "REORDER",
   "enabled": true,
-  "revision": "qm-v1-threshold-2026-09",
-  "priority": 100,
-  "objective_metric": "commercial_margin_minor",
-  "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
-  "config": {
-    "minimum_cart_value_minor": 49900,
-    "target_increment_minor": 15000,
-    "max_suggestions": 1,
-    "location_aware": true
-  }
+  "revision": "qm-v1-reorder-2026-09",
+  "priority": 95,
+  "objective_metric": "repeat_purchase_rate",
+  "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
+  "buyer": {
+    "headline": "Buy again",
+    "reason": "Add {{sku_name}} — you usually repurchase this about every {{median_days}} days.",
+    "terms": "Buy again · qty {{quantity}}"
+  },
+  "config": { "min_score": 0.25, "lookback_days": 90 }
 }
 ```
 
@@ -374,6 +422,70 @@ Raw JSON stored on `merchant_profile.agent_capabilities`. Ignored if `merchant.j
   "substitutions": { "requires_buyer_permission": true }
 }
 ```
+
+---
+
+### Supplemental buyer and merchandising history
+
+The following files preserve a consistent synthetic history for analytics and campaign evaluation. They are deliberately not loaded by the current Core fixture reset. All monetary values use integer paise, and all IDs resolve against the catalog or promotion fixture above.
+
+#### `buyers.csv`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `buyer_id` | string | Stable synthetic buyer key |
+| `default_location_id` | string | Buyer’s normal delivery store |
+
+The pack contains 12 buyers distributed across Koramangala, Bellandur, and Indiranagar.
+
+#### `campaigns.json`
+
+Each campaign rolls up one brand-funded promotion and repeats the key commercial terms needed by analytics consumers.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `campaign_id` | string | Stable campaign key |
+| `brand_id` / `brand` | string | Brand identity and display name |
+| `campaign_type` | string | `BRAND_FUNDED` |
+| `status` | string | Campaign lifecycle status |
+| `objective` | string | Campaign measurement objective |
+| `target_category_id` | string | Catalog category targeted by the campaign |
+| `promotion_ids` | string[] | Linked promotion IDs |
+| `discount_rate` | number | Percentage points (`10` means 10%) |
+| `discount_cap_minor` | int | Per-benefit cap in paise |
+| `eligible_sku_count` | int | Number of eligible SKUs |
+| `budget_minor` / `budget_consumed_minor` | int | Campaign budget and consumed amount in paise |
+| `budget_remaining_minor` | int | `budget_minor - budget_consumed_minor` |
+| `brand_funding_pct` / `merchant_funding_pct` | number | Funding split; must sum to 100 |
+| `start_at` / `end_at` | string | RFC 3339 campaign window |
+
+#### `routines.json`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `routine_id` | string | Stable recurring-basket key |
+| `buyer_id` | string | Buyer who owns the routine |
+| `name` | string | Buyer-friendly routine name |
+| `cadence_days` | int | Expected repeat interval |
+| `last_ordered_at` | string | RFC 3339 timestamp of the latest matching order |
+| `items[].sku_id` | string | Catalog SKU in the routine |
+| `items[].usual_quantity` | int | Typical quantity |
+
+#### `orders.csv` and `order_lines.csv`
+
+`orders.csv` contains 39 completed orders across all three locations. `order_lines.csv` contains 96 lines. `price_paid_minor` is the historical line total, not the unit price; it equals the location offer price multiplied by `quantity` for the corresponding SKU.
+
+#### `search_events.csv`
+
+Each search journey contains impressions, a click, and an `add_to_cart` event. The primary SKU added to cart has a later matching historical order for the same buyer, which makes the file useful for conversion-path checks without inventing unsupported event types.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `buyer_id` | string | Buyer performing the search |
+| `search_query` | string | Search text |
+| `sku_id` | string | Displayed or selected SKU |
+| `event_type` | string | `impression`, `click`, or `add_to_cart` |
+| `occurred_at` | string | RFC 3339 event timestamp |
 
 ---
 

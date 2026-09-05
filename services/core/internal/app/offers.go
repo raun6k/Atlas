@@ -80,7 +80,8 @@ func (k *Kernel) writeOfferEventStandalone(ctx context.Context, offerID, eventTy
 func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) (commerce.Context, commerce.Inputs, error) {
 	known := commerce.KnownTypes()
 	enabled := map[string]bool{}
-	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled, COALESCE(surfaces, '{}') FROM commercial_strategies`)
+	copyByType := map[string]commerce.BuyerCopy{}
+	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled, COALESCE(surfaces, '{}'), COALESCE(config, '{}'::jsonb) FROM commercial_strategies`)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
 	}
@@ -88,10 +89,12 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		var t string
 		var on bool
 		var surfaces []string
-		if err := rows.Scan(&t, &on, &surfaces); err != nil {
+		var cfg []byte
+		if err := rows.Scan(&t, &on, &surfaces, &cfg); err != nil {
 			rows.Close()
 			return commerce.Context{}, commerce.Inputs{}, err
 		}
+		copyByType[t] = commerce.BuyerCopyFromConfig(cfg)
 		if !known[t] || !on {
 			continue
 		}
@@ -106,12 +109,15 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 	}
 	skus := map[string]commerce.CatalogSKU{}
 	srows, err := tx.Query(ctx, `
-		SELECT s.sku_id, s.product_id, s.name, s.brand, p.selling_price_minor, p.cogs_minor, i.on_hand_quantity, i.reserved_quantity, i.safety_buffer, pr.category
+		SELECT s.sku_id, s.product_id, s.name, s.brand, p.selling_price_minor, p.cogs_minor, i.on_hand_quantity, i.reserved_quantity, i.safety_buffer, pr.category,
+		       s.pack_size, s.pack_count, s.unit_of_measure, s.shelf_life_days,
+		       COALESCE(pr.brand_id,''), COALESCE(pr.category_id,''), COALESCE(pr.subcategory_id,''),
+		       COALESCE(pr.rating,0), COALESCE(pr.reviews,0), pr.lifecycle
 		FROM skus s
 		JOIN products pr ON pr.product_id=s.product_id
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$1
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$1
-		WHERE s.lifecycle='sellable' AND i.assorted=TRUE
+		WHERE s.lifecycle IN ('sellable','active') AND i.assorted=TRUE
 		  AND p.effective_from <= now() AND (p.effective_to IS NULL OR p.effective_to > now())`, s.LocationID)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
@@ -120,7 +126,10 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		var sku commerce.CatalogSKU
 		var on, res, buf int
 		var cogs int64
-		if err := srows.Scan(&sku.SKUID, &sku.ProductID, &sku.Name, &sku.Brand, &sku.SellingMinor, &cogs, &on, &res, &buf, &sku.Category); err != nil {
+		var shelf *int
+		var lifecycle string
+		if err := srows.Scan(&sku.SKUID, &sku.ProductID, &sku.Name, &sku.Brand, &sku.SellingMinor, &cogs, &on, &res, &buf, &sku.Category,
+			&sku.PackSize, &sku.PackCount, &sku.NetUnit, &shelf, &sku.BrandID, &sku.CategoryID, &sku.SubcategoryID, &sku.Rating, &sku.Reviews, &lifecycle); err != nil {
 			srows.Close()
 			return commerce.Context{}, commerce.Inputs{}, err
 		}
@@ -128,6 +137,8 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 			v := cogs
 			sku.COGSMinor = &v
 		}
+		sku.ShelfLifeDays = shelf
+		sku.ProductActive = lifecycle == "active" || lifecycle == "sellable"
 		sku.Sellable = inventory.Sellable(on, res, buf)
 		skus[sku.SKUID] = sku
 	}
@@ -159,8 +170,13 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		BudgetMinor: s.PlanningBudgetMinor, HasBudget: s.HasBudget, FreeDeliveryThresholdMinor: fees.FreeDeliveryThresholdMinor,
 		DeliveryFeeMinor: fees.DeliveryFeeMinor, Lines: lines, Enabled: enabled, Fees: fees,
 		Constraints: s.Constraints, Mission: s.Mission, EvaluationArm: s.EvaluationArm, Now: k.Now(),
+		BuyerID: s.SubjectReference,
 	}
-	return cctx, commerce.Inputs{Promotions: promos, Bundles: bundles, SKUs: skus, Edges: edges}, nil
+	in := commerce.Inputs{Promotions: promos, Bundles: bundles, SKUs: skus, Edges: edges, Copy: copyByType}
+	if err := k.attachCommerceSignals(ctx, tx, s, &cctx, &in); err != nil {
+		return commerce.Context{}, commerce.Inputs{}, err
+	}
+	return cctx, in, nil
 }
 
 func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) ([]OfferView, []string, error) {
