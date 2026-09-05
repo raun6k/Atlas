@@ -40,9 +40,16 @@ export interface CommercialProof {
   excluded_pairs: Array<Record<string, unknown>>;
   confirmed_orders_by_arm: Record<string, unknown>;
   captured_revenue_by_arm: Record<string, unknown>;
+  merchant_net_revenue_by_arm?: Record<string, unknown>;
+  conversion_by_arm?: Record<string, unknown>;
+  aov_by_arm?: Record<string, unknown>;
+  units_per_order_by_arm?: Record<string, unknown>;
   task_success_by_arm: Record<string, unknown>;
   safety_failures: number;
   unresolved_payment_count: number;
+  known_no_purchase_count?: number;
+  primary_metric?: string;
+  treatment_strategy?: string;
   confidence_intervals: Record<string, unknown>;
 }
 
@@ -254,9 +261,16 @@ function commercialProof(raw: unknown): CommercialProof | null {
     excluded_pairs: records(proof.excluded_pairs) ?? [],
     confirmed_orders_by_arm: record(proof.confirmed_orders_by_arm) ?? {},
     captured_revenue_by_arm: record(proof.captured_revenue_by_arm) ?? {},
+    merchant_net_revenue_by_arm: record(proof.merchant_net_revenue_by_arm) ?? undefined,
+    conversion_by_arm: record(proof.conversion_by_arm) ?? undefined,
+    aov_by_arm: record(proof.aov_by_arm) ?? undefined,
+    units_per_order_by_arm: record(proof.units_per_order_by_arm) ?? undefined,
     task_success_by_arm: record(proof.task_success_by_arm) ?? {},
     safety_failures: typeof proof.safety_failures === "number" ? proof.safety_failures : 0,
     unresolved_payment_count: typeof proof.unresolved_payment_count === "number" ? proof.unresolved_payment_count : 0,
+    known_no_purchase_count: typeof proof.known_no_purchase_count === "number" ? proof.known_no_purchase_count : undefined,
+    primary_metric: text(proof.primary_metric),
+    treatment_strategy: text(proof.treatment_strategy),
     confidence_intervals: record(proof.confidence_intervals) ?? {},
   };
 }

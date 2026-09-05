@@ -13,6 +13,14 @@ const protoPath = join(__dirname, "../../../proto/atlas/merchant/v1/merchant.pro
 let statusType: { decode: (buf: Uint8Array) => { details?: Array<{ type_url?: string; value?: Uint8Array }> } } | undefined;
 let errorDetailType: { decode: (buf: Uint8Array) => unknown; toObject: (msg: unknown, opts: object) => Record<string, unknown> } | undefined;
 
+function lookupType(root: protobuf.Root, name: string): protobuf.Type | undefined {
+  try {
+    return root.lookupType(name);
+  } catch {
+    return undefined;
+  }
+}
+
 function codecs() {
   if (statusType && errorDetailType) return { statusType, errorDetailType };
   const root = new protobuf.Root();
@@ -25,11 +33,11 @@ function codecs() {
   };
   root.loadSync(protoPath);
   const pbNs = root.define("google.protobuf");
-  if (!root.lookupType("google.protobuf.Any")) {
+  if (!lookupType(root, "google.protobuf.Any")) {
     pbNs.add(new protobuf.Type("Any").add(new protobuf.Field("type_url", 1, "string")).add(new protobuf.Field("value", 2, "bytes")));
   }
   const rpcNs = root.define("google.rpc");
-  if (!root.lookupType("google.rpc.Status")) {
+  if (!lookupType(root, "google.rpc.Status")) {
     rpcNs.add(
       new protobuf.Type("Status")
         .add(new protobuf.Field("code", 1, "int32"))

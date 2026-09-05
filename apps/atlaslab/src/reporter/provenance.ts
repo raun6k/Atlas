@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { canonicalize } from "../canonical.js";
 import { sha256Hex, utcNow } from "../ids.js";
 
@@ -14,6 +15,7 @@ export interface ArtifactProvenance {
   prompt_version: string | null;
   system_prompt_version: string | null;
   skill_registry_version: string | null;
+  tool_schema_digest: string | null;
   treatment_policy_digest: string | null;
   control_policy_digest: string | null;
   run_ids: string[];
@@ -27,7 +29,18 @@ export interface ArtifactProvenance {
 }
 
 export function codeRevision(): string {
-  return process.env.ATLAS_GIT_REVISION || process.env.ATLAS_GIT_SHA || process.env.GIT_COMMIT || process.env.SOURCE_VERSION || "unknown";
+  const fromEnv =
+    process.env.ATLAS_GIT_REVISION ||
+    process.env.ATLASLAB_GIT_REVISION ||
+    process.env.ATLAS_GIT_SHA ||
+    process.env.GIT_COMMIT ||
+    process.env.SOURCE_VERSION;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "unknown";
+  }
 }
 
 export function wrapArtifact(data: unknown, extra: Partial<ArtifactProvenance> & { evaluator_version: string }): {
@@ -45,6 +58,7 @@ export function wrapArtifact(data: unknown, extra: Partial<ArtifactProvenance> &
     prompt_version: extra.prompt_version ?? extra.system_prompt_version ?? null,
     system_prompt_version: extra.system_prompt_version ?? null,
     skill_registry_version: extra.skill_registry_version ?? null,
+    tool_schema_digest: extra.tool_schema_digest ?? null,
     treatment_policy_digest: extra.treatment_policy_digest ?? null,
     control_policy_digest: extra.control_policy_digest ?? null,
     run_ids: extra.run_ids ?? [],

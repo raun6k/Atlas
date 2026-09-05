@@ -402,6 +402,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HttpContex
       method,
       path,
       error_class: err instanceof Error ? err.name : "unknown",
+      error_message: err instanceof Error ? err.message : String(err),
     }));
     send(res, 500, { error: { code: "INTERNAL", message: "internal error", request_id: requestId } }, requestId);
   }

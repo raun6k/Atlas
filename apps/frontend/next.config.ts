@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
   serverExternalPackages: [],
+  async redirects() {
+    return ["login", "sellability", "growth", "commerce", "merchant", "trust", "system", "demo"].map((route) => ({
+      source: `/${route}`,
+      destination: "/",
+      permanent: false,
+    }));
+  },
   env: {
     // Only non-secret display defaults may be inlined. Secrets stay in server env.
     NEXT_PUBLIC_ATLAS_LOCALE: process.env.ATLAS_FRONTEND_LOCALE ?? "en-IN",

@@ -2,7 +2,7 @@
   "name": "@atlas/payment-runner",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",

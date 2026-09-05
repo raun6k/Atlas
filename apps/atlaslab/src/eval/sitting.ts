@@ -14,7 +14,7 @@ import { buildProvenance } from "../provenance.js";
 import { runDeterministicSuite } from "../deterministic/suite.js";
 import { runAgentCompatibilityEval, runCommercialUpliftEval } from "../model-eval/suite.js";
 import { DEFAULT_TREATMENT_STRATEGY } from "../model-eval/missions.js";
-import { allowlistDigest } from "../evaluator/evidence.js";
+import { allowlistDigest, firstArmFromSeed } from "../evaluator/evidence.js";
 
 const DEFAULT_PLANNED_LIVE = 4;
 
@@ -72,7 +72,7 @@ export async function enqueueEvaluationSitting(opts: {
   const parentId = newRunId();
   const evaluationId = newEvaluationId();
   const seed = newPrefixedId("seed");
-  const firstArm: CommercialArm = Math.random() < 0.5 ? "CONTROL" : "TREATMENT";
+  const firstArm: CommercialArm = firstArmFromSeed(seed);
   const parent: RunRecord = {
     run_id: parentId,
     run_type: "EVALUATION_SITTING",

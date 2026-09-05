@@ -479,6 +479,7 @@ export type RevenueStatus =
   | "INSUFFICIENT_SAMPLE"
   | "REVENUE_UNAVAILABLE"
   | "OUTCOME_UNKNOWN"
+  | "KNOWN_NO_PURCHASE"
   | "ZERO_CONFIRMED_REVENUE"
   | "CONFIRMED_REVENUE";
 
@@ -543,6 +544,22 @@ export interface EvaluationEvidenceSnapshot {
   checkout_proposal_id: string | null;
   reservations_active: boolean;
   core_order_confirmed: boolean;
+  merchandise_minor: number | null;
+  merchant_funded_discount_minor: number | null;
+  sponsor_funded_discount_minor: number | null;
+  payment_fee_minor: number | null;
+  fulfillment_cost_minor: number | null;
+  cogs_minor: number | null;
+  units: number | null;
+  requested_model_id: string | null;
+  returned_model_id: string | null;
+  prompt_version: string | null;
+  system_prompt_version: string | null;
+  skill_registry_version: string | null;
+  tool_schema_digest: string | null;
+  control_policy_digest: string | null;
+  treatment_policy_digest: string | null;
+  code_revision: string | null;
 }
 
 export interface EvalSittingRecord {

@@ -596,7 +596,7 @@ export class Orchestrator {
       token_ceiling: this.cfg.maxTokens,
       cost_ceiling_usd_micros: this.cfg.maxCostUsdMicros,
       buyer_spend_minor: this.cfg.defaultBuyerSpendMinor,
-      routing_policy: "same_model_provider_fallback",
+      routing_policy: "exact_model_no_fallback",
       permitted_actions: (body.permitted_actions as PublicMcpTool[]) ?? [],
       arm: body.arm as ModelDriverConfiguration["arm"],
       pairing_key: body.pairing_key as string | undefined,

@@ -277,7 +277,10 @@ async function executeCase(opts: {
       const order = await opts.host.invoke({
         run: { ...opts.run, arm: opts.cse.arm ?? opts.run.arm },
         tool: "get_order",
-        arguments: {},
+        arguments: {
+          ...(result.publicState.session_id ? { session_id: result.publicState.session_id } : {}),
+          ...(result.publicState.merchant_order_id ? { merchant_order_id: result.publicState.merchant_order_id } : {}),
+        },
         proposedBy: "DETERMINISTIC_DRIVER",
         permittedActions: [...SUITE_PERMITTED],
         consent,

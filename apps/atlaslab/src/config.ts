@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { parseUsdToMicros } from "./ids.js";
 import type { ExecutionMode } from "./types.js";
 
-export const APPROVED_DEFAULT_MODELS = ["openrouter/openai/gpt-4.1-nano", "openai/gpt-4.1-nano"] as const;
+export const APPROVED_DEFAULT_MODELS = ["openai/gpt-4.1-nano"] as const;
 
 export interface AtlasLabConfig {
   mode: ExecutionMode;
@@ -178,6 +178,10 @@ export function mocksAllowed(cfg: AtlasLabConfig): boolean {
 }
 
 export function isApprovedModel(cfg: AtlasLabConfig, modelId: string): boolean {
-  const wanted = modelId.toLowerCase();
-  return cfg.approvedModelIds.some((id) => id.toLowerCase() === wanted || wanted.endsWith(id.toLowerCase()) || id.toLowerCase().endsWith(wanted));
+  const normalize = (id: string): string => id.replace(/^openrouter\//i, "").toLowerCase();
+  const wanted = normalize(modelId);
+  return cfg.approvedModelIds.some((id) => {
+    const approved = normalize(id);
+    return approved === wanted || wanted.endsWith(approved) || approved.endsWith(wanted);
+  });
 }

@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canonicalize } from "../canonical.js";
+import { sha256Hex } from "../ids.js";
 import { PUBLIC_MCP_TOOLS, type PublicMcpTool } from "../types.js";
 
 const SKIP_SCHEMA_FILES = new Set(["tools.json", "remaining-tools.json"]);
@@ -126,7 +128,7 @@ export function openAiToolsFor(allowed: PublicMcpTool[]): OpenAiFunctionTool[] {
 
 export function canonicalModelId(id: string): string {
   const noProvider = (id.split("@")[0] ?? id).trim();
-  return noProvider.replace(/:(nitro|floor|extended|free|online|exacto|thinking)$/i, "");
+  return noProvider.replace(/^openrouter\//i, "").replace(/:(nitro|floor|extended|free|online|exacto|thinking)$/i, "");
 }
 
 function tryParseJson(raw: string): Record<string, unknown> | undefined {
@@ -192,4 +194,9 @@ export function parseNativeToolCall(
 export function usdToMicros(cost: number): number {
   if (!Number.isFinite(cost) || cost < 0) return 0;
   return Math.round(cost * 1_000_000);
+}
+
+export function toolSchemaDigest(): string {
+  const schemas = Object.fromEntries(PUBLIC_MCP_TOOLS.map((tool) => [tool, modelVisibleToolSchema(tool)]));
+  return sha256Hex(canonicalize(schemas));
 }

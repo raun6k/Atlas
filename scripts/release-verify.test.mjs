@@ -6,6 +6,7 @@ import {
   validateCommercialArtifact,
   VerificationError,
   verifyRuntime,
+  crossCheckCommercialRuntime,
 } from "./release-verify.mjs";
 
 const head = "0123456789abcdef";
@@ -18,10 +19,18 @@ function proof(overrides = {}) {
     provider_backed: true,
     razorpay_test_mode: true,
     settlement_status: "NOT_IMPLEMENTED",
+    operator_assisted: true,
+    run_id: "run_live",
+    report_id: "uplift_run_live",
+    fixture_digest: "fix_digest",
+    content_digest: "sha256:abc",
     proof: { eligible_pairs: 1 },
     provider_evidence: [
       {
         arm: "CONTROL",
+        session_id: "ses_control",
+        merchant_order_id: "ord_control",
+        provider_order_id: "order_control",
         authenticated_provider_event_ref: "evt_control",
         provider_fetch_ref: "fetch_control",
         provider_payment_id: "pay_control",
@@ -29,6 +38,9 @@ function proof(overrides = {}) {
       },
       {
         arm: "TREATMENT",
+        session_id: "ses_treatment",
+        merchant_order_id: "ord_treatment",
+        provider_order_id: "order_treatment",
         authenticated_provider_event_ref: "evt_treatment",
         provider_fetch_ref: "fetch_treatment",
         provider_payment_id: "pay_treatment",
@@ -72,6 +84,74 @@ test("commercial proof requires complete evidence for each arm", () => {
   assert.throws(
     () => validateCommercialArtifact(incomplete, { head, now, maxAgeSeconds: 3600 }),
     /TREATMENT must have authenticated event/,
+  );
+});
+
+test("commercial runtime cross-check requires the current Lab report and Core evidence", async () => {
+  const artifact = proof();
+  const fetchImpl = async (url) => {
+    if (String(url).includes("/lab/v1/reports")) {
+      return new Response(JSON.stringify({
+        items: [{
+          kind: "COMMERCIAL_UPLIFT",
+          run_id: "run_live",
+          report_id: "uplift_run_live",
+          report: {
+            fixture_digest: "fix_digest",
+            proof: { eligible_pairs: 1 },
+            provenance: { content_digest: "sha256:abc" },
+          },
+        }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (String(url).includes("/eval/v1/evidence")) {
+      const session = new URL(url, "http://127.0.0.1").searchParams.get("session_id");
+      const arm = session === "ses_treatment" ? "treatment" : "control";
+      return new Response(JSON.stringify({
+        merchant_order_id: `ord_${arm}`,
+        provider_order_id: `order_${arm}`,
+        provider_payment_id: `pay_${arm}`,
+        core_order_confirmed: true,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("{}", { status: 404 });
+  };
+  await crossCheckCommercialRuntime({
+    artifact,
+    env: { ATLASLAB_API_TOKEN: "lab-token", ATLAS_MCP_HOST_TOKEN: "host-token" },
+    fetchImpl,
+  });
+  await assert.rejects(
+    () => crossCheckCommercialRuntime({
+      artifact: proof({ run_id: "missing", report_id: "missing" }),
+      env: { ATLASLAB_API_TOKEN: "lab-token", ATLAS_MCP_HOST_TOKEN: "host-token" },
+      fetchImpl,
+    }),
+    /do not contain the provider proof/,
+  );
+  await assert.rejects(
+    () => crossCheckCommercialRuntime({
+      artifact,
+      env: { ATLASLAB_API_TOKEN: "lab-token", ATLAS_MCP_HOST_TOKEN: "host-token" },
+      fetchImpl: async (url) => {
+        if (String(url).includes("/lab/v1/reports")) {
+          return new Response(JSON.stringify({
+            items: [{
+              kind: "COMMERCIAL_UPLIFT",
+              run_id: "run_live",
+              report_id: "uplift_run_live",
+              report: {
+                fixture_digest: "fix_digest",
+                proof: { eligible_pairs: 1 },
+                provenance: { content_digest: "sha256:abc" },
+              },
+            }],
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        return new Response("{}", { status: 404 });
+      },
+    }),
+    /Core evidence fetch failed/,
   );
 });
 

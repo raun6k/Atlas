@@ -110,7 +110,11 @@ export class OpenRouterAdapter implements ModelAdapter {
       },
       signal: req.abort,
       body: JSON.stringify({
-        model: req.requestedModelId,
+        // OpenRouter model IDs are provider/model (for example
+        // openai/gpt-4.1-nano). Keep accepting the historical
+        // openrouter/provider/model spelling at the Atlas boundary, but
+        // never send that invalid namespace to the provider.
+        model: req.requestedModelId.replace(/^openrouter\//i, ""),
         temperature: req.temperature,
         max_tokens: req.maxTokens,
         seed: 0,

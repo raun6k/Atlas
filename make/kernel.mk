@@ -34,7 +34,7 @@ kernel-up:
 	docker compose $(KERNEL_COMPOSE) up --build
 
 kernel-test:
-	cd $(CORE_MOD) && go test ./...
+	cd $(CORE_MOD) && go test -p 1 ./...
 	cd $(GATEWAY_DIR) && npm test --if-present
 
 kernel-fixtures-validate:
@@ -43,7 +43,7 @@ kernel-fixtures-validate:
 test:: kernel-fixtures-validate
 
 kernel-test-contract:
-	cd $(CORE_MOD) && go test ./internal/app ./internal/platform ./internal/grpcapi ./internal/money ./internal/cart ./internal/commerce ./internal/audit -count=1
+	cd $(CORE_MOD) && go test -p 1 ./internal/app ./internal/platform ./internal/grpcapi ./internal/money ./internal/cart ./internal/commerce ./internal/audit -count=1
 	node tests/contract/mcp/mcp.contract.test.ts
 	node tests/contract/admin/admin.contract.test.ts
 	node tests/contract/grpc/grpc.contract.test.ts

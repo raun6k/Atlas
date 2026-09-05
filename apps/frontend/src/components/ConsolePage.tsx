@@ -1,27 +1,18 @@
-import { redirect } from "next/navigation";
 import { Shell } from "@/components/Shell";
-import { ScreenView } from "@/components/ScreenView";
-import { loadScreen, type Screen } from "@/lib/console";
-import { readSession } from "@/lib/session";
+import { Dashboard } from "@/components/Dashboard";
+import { loadDashboard } from "@/lib/console";
+import { rec } from "@/components/ui";
+import type { AuditView } from "@/lib/audit-view";
 
-const TITLES: Record<Screen, string> = {
-  home: "Home",
-  sellability: "Sellability",
-  growth: "Growth",
-  commerce: "Commerce",
-  merchant: "Merchant",
-  trust: "Trust",
-  system: "System",
-  demo: "Five-minute demo",
-};
-
-export async function ConsolePage({ screen }: { screen: Screen }) {
-  const session = await readSession();
-  if (!session) redirect("/login");
-  const data = await loadScreen(screen);
+export async function ConsolePage() {
+  const data = await loadDashboard();
+  const merchant =
+    data.audit_view && typeof data.audit_view === "object" ? (data.audit_view as AuditView).merchant : undefined;
+  const profile = merchant?.profile.value;
+  const merchantName = profile ? String(profile.display_name ?? "QuickMart") : "QuickMart";
   return (
-    <Shell title={TITLES[screen]}>
-      <ScreenView screen={screen} data={data} />
+    <Shell title="Dashboard" fixture={data.mock === true} merchantName={merchantName} merchantDetail={String(rec(profile).currency || "INR")}>
+      <Dashboard data={data} />
     </Shell>
   );
 }

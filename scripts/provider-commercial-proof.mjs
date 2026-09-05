@@ -212,6 +212,7 @@ const artifact = {
   run_id: completedResponse.run?.run_id || runId,
   model_id: report.model_id,
   fixture_digest: report.fixture_digest,
+  content_digest: report.provenance?.content_digest,
   proof: report.proof,
   portfolio: report.portfolio,
   provider_evidence: confirmedEvents,

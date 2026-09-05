@@ -44,8 +44,10 @@ import {
 import { gradeTrajectory } from "./trajectory.js";
 import { averageMetrics, evaluateMission, type MissionEval } from "./metrics.js";
 import { pairRpas, portfolioDelta, type PairRpas } from "./rpas.js";
-import { wrapArtifact } from "../reporter/provenance.js";
-import { capturedRevenueMinor, fetchAtlasEvidence, originFromMcp, allowlistDigest, revenueEligible } from "../evaluator/evidence.js";
+import { wrapArtifact, codeRevision } from "../reporter/provenance.js";
+import { fetchAtlasEvidence, originFromMcp, allowlistDigest, firstArmFromSeed, revenueEligible } from "../evaluator/evidence.js";
+import { assertCanonicalCommercialReport } from "../evaluator/report-invariants.js";
+import { toolSchemaDigest } from "../model/tool-schemas.js";
 
 const CONSENT: ConsentPolicy = {
   max_amount_minor: 250000,
@@ -98,17 +100,33 @@ export interface CommercialReport {
   economic_objective_version: string;
   ranking_version: string;
   demo_strategies: string[];
+  operator_assisted: true;
+  settlement_status: "NOT_IMPLEMENTED";
   caveat: string;
   proof: {
     eligible_pairs: number;
     excluded_pairs: Array<{ mission_id: string; cell_id?: string; reason: string | null }>;
     confirmed_orders_by_arm: { control: number; treatment: number };
     captured_revenue_by_arm: { control: number; treatment: number };
+    merchant_net_revenue_by_arm: { control: number; treatment: number };
+    conversion_by_arm: { control: number | null; treatment: number | null };
+    aov_by_arm: { control: number | null; treatment: number | null };
+    units_per_order_by_arm: { control: number | null; treatment: number | null };
+    known_no_purchase_count: number;
     task_success_by_arm: { control: number | null; treatment: number | null };
     safety_failures: number;
     unresolved_payment_count: number;
+    primary_metric: "merchant_net_revenue_per_eligible_buyer_journey";
+    treatment_strategy: string;
     confidence_intervals: { status: "unavailable"; reason: string };
     next_claim_level: { required_eligible_confirmed_order_pairs: number; required_production_randomization: true; current: string };
+  };
+  provenance?: {
+    code_revision: string;
+    content_digest: string;
+    fixture_digest: string | null;
+    model_id: string | null;
+    returned_model_id: string | null;
   };
 }
 
@@ -376,7 +394,20 @@ async function runInnerSession(opts: {
     grade,
     stallEvents: stalls,
     arm: opts.arm ?? undefined,
-    evidence,
+    evidence: evidence
+      ? {
+          ...evidence,
+          requested_model_id: opts.model.model_id,
+          returned_model_id: loopResult.returnedModelId ?? opts.model.model_id,
+          prompt_version: opts.cfg.systemPromptVersion,
+          system_prompt_version: opts.cfg.systemPromptVersion,
+          skill_registry_version: opts.cfg.skillRegistryVersion,
+          tool_schema_digest: toolSchemaDigest(),
+          control_policy_digest: opts.arm === "CONTROL" ? allowlistDigest(policy.strategyAllowlist ?? []) : evidence.control_policy_digest,
+          treatment_policy_digest: opts.arm === "TREATMENT" ? allowlistDigest(policy.strategyAllowlist ?? []) : evidence.treatment_policy_digest,
+          code_revision: opts.cfg.atlasGitRevision || codeRevision(),
+        }
+      : evidence,
   });
   const invocations = await opts.store.listModelInvocations(child.run_id);
   const evaluationId = opts.evaluationId ?? opts.run.parent_evaluation_id;
@@ -495,9 +526,17 @@ export async function runAgentCompatibilityEval(opts: {
             transaction_safety: null,
           },
           captured_revenue_minor: null,
+          merchant_net_revenue_minor: null,
+          contribution_margin_minor: null,
+          merchant_funded_discount_minor: null,
+          sponsor_funded_discount_minor: null,
+          payment_fee_minor: null,
+          fulfillment_cost_minor: null,
+          units: null,
           all_in_minor: 0,
           paid: false,
           unknown: false,
+          known_no_purchase: false,
           public_calls: 0,
           coverage: 0,
           constraint_violations: [],
@@ -505,6 +544,11 @@ export async function runAgentCompatibilityEval(opts: {
           offer_in_play: false,
           offer_funnel: { generated: 0, shown: 0, selected: 0, applied: 0, retained: 0, confirmed: 0, attributed: 0 },
           treatment_policy_reached: false,
+          evidence: null,
+          safe_refusal: false,
+          unauthorized_action: false,
+          judgement_matched: null,
+          policy_compliant: false,
         })),
     ]);
     await persistCompat(opts.store, run.run_id, report);
@@ -547,8 +591,9 @@ function compatibilityReport(modelId: string, digest: string | null, missions: M
   };
 }
 
-function coinFlipArm(): CommercialArm {
-  return Math.random() < 0.5 ? "CONTROL" : "TREATMENT";
+function coinFlipArm(seed?: string): CommercialArm {
+  if (seed) return firstArmFromSeed(seed);
+  return firstArmFromSeed(`${Date.now()}:${Math.random()}`);
 }
 
 export async function runCommercialUpliftEval(opts: {
@@ -715,34 +760,69 @@ function commercialReport(
     economic_objective_version: ECONOMIC_OBJECTIVE_VERSION,
     ranking_version: RANKING_VERSION,
     demo_strategies: [...DEMO_STRATEGIES],
+    operator_assisted: true,
+    settlement_status: "NOT_IMPLEMENTED",
     caveat: minimalPair
-      ? "Core Live minimal pair: one fixed buyer mission under CONTROL and one bounded FREE_DELIVERY TREATMENT. Buyer history is synthetic_fixture, not real market demand. Razorpay Test Mode capture and reconciliation do not establish settlement or real-world causal uplift."
-      : "Core Live only: 3 portfolio pairs and 3 isolate-one cells over DEMO strategies (threshold completion, brand promotion, FBT). Buyer history is synthetic_fixture, not real market demand. Portfolio TREATMENT stamps those strategies explicitly. CONTROL stamps an empty allowlist. Test Mode does not support a real-world causal uplift claim. n is small; report deltas and caveats, not p-values. Commercial offer success requires an applied offer that is retained through quote validation and confirmed payment, not merely shown.",
-    proof: {
-      eligible_pairs: included.length,
-      excluded_pairs,
-      confirmed_orders_by_arm: {
-        control: included.filter((p) => p.control.paid).length,
-        treatment: included.filter((p) => p.treatment.paid).length,
-      },
-      captured_revenue_by_arm: {
-        control: included.reduce((s, p) => s + (p.control.captured_revenue_minor ?? 0), 0),
-        treatment: included.reduce((s, p) => s + (p.treatment.captured_revenue_minor ?? 0), 0),
-      },
-      task_success_by_arm: { control: meanTask("control"), treatment: meanTask("treatment") },
-      safety_failures: [...pairs, ...cells].filter((p) => p.guardrails.critical_safety_failure).length,
-      unresolved_payment_count: [...pairs, ...cells].filter((p) => p.control.unknown || p.treatment.unknown).length,
-      confidence_intervals: {
-        status: "unavailable",
-        reason: "n is too small for inferential intervals. Test Mode does not support a real-world causal uplift claim.",
-      },
-      next_claim_level: {
-        required_eligible_confirmed_order_pairs: 30,
-        required_production_randomization: true,
-        current: included.length === 0
-          ? "Revenue uplift unavailable — 0 eligible confirmed-order pairs."
-          : "Controlled Test Mode RPAS only. Real merchant evidence is not claimed.",
-      },
+      ? "Core Live minimal pair: one frozen fee_threshold buyer mission under CONTROL and one bounded SMALL_ORDER TREATMENT. Payment is operator-assisted Razorpay Test Mode, not autonomous capture. Buyer history is synthetic_fixture, not real market demand. Capture and reconciliation do not establish settlement or real-world causal uplift. Merchant-net delta may be positive, neutral, or unproven; Atlas does not manufacture uplift."
+      : "Core Live only: 3 portfolio pairs and 3 isolate-one cells over DEMO strategies (threshold completion, brand promotion, FBT). Buyer history is synthetic_fixture, not real market demand. Portfolio TREATMENT stamps those strategies explicitly. CONTROL stamps an empty allowlist. Payment is operator-assisted Test Mode. n is small; report deltas and caveats, not p-values. Commercial offer success requires an applied offer that is retained through quote validation and confirmed payment, not merely shown.",
+    proof: canonicalProof(pairs, cells, included, excluded_pairs, meanTask),
+  };
+}
+
+function canonicalProof(
+  pairs: PairRpas[],
+  cells: PairRpas[],
+  included: PairRpas[],
+  excluded_pairs: Array<{ mission_id: string; cell_id?: string; reason: string | null }>,
+  meanTask: (arm: "control" | "treatment") => number | null,
+): CommercialReport["proof"] {
+  const net = (arm: "control" | "treatment"): number =>
+    included.reduce((sum, p) => sum + (p[arm].merchant_net_revenue_minor ?? p[arm].captured_revenue_minor ?? 0), 0);
+  const paid = (arm: "control" | "treatment"): number =>
+    included.filter((p) => p[arm].revenue_status === "CONFIRMED_REVENUE" && p[arm].paid && p[arm].captured_revenue_minor !== null).length;
+  const aov = (arm: "control" | "treatment"): number | null => {
+    const rows = included.filter((p) => p[arm].revenue_status === "CONFIRMED_REVENUE" && p[arm].captured_revenue_minor != null);
+    if (!rows.length) return null;
+    return rows.reduce((sum, p) => sum + (p[arm].captured_revenue_minor ?? 0), 0) / rows.length;
+  };
+  const units = (arm: "control" | "treatment"): number | null => {
+    const rows = included.filter((p) => p[arm].revenue_status === "CONFIRMED_REVENUE" && p[arm].units != null);
+    if (!rows.length) return null;
+    return rows.reduce((sum, p) => sum + (p[arm].units ?? 0), 0) / rows.length;
+  };
+  return {
+    eligible_pairs: included.length,
+    excluded_pairs,
+    confirmed_orders_by_arm: { control: paid("control"), treatment: paid("treatment") },
+    captured_revenue_by_arm: {
+      control: included.reduce((s, p) => s + (p.control.captured_revenue_minor ?? 0), 0),
+      treatment: included.reduce((s, p) => s + (p.treatment.captured_revenue_minor ?? 0), 0),
+    },
+    merchant_net_revenue_by_arm: { control: net("control"), treatment: net("treatment") },
+    conversion_by_arm: {
+      control: included.length ? paid("control") / included.length : null,
+      treatment: included.length ? paid("treatment") / included.length : null,
+    },
+    aov_by_arm: { control: aov("control"), treatment: aov("treatment") },
+    units_per_order_by_arm: { control: units("control"), treatment: units("treatment") },
+    known_no_purchase_count: [...pairs, ...cells].filter((p) => p.control.known_no_purchase || p.treatment.known_no_purchase).length,
+    task_success_by_arm: { control: meanTask("control"), treatment: meanTask("treatment") },
+    safety_failures: [...pairs, ...cells].filter((p) => p.guardrails.critical_safety_failure).length,
+    unresolved_payment_count: [...pairs, ...cells].filter((p) => p.control.unknown || p.treatment.unknown).length,
+    primary_metric: "merchant_net_revenue_per_eligible_buyer_journey",
+    treatment_strategy: DEFAULT_TREATMENT_STRATEGY,
+    confidence_intervals: {
+      status: "unavailable",
+      reason: "n is too small for inferential intervals. Test Mode does not support a real-world causal uplift claim.",
+    },
+    next_claim_level: {
+      required_eligible_confirmed_order_pairs: 30,
+      required_production_randomization: true,
+      current: included.length === 0
+        ? "Revenue uplift unavailable — 0 eligible confirmed-order pairs."
+        : (net("treatment") - net("control") > 0
+          ? "Controlled Test Mode merchant-net RPAS only. Real merchant evidence is not claimed."
+          : "Controlled Test Mode merchant-net result is not positive. Real merchant evidence is not claimed."),
     },
   };
 }
@@ -769,16 +849,40 @@ async function persistCompat(store: LabStore, runId: string, report: Compatibili
 }
 
 async function persistCommercial(store: LabStore, runId: string, report: CommercialReport): Promise<void> {
+  const orderIds = report.pairs.flatMap((p) => [p.control.merchant_order_id, p.treatment.merchant_order_id]).filter((id): id is string => Boolean(id));
+  const paymentIds = report.pairs.flatMap((p) => [p.control.provider_payment_id, p.treatment.provider_payment_id]).filter((id): id is string => Boolean(id));
+  const revision = codeRevision();
+  const measured = report.proof.eligible_pairs > 0 && revision !== "unknown";
   const wrapped = wrapArtifact(report, {
     evaluator_version: "eval_v2_commercial_uplift",
+    code_revision: revision,
+    fixture_snapshot_id: "fix_quickmart_v1",
     fixture_digest: report.fixture_digest,
     model_id: report.model_id,
     returned_model_id: report.model_id,
+    prompt_version: report.pairs[0]?.control.prompt_version ?? null,
+    system_prompt_version: report.pairs[0]?.control.system_prompt_version ?? null,
+    skill_registry_version: report.pairs[0]?.control.skill_registry_version ?? null,
+    tool_schema_digest: report.pairs[0]?.control.tool_schema_digest ?? toolSchemaDigest(),
+    control_policy_digest: allowlistDigest([]),
+    treatment_policy_digest: allowlistDigest([DEFAULT_TREATMENT_STRATEGY]),
     run_ids: [runId],
+    order_ids: orderIds,
+    payment_ids: paymentIds,
     exclusions: report.proof.excluded_pairs.map((e) => ({ id: e.cell_id ?? e.mission_id, reason: e.reason ?? "excluded" })),
-    evidence_quality: report.proof.eligible_pairs === 0 ? "unavailable" : "measured",
+    evidence_quality: measured ? "measured" : report.proof.eligible_pairs === 0 ? "unavailable" : "partial",
     evidence_level: "controlled_test_mode",
   });
+  report.provenance = {
+    code_revision: wrapped.provenance.code_revision,
+    content_digest: wrapped.provenance.content_digest,
+    fixture_digest: wrapped.provenance.fixture_digest,
+    model_id: wrapped.provenance.model_id,
+    returned_model_id: wrapped.provenance.returned_model_id,
+  };
+  if (measured) {
+    assertCanonicalCommercialReport(report);
+  }
   const body = JSON.stringify({ ...report, provenance: wrapped.provenance });
   await store.putArtifact({
     artifact_id: newPrefixedId("art"),
@@ -803,11 +907,17 @@ export async function loadCommercialReport(store: LabStore, runId: string): Prom
   if (!art?.body) return undefined;
   const report = JSON.parse(art.body) as CommercialReport;
   const included = report.pairs.filter((pair) => pair.included_in_rpas);
-  report.proof.confirmed_orders_by_arm = {
-    control: included.filter((pair) =>
-      pair.control.revenue_status === "CONFIRMED_REVENUE" && pair.control.captured_revenue_minor !== null).length,
-    treatment: included.filter((pair) =>
-      pair.treatment.revenue_status === "CONFIRMED_REVENUE" && pair.treatment.captured_revenue_minor !== null).length,
+  const meanTask = (arm: "control" | "treatment"): number | null => {
+    const vals = included.map((p) => p[arm].task_success).filter((v): v is number => v != null);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
   };
+  const excluded_pairs = [...report.pairs, ...(report.strategy_cells ?? [])]
+    .filter((p) => !p.included_in_rpas)
+    .map((p) => ({ mission_id: p.mission_id, cell_id: p.cell_id, reason: p.exclusion_reason }));
+  report.proof = canonicalProof(report.pairs, report.strategy_cells ?? [], included, excluded_pairs, meanTask);
+  if (report.proof.eligible_pairs > 0 && report.provenance?.code_revision && report.provenance.code_revision !== "unknown") {
+    assertCanonicalCommercialReport(report);
+  }
   return report;
 }

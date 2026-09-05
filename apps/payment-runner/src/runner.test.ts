@@ -28,6 +28,12 @@ test("health live vs ready components", async () => {
       active_job: false,
       callback_report: false,
     },
+    last_heartbeat_at: null,
+    last_job_poll_at: null,
+    last_success_at: null,
+    last_failure_at: null,
+    current_job: null,
+    operator_assisted: true,
   }));
   if (!liveOnly.listening) {
     await new Promise<void>((resolve) => liveOnly.once("listening", resolve));

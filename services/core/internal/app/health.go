@@ -2,9 +2,13 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"atlas.dev/core/internal/platform"
 )
@@ -45,8 +49,8 @@ func (k *Kernel) SystemHealth(ctx context.Context, m Meta) (Envelope, HealthRepo
 		HealthComponent{Name: "test_mode", Status: map[bool]string{true: "READY", false: "LIVE"}[testMode], Detail: "ATLAS_ENVIRONMENT=" + k.Cfg.Environment},
 		HealthComponent{Name: "runner_auth", Status: map[bool]string{true: "READY", false: "DEGRADED"}[runnerSet], Detail: "ATLAS_RUNNER_EXECUTOR_CREDENTIAL"},
 		HealthComponent{Name: "worker_heartbeat", Status: map[bool]string{true: "CONFIGURED", false: "UNKNOWN"}[workerSet], Detail: "ATLAS_WORKER_CREDENTIAL"},
-		k.jobComponent(ctx, "worker", false),
-		k.jobComponent(ctx, "payment_runner", true),
+		k.liveProcessComponent(ctx, "worker", "ATLAS_WORKER_HEALTH_URL", false),
+		k.liveProcessComponent(ctx, "payment_runner", "ATLAS_PAYMENT_RUNNER_HEALTH_URL", true),
 		k.reconcileComponent(ctx),
 		HealthComponent{Name: "core", Status: "READY", Detail: "grpc process serving"},
 		HealthComponent{Name: "gateway", Status: "UNKNOWN", Detail: "reported by Gateway, not Core"},
@@ -96,6 +100,37 @@ func (k *Kernel) reconcileComponent(ctx context.Context) HealthComponent {
 		return HealthComponent{Name: "reconcile_loop", Status: "UNKNOWN", Detail: "jobs table unread"}
 	}
 	return HealthComponent{Name: "reconcile_loop", Status: "READY", Detail: fmt.Sprintf("%d RECONCILE_PAYMENT jobs recorded", n)}
+}
+
+func (k *Kernel) liveProcessComponent(ctx context.Context, name, envName string, runner bool) HealthComponent {
+	jobs := k.jobComponent(ctx, name, runner)
+	url := strings.TrimSpace(os.Getenv(envName))
+	if url == "" {
+		return HealthComponent{Name: name, Status: "UNKNOWN", Detail: jobs.Detail + "; " + envName + " unset so this is not a live heartbeat"}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(url, "/")+"/health/ready", nil)
+	if err != nil {
+		return HealthComponent{Name: name, Status: "UNKNOWN", Detail: jobs.Detail + "; heartbeat request invalid"}
+	}
+	client := &http.Client{Timeout: 1500 * time.Millisecond}
+	res, err := client.Do(req)
+	if err != nil {
+		return HealthComponent{Name: name, Status: "NOT_READY", Detail: jobs.Detail + "; heartbeat probe failed"}
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(res.Body, 4096))
+	var payload map[string]any
+	_ = json.Unmarshal(body, &payload)
+	detail := fmt.Sprintf("http %d last_heartbeat=%v last_job_poll=%v last_success=%v last_failure=%v current_job=%v; %s",
+		res.StatusCode, payload["last_heartbeat_at"], payload["last_job_poll_at"], payload["last_success_at"], payload["last_failure_at"], payload["current_job"], jobs.Detail)
+	if last := payload["last_loop_at"]; last != nil && payload["last_heartbeat_at"] == nil {
+		detail = fmt.Sprintf("http %d last_loop_at=%v current_job=%v; %s", res.StatusCode, last, payload["current_job"], jobs.Detail)
+	}
+	status := "NOT_READY"
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		status = "READY"
+	}
+	return HealthComponent{Name: name, Status: status, Detail: detail}
 }
 
 func (k *Kernel) jobComponent(ctx context.Context, name string, runner bool) HealthComponent {

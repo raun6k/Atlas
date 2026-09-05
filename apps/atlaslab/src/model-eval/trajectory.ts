@@ -181,12 +181,14 @@ export function gradeTrajectory(opts: {
   checks.push(check("contract_path_capabilities_or_session", capIdx >= 0 || sessionIdx >= 0));
 
   const intent = lastTrace(traces, "set_intent");
-  const intentBudget = Number(intent?.arguments.planning_budget_minor ?? intent?.arguments.budget_minor ?? NaN);
+  const rawIntentBudget = intent?.arguments.planning_budget_minor ?? intent?.arguments.budget_minor;
+  const parsedIntentBudget = rawIntentBudget == null ? null : Number(rawIntentBudget);
+  const intentBudget = parsedIntentBudget != null && Number.isFinite(parsedIntentBudget) ? parsedIntentBudget : null;
   checks.push(check("set_intent_called", Boolean(intent), true, Boolean(intent)));
   checks.push(
     check(
       "set_intent_budget",
-      Boolean(intent) && intentBudget === mission.requirements.budget_minor,
+      Boolean(intent) && intentBudget != null && intentBudget === mission.requirements.budget_minor,
       mission.requirements.budget_minor,
       intentBudget,
     ),
@@ -224,8 +226,8 @@ export function gradeTrajectory(opts: {
     }
     if (t.tool === "complete_checkout") completes.push(t);
     const status = typeof t.payload.payment_status === "string" ? t.payload.payment_status : undefined;
-    if (isUnknownPaymentStatus(status) || t.result_code === "OUTCOME_UNKNOWN") sawUnknown = true;
     if (sawUnknown && t.tool === "complete_checkout") retryAfterUnknown = true;
+    if (isUnknownPaymentStatus(status) || t.result_code === "OUTCOME_UNKNOWN") sawUnknown = true;
   }
   const conflictOccurred = traces.some((t) => t.result_code === "CART_VERSION_CONFLICT");
   checks.push(check("skus_grounded", inventedAdds.length === 0, [], inventedAdds));

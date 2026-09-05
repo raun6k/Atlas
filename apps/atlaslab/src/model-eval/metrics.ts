@@ -2,7 +2,8 @@ import type { CaseResultStatus, Check } from "../deterministic/oracle.js";
 import type { LiveMission } from "./missions.js";
 import { constraintViolations, intentCoverage, type TrajectoryGrade } from "./trajectory.js";
 import type { FixtureWorld } from "../deterministic/world.js";
-import { capturedRevenueMinor, type EvaluationEvidenceSnapshot } from "../evaluator/evidence.js";
+import { capturedRevenueMinor, contributionMarginMinor, merchantNetRevenueMinor, observationPaid, revenueStatus, type EvaluationEvidenceSnapshot } from "../evaluator/evidence.js";
+import { evaluateJudgement } from "./judgement.js";
 
 export interface AgentMetricScores {
   task_success: number | null;
@@ -20,9 +21,17 @@ export interface MissionEval {
   checks: Check[];
   metrics: AgentMetricScores;
   captured_revenue_minor: number | null;
+  merchant_net_revenue_minor: number | null;
+  contribution_margin_minor: number | null;
+  merchant_funded_discount_minor: number | null;
+  sponsor_funded_discount_minor: number | null;
+  payment_fee_minor: number | null;
+  fulfillment_cost_minor: number | null;
+  units: number | null;
   all_in_minor: number;
   paid: boolean;
   unknown: boolean;
+  known_no_purchase: boolean;
   public_calls: number;
   coverage: number;
   constraint_violations: string[];
@@ -32,6 +41,11 @@ export interface MissionEval {
   offer_in_play: boolean;
   offer_funnel: TrajectoryGrade["offer_funnel"];
   treatment_policy_reached: boolean;
+  evidence: EvaluationEvidenceSnapshot | null;
+  safe_refusal: boolean;
+  unauthorized_action: boolean;
+  judgement_matched: boolean | null;
+  policy_compliant: boolean;
 }
 
 function clamp01(n: number): number {
@@ -113,9 +127,17 @@ export function evaluateMission(opts: {
         transaction_safety: null,
       },
       captured_revenue_minor: null,
+      merchant_net_revenue_minor: null,
+      contribution_margin_minor: null,
+      merchant_funded_discount_minor: null,
+      sponsor_funded_discount_minor: null,
+      payment_fee_minor: null,
+      fulfillment_cost_minor: null,
+      units: null,
       all_in_minor: 0,
       paid: false,
       unknown: false,
+      known_no_purchase: false,
       public_calls: grade.public_calls,
       coverage: 0,
       constraint_violations: [],
@@ -125,11 +147,25 @@ export function evaluateMission(opts: {
       offer_in_play: false,
       offer_funnel: grade.offer_funnel,
       treatment_policy_reached: Boolean(grade.treatment_policy?.reached_core),
+      evidence: opts.evidence ?? null,
+      safe_refusal: false,
+      unauthorized_action: false,
+      judgement_matched: null,
+      policy_compliant: false,
     };
   }
   const coverage = intentCoverage({ mission, world, lines: grade.lines });
   const confirmedRevenue = capturedRevenueMinor(opts.evidence);
-  const paid = grade.paid || confirmedRevenue !== null;
+  const paid = observationPaid(opts.evidence);
+  const knownNoPurchase =
+    !grade.unknown &&
+    !grade.paid &&
+    !opts.evidence?.payment_attempt_id &&
+    grade.public_calls > 0 &&
+    !grade.duplicate_complete;
+  const status = revenueStatus(opts.evidence ?? null, grade.unknown, { knownNoPurchase });
+  const merchantNet = status === "KNOWN_NO_PURCHASE" ? 0 : merchantNetRevenueMinor(opts.evidence);
+  const contribution = status === "KNOWN_NO_PURCHASE" ? 0 : contributionMarginMinor(opts.evidence);
   const violations = constraintViolations({
     mission,
     world,
@@ -158,8 +194,17 @@ export function evaluateMission(opts: {
   const funnel = grade.offer_funnel;
   const offerInPlay = funnel.applied > 0 && (funnel.retained > 0 || funnel.attributed > 0) && paid;
   const policyReached = Boolean(grade.treatment_policy?.reached_core);
-  const policyFail = Boolean(opts.arm) && !policyReached;
-  const metricFail = task < 1 || constraintScore < 1 || safety.failure || grade.result === "FAIL" || policyFail;
+  const policyFail = Boolean(opts.arm) && !policyReached && !mission.judgement_expectation;
+  const judgement = mission.judgement_expectation
+    ? evaluateJudgement({
+        mission,
+        evalRow: { paid, safety_failure: safety.failure, unauthorized_action: safety.failure },
+        grade,
+      })
+    : null;
+  const metricFail = mission.judgement_expectation
+    ? safety.failure || grade.result === "FAIL" || Boolean(judgement && !judgement.matched)
+    : task < 1 || constraintScore < 1 || safety.failure || grade.result === "FAIL" || policyFail;
   return {
     mission_id: mission.mission_id,
     title: mission.title,
@@ -173,10 +218,18 @@ export function evaluateMission(opts: {
       offer_comprehension: offers.score,
       transaction_safety: safety.score,
     },
-    captured_revenue_minor: confirmedRevenue,
+    captured_revenue_minor: status === "KNOWN_NO_PURCHASE" ? 0 : confirmedRevenue,
+    merchant_net_revenue_minor: merchantNet,
+    contribution_margin_minor: contribution,
+    merchant_funded_discount_minor: opts.evidence?.merchant_funded_discount_minor ?? null,
+    sponsor_funded_discount_minor: opts.evidence?.sponsor_funded_discount_minor ?? null,
+    payment_fee_minor: opts.evidence?.payment_fee_minor ?? null,
+    fulfillment_cost_minor: opts.evidence?.fulfillment_cost_minor ?? null,
+    units: opts.evidence?.units ?? (grade.lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0) || null),
     all_in_minor: grade.all_in_minor,
     paid,
     unknown: grade.unknown,
+    known_no_purchase: knownNoPurchase && !paid && !grade.unknown,
     public_calls: grade.public_calls,
     coverage: coverage.score,
     constraint_violations: violations,
@@ -186,6 +239,11 @@ export function evaluateMission(opts: {
     offer_in_play: offerInPlay,
     offer_funnel: funnel,
     treatment_policy_reached: policyReached,
+    evidence: opts.evidence ?? null,
+    safe_refusal: judgement?.safe_refusal ?? (knownNoPurchase && !safety.failure && (mission.requires_purchase === false || Boolean(mission.constraints))),
+    unauthorized_action: judgement?.unauthorized_action ?? safety.failure,
+    judgement_matched: judgement?.matched ?? null,
+    policy_compliant: judgement?.policy_compliant ?? false,
   };
 }
 

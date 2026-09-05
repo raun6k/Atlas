@@ -40,6 +40,15 @@ type LabEvidence struct {
 	CheckoutProposalID            string   `json:"checkout_proposal_id"`
 	ReservationsActive            bool     `json:"reservations_active"`
 	CoreOrderConfirmed            bool     `json:"core_order_confirmed"`
+	MerchandiseMinor              int64    `json:"merchandise_minor"`
+	MerchantFundedDiscountMinor   int64    `json:"merchant_funded_discount_minor"`
+	SponsorFundedDiscountMinor    int64    `json:"sponsor_funded_discount_minor"`
+	// PaymentFeeMinor stays nil unless an authenticated provider fee is present.
+	// Test Mode capture is not used to invent a payment fee.
+	PaymentFeeMinor               *int64   `json:"payment_fee_minor"`
+	FulfillmentCostMinor          int64    `json:"fulfillment_cost_minor"`
+	CogsMinor                     int64    `json:"cogs_minor"`
+	Units                         int64    `json:"units"`
 }
 
 func (k *Kernel) LabEvidence(ctx context.Context, sessionID string) (LabEvidence, error) {
@@ -93,7 +102,7 @@ func (k *Kernel) LabEvidence(ctx context.Context, sessionID string) (LabEvidence
 		out.FixtureDigest = fix.Digest
 	}
 	var orderID, payAttempt, status, currency string
-	var amount int64
+	var amount, dummyDiscount, handling int64
 	if qerr := k.Pool().QueryRow(ctx, `
 		SELECT order_id, COALESCE(payment_attempt_id,''), status, total_amount_minor, currency
 		FROM orders WHERE session_id=$1 ORDER BY created_at DESC LIMIT 1`, sessionID).Scan(&orderID, &payAttempt, &status, &amount, &currency); qerr != nil {
@@ -105,6 +114,22 @@ func (k *Kernel) LabEvidence(ctx context.Context, sessionID string) (LabEvidence
 	out.ConfirmedOrderAmountMinor = amount
 	out.Currency = currency
 	out.CoreOrderConfirmed = status == "CONFIRMED" || status == "FULFILLING" || status == "COMPLETED" || status == "ORDER_CONFIRMED"
+	_ = k.Pool().QueryRow(ctx, `
+		SELECT COALESCE(merchandise_minor,0), COALESCE(discounts_minor,0), COALESCE(delivery_fee_minor,0), COALESCE(handling_fee_minor,0)
+		FROM checkout_proposals WHERE session_id=$1 ORDER BY created_at DESC LIMIT 1`, sessionID).Scan(
+		&out.MerchandiseMinor, &dummyDiscount, &out.FulfillmentCostMinor, &handling)
+	out.FulfillmentCostMinor += handling
+	_ = k.Pool().QueryRow(ctx, `
+		SELECT COALESCE(SUM(merchant_funded_minor),0), COALESCE(SUM(partner_funded_minor),0)
+		FROM offers WHERE session_id=$1 AND status IN ('APPLIED','RETAINED','ATTRIBUTED','ORDER_CONFIRMED')`, sessionID).Scan(
+		&out.MerchantFundedDiscountMinor, &out.SponsorFundedDiscountMinor)
+	_ = k.Pool().QueryRow(ctx, `
+		SELECT COALESCE(SUM(cl.quantity),0), COALESCE(SUM(cl.quantity * COALESCE(pr.cogs_minor,0)),0)
+		FROM cart_lines cl
+		JOIN carts c ON c.cart_id = cl.cart_id
+		JOIN shopping_sessions s ON s.session_id = c.session_id
+		JOIN prices pr ON pr.sku_id = cl.sku_id AND pr.location_id = s.location_id
+		WHERE c.session_id=$1`, sessionID).Scan(&out.Units, &out.CogsMinor)
 	if payAttempt == "" {
 		return out, nil
 	}

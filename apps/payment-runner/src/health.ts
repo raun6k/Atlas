@@ -10,14 +10,25 @@ export type HealthComponents = {
   callback_report: boolean;
 };
 
+export type HealthState = {
+  activeJob: boolean;
+  lastHeartbeatAt?: string | null;
+  lastJobPollAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastFailureAt?: string | null;
+  currentJob?: string | null;
+};
+
 export type HealthSnapshot = {
   status: "ok" | "not_ready";
   process: string;
   components: HealthComponents;
-};
-
-export type HealthState = {
-  activeJob: boolean;
+  last_heartbeat_at: string | null;
+  last_job_poll_at: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  current_job: string | null;
+  operator_assisted: true;
 };
 
 export async function probeReadiness(cfg: RunnerConfig, state: HealthState): Promise<HealthSnapshot> {
@@ -48,7 +59,17 @@ export async function probeReadiness(cfg: RunnerConfig, state: HealthState): Pro
     components.claim_credential &&
     components.browser_executor &&
     components.callback_report;
-  return { status: ready ? "ok" : "not_ready", process: "payment-runner", components };
+  return {
+    status: ready ? "ok" : "not_ready",
+    process: "payment-runner",
+    components,
+    last_heartbeat_at: state.lastHeartbeatAt ?? new Date().toISOString(),
+    last_job_poll_at: state.lastJobPollAt ?? null,
+    last_success_at: state.lastSuccessAt ?? null,
+    last_failure_at: state.lastFailureAt ?? null,
+    current_job: state.currentJob ?? null,
+    operator_assisted: true,
+  };
 }
 
 export function startHealthServer(

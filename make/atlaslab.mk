@@ -34,7 +34,7 @@ atlaslab-eval-deterministic:
 		-H "content-type: application/json" \
 		-H "accept: application/json"
 
-# Core Live model eval: 4 CONTROL missions. Pass MODEL_ID=openrouter/...
+# Core Live model eval: 4 CONTROL missions. Pass MODEL_ID=openai/...
 atlaslab-eval-agent-compatibility:
 	@test -n "$(ATLASLAB_API_TOKEN)" || (echo "ATLASLAB_API_TOKEN is required" >&2; exit 1)
 	@test -n "$(MODEL_ID)" || (echo "MODEL_ID is required" >&2; exit 1)

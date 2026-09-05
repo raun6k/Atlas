@@ -1,0 +1,41 @@
+{
+  "$comment": "Sanitized shape for artifacts/provider-commercial-proof.json. Replace placeholders after the operator-assisted Test Mode proof. Never commit secrets.",
+  "generated_at": "ISO-8601",
+  "git_revision": "<HEAD>",
+  "provider_backed": true,
+  "razorpay_test_mode": true,
+  "operator_assisted": true,
+  "settlement_status": "NOT_IMPLEMENTED",
+  "real_world_causal_uplift_claimed": false,
+  "report_id": "uplift_<run_id>",
+  "run_id": "<run_id>",
+  "model_id": "<requested_model_id>",
+  "fixture_digest": "<fixture_digest>",
+  "content_digest": "<content_digest>",
+  "proof": {
+    "eligible_pairs": 1,
+    "primary_metric": "merchant_net_revenue_per_eligible_buyer_journey"
+  },
+  "provider_evidence": [
+    {
+      "arm": "CONTROL",
+      "merchant_order_id": "ord_redacted",
+      "payment_attempt_id": "pat_redacted",
+      "provider_order_id": "order_redacted",
+      "provider_payment_id": "pay_redacted",
+      "authenticated_provider_event_ref": "evt_redacted",
+      "provider_fetch_ref": "recon_redacted",
+      "core_order_confirmed": true
+    },
+    {
+      "arm": "TREATMENT",
+      "merchant_order_id": "ord_redacted",
+      "payment_attempt_id": "pat_redacted",
+      "provider_order_id": "order_redacted",
+      "provider_payment_id": "pay_redacted",
+      "authenticated_provider_event_ref": "evt_redacted",
+      "provider_fetch_ref": "recon_redacted",
+      "core_order_confirmed": true
+    }
+  ]
+}

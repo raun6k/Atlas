@@ -35,7 +35,7 @@ join-permission:
 join-permission-soft:
 	@$(JOIN_ENV) node tests/e2e/permission.test.mjs || echo "permission test skipped (stack not running)"
 
-join-lint:
+join-lint::
 	cd services/core && go vet ./...
 	cd apps/gateway && npx tsc --noEmit
 	cd apps/payment-runner && npm run typecheck

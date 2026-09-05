@@ -192,6 +192,7 @@ test("OpenRouter adapter sends tools and parses content JSON", async () => {
     ],
   });
   assert.equal(Array.isArray(body.tools), true);
+  assert.equal(body.model, "test-model");
   assert.equal((body.tools as Array<{ function: { name: string } }>)[0]?.function.name, "get_capabilities");
   assert.equal(body.tool_choice, "required");
   const messages = body.messages as Array<{ role: string; tool_call_id?: string }>;

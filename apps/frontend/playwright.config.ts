@@ -6,7 +6,7 @@ const testAdminBearer = process.env.ATLAS_TEST_ADMIN_BEARER ?? "operator-test-be
 process.env.ATLAS_TEST_ADMIN_BEARER = testAdminBearer;
 
 const frontendEnv = {
-  ATLAS_FRONTEND_ENABLE_MOCKS: process.env.ATLAS_FRONTEND_ENABLE_MOCKS ?? "1",
+  ATLAS_FRONTEND_ENABLE_MOCKS: process.env.ATLAS_FRONTEND_E2E_LIVE === "1" ? "0" : "1",
   ATLAS_TEST_ADMIN_BEARER: testAdminBearer,
   ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD:
     process.env.ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD ?? testAdminBearer,

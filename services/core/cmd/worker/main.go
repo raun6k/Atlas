@@ -69,6 +69,7 @@ func main() {
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
+		health.markClaim(jobID, jobType)
 		var jobErr error
 		switch jobType {
 		case "GENERATE_AUDIT_EXPORT":
@@ -84,19 +85,25 @@ func main() {
 		}
 		if jobErr != nil {
 			log.Printf("job %s %s: %v", jobType, jobID, jobErr)
+			health.markFailure()
 			if err := jobs.Fail(ctx, db, jobID, jobErr); err != nil {
 				log.Printf("job fail persist %s: %v", jobID, err)
 			}
 			continue
 		}
+		health.markSuccess()
 		_ = jobs.Complete(ctx, db, jobID)
 	}
 }
 
 type workerHealth struct {
-	dbReady      func(context.Context) error
-	loopDeadline time.Duration
-	lastLoopUnix atomic.Int64
+	dbReady          func(context.Context) error
+	loopDeadline     time.Duration
+	lastLoopUnix     atomic.Int64
+	lastClaimUnix    atomic.Int64
+	lastSuccessUnix  atomic.Int64
+	lastFailureUnix  atomic.Int64
+	currentJob       atomic.Value
 }
 
 func newWorkerHealth(dbReady func(context.Context) error, loopDeadline time.Duration) *workerHealth {
@@ -107,6 +114,28 @@ func newWorkerHealth(dbReady func(context.Context) error, loopDeadline time.Dura
 
 func (h *workerHealth) markLoop() {
 	h.lastLoopUnix.Store(time.Now().UnixNano())
+}
+
+func (h *workerHealth) markClaim(jobID, jobType string) {
+	h.lastClaimUnix.Store(time.Now().UnixNano())
+	h.currentJob.Store(jobType + ":" + jobID)
+}
+
+func (h *workerHealth) markSuccess() {
+	h.lastSuccessUnix.Store(time.Now().UnixNano())
+	h.currentJob.Store("")
+}
+
+func (h *workerHealth) markFailure() {
+	h.lastFailureUnix.Store(time.Now().UnixNano())
+	h.currentJob.Store("")
+}
+
+func unixNanoOrEmpty(n int64) any {
+	if n == 0 {
+		return nil
+	}
+	return time.Unix(0, n).UTC().Format(time.RFC3339Nano)
 }
 
 func (h *workerHealth) handler() http.Handler {
@@ -130,15 +159,21 @@ func (h *workerHealth) handler() http.Handler {
 			state = "not_ready"
 		}
 		database := dbErr == nil
+		current, _ := h.currentJob.Load().(string)
 		writeHealth(w, status, map[string]any{
-			"status":  state,
-			"process": "worker",
+			"status":           state,
+			"process":          "worker",
 			"components": map[string]bool{
 				"process":  true,
 				"database": database,
 				"loop":     loopReady,
 			},
-			"last_loop_at": lastLoop.UTC().Format(time.RFC3339Nano),
+			"last_loop_at":     lastLoop.UTC().Format(time.RFC3339Nano),
+			"last_heartbeat_at": lastLoop.UTC().Format(time.RFC3339Nano),
+			"last_job_poll_at": unixNanoOrEmpty(h.lastClaimUnix.Load()),
+			"last_success_at":  unixNanoOrEmpty(h.lastSuccessUnix.Load()),
+			"last_failure_at":  unixNanoOrEmpty(h.lastFailureUnix.Load()),
+			"current_job":      current,
 		})
 	})
 	return mux
