@@ -153,11 +153,33 @@ function skuNameFromCart(cart: Record<string, unknown> | undefined, skuId: strin
 
 function patchAction(patch: Record<string, unknown> | undefined, lines: Record<string, unknown>[]): string {
   const type = String(patch?.patch_type ?? patch?.Type ?? "").toUpperCase();
-  if (type === "REPLACE_ITEM" || type === "ADD_ITEM" || type === "PROMOTION" || type === "BUNDLE") return type;
+  if (type === "ADD_ITEMS") return "ADD_ITEMS";
+  if (type === "REPLACE_ITEM" || type === "ADD_ITEM" || type === "PROMOTION" || type === "BUNDLE") {
+    if (type === "ADD_ITEM" && addLines(lines).length > 1) return "ADD_ITEMS";
+    return type;
+  }
   const op = typeof lines[0]?.op === "string" ? String(lines[0].op).toUpperCase() : "";
   if (op === "REPLACE") return "REPLACE_ITEM";
   if (op === "REMOVE") return "REMOVE";
+  if (addLines(lines).length > 1) return "ADD_ITEMS";
   return "ADD_ITEM";
+}
+
+function addLines(lines: Record<string, unknown>[]): Record<string, unknown>[] {
+  return lines.filter((line) => String(line.op ?? "ADD").toUpperCase() !== "REMOVE");
+}
+
+function visibleEconomics(offer: Record<string, unknown>, patch: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const raw = asRecord(offer.economics) ?? asRecord(patch?.economics);
+  if (!raw) return undefined;
+  const out: Record<string, unknown> = {};
+  const itemCost = moneyMinor(raw.item_cost_minor);
+  const gap = moneyMinor(raw.threshold_gap_minor);
+  const saving = moneyMinor(raw.fee_saving_minor);
+  if (itemCost != null) out.item_cost_minor = itemCost;
+  if (gap != null) out.threshold_gap_minor = gap;
+  if (saving != null) out.fee_saving_minor = saving;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function catalogNameCart(items: unknown): Record<string, unknown> | undefined {
@@ -217,15 +239,17 @@ export function modelVisibleOffer(raw: unknown, cart?: Record<string, unknown>):
   const lines = (patch && Array.isArray(patch.lines) ? patch.lines : [])
     .map((row) => asRecord(row))
     .filter((row): row is Record<string, unknown> => Boolean(row));
-  const primary = lines.find((line) => String(line.op ?? "ADD").toUpperCase() !== "REMOVE") ?? lines[0];
+  const added = addLines(lines);
+  const primary = added[0] ?? lines[0];
   const out: Record<string, unknown> = { offer_id: offer.offer_id };
   const action = patchAction(patch, lines);
   out.action = action;
-  const item = visibleOfferItem(primary, cart);
-  if (item) out.item = item;
-  if (lines.length > 1) {
-    const items = lines.map((line) => visibleOfferItem(line, cart)).filter((row): row is Record<string, unknown> => Boolean(row));
-    if (items.length > 1) out.items = items;
+  const mapped = added.map((line) => visibleOfferItem(line, cart)).filter((row): row is Record<string, unknown> => Boolean(row));
+  if (action === "ADD_ITEMS") {
+    if (mapped.length > 0) out.items = mapped;
+  } else {
+    const item = mapped[0] ?? visibleOfferItem(primary, cart);
+    if (item) out.item = item;
   }
   const sourceSku =
     (typeof patch?.source_sku_id === "string" && patch.source_sku_id) ||
@@ -238,8 +262,12 @@ export function modelVisibleOffer(raw: unknown, cart?: Record<string, unknown>):
   if (action === "REPLACE_ITEM" && sourceLine) out.replaces_cart_line_id = sourceLine;
   if (action === "REPLACE_ITEM" && !sourceLine && sourceSku) out.replaces_sku_id = sourceSku;
   if (typeof offer.grounded_reason === "string" && offer.grounded_reason) out.reason = offer.grounded_reason;
+  const strategy = String(offer.strategy_type ?? offer.strategy ?? "");
+  if (strategy === "BRAND_PROMO" || offer.sponsored === true) out.sponsored = true;
+  const economics = visibleEconomics(offer, patch);
+  if (economics) out.economics = economics;
   const delta = moneyMinor(offer.buyer_impact);
-  if (delta != null) out.incremental_cost_minor = delta;
+  if (delta != null) out.all_in_delta_minor = delta;
   const projected = moneyMinor(offer.projected_all_in_total);
   if (projected != null) out.projected_all_in_total_minor = projected;
   if (offer.expires_at != null) out.expires_at = offer.expires_at;

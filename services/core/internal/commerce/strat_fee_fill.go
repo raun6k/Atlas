@@ -52,9 +52,15 @@ func feeFill(ctx Context, in Inputs, strategy string, threshold, currentFee, aft
 		if score < 0.12 {
 			continue
 		}
+		patch := addSKUPatch(sku, 1)
+		patch.Economics = &OfferEconomics{
+			ItemCostMinor:     sku.SellingMinor,
+			ThresholdGapMinor: gap,
+			FeeSavingMinor:    saving,
+		}
 		out = append(out, Candidate{
 			Strategy:  strategy,
-			Patch:     addSKUPatch(sku, 1),
+			Patch:     patch,
 			Relevance: score,
 			Vars: mergeVars(skuVars(sku, 1), map[string]string{
 				"gap":        INR(gap),

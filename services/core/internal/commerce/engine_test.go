@@ -211,6 +211,12 @@ func TestFormulaStrategiesIndependently(t *testing.T) {
 		if got[0].Reason == "" || got[0].Terms == "" {
 			t.Fatalf("%s missing buyer copy reason/terms", strat)
 		}
+		if strat == "ROUTINE" && got[0].Patch.Type != "ADD_ITEMS" {
+			t.Fatalf("ROUTINE patch type %q", got[0].Patch.Type)
+		}
+		if (strat == "FREE_DELIVERY" || strat == "SMALL_ORDER") && (got[0].Patch.Economics == nil || got[0].Patch.Economics.ItemCostMinor <= 0) {
+			t.Fatalf("%s missing structured economics", strat)
+		}
 	}
 }
 

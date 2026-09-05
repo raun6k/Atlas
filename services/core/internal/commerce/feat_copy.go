@@ -143,17 +143,17 @@ var DefaultBuyerCopy = map[string]BuyerCopy{
 	},
 	"REPLENISHMENT": {
 		Headline: "Running low",
-		Reason:   "{{sku_name}} looks due. Last bought {{days_since}} days ago (typical gap {{median_days}} days).",
+		Reason:   "{{sku_name}} may be due for replenishment. It was last bought {{days_since}} days ago; the typical gap is {{median_days}} days.",
 		Terms:    "Replenish · qty {{quantity}}",
 	},
 	"CART_COMPLETION": {
 		Headline: "Complete this shop",
-		Reason:   "{{sku_name}} is often missing from baskets like yours.",
+		Reason:   "{{sku_name}} is commonly added with items in your cart.",
 		Terms:    "Suggested add-on",
 	},
 	"BASKET_REC": {
 		Headline: "Goes with your cart",
-		Reason:   "{{sku_name}} is a relevant add for what you already picked.",
+		Reason:   "{{sku_name}} is relevant to items currently in your cart.",
 		Terms:    "Cart recommendation",
 	},
 	"FBT": {
@@ -163,7 +163,7 @@ var DefaultBuyerCopy = map[string]BuyerCopy{
 	},
 	"ROUTINE": {
 		Headline: "{{routine_name}}",
-		Reason:   "Restock {{routine_name}} (every {{cadence_days}} days). Adds {{item_count}} usual items, starting with {{sku_name}}.",
+		Reason:   "These {{item_count}} items are usually restocked together about every {{cadence_days}} days.",
 		Terms:    "Routine basket",
 	},
 	"LARGER_PACK": {
@@ -173,17 +173,17 @@ var DefaultBuyerCopy = map[string]BuyerCopy{
 	},
 	"FREE_DELIVERY": {
 		Headline: "Unlock free delivery",
-		Reason:   "Add {{sku_name}} ({{price}}). You are {{gap}} short of free delivery, and this avoids a {{fee_saving}} fee.",
+		Reason:   "Adding this item unlocks free delivery.",
 		Terms:    "Free delivery top-up",
 	},
 	"SMALL_ORDER": {
 		Headline: "Avoid the small-order fee",
-		Reason:   "Add {{sku_name}} ({{price}}). You are {{gap}} under the small-order threshold; this avoids a {{fee_saving}} fee.",
+		Reason:   "Adding this item avoids the small-order fee.",
 		Terms:    "Small-order top-up",
 	},
 	"BRAND_PROMO": {
 		Headline: "{{promo_name}}",
-		Reason:   "{{promo_name}} on {{sku_name}} — {{discount}} off with brand-funded support.",
+		Reason:   "Buy {{quantity}} and receive {{discount}} off.",
 		Terms:    "Brand offer",
 	},
 	"PAST_PURCHASE": {

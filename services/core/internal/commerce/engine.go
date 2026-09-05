@@ -23,6 +23,12 @@ type Candidate struct {
 	Eligibility    string
 }
 
+type OfferEconomics struct {
+	ItemCostMinor     int64 `json:"item_cost_minor,omitempty"`
+	ThresholdGapMinor int64 `json:"threshold_gap_minor,omitempty"`
+	FeeSavingMinor    int64 `json:"fee_saving_minor,omitempty"`
+}
+
 type Patch struct {
 	Type         string
 	Lines        []PatchLine
@@ -30,6 +36,7 @@ type Patch struct {
 	SourceSKUID  string
 	PromotionID  string
 	BundleID     string
+	Economics    *OfferEconomics `json:"economics,omitempty"`
 }
 
 type PatchLine struct {

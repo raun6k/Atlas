@@ -44,7 +44,7 @@ func (routineStrategy) Generate(ctx Context, in Inputs) []Candidate {
 		firstName := in.SKUs[lines[0].SKUID].Name
 		c := Candidate{
 			Strategy:  "ROUTINE",
-			Patch:     Patch{Type: "ADD_ITEM", Lines: lines},
+			Patch:     Patch{Type: "ADD_ITEMS", Lines: lines},
 			Relevance: rel,
 			Vars: map[string]string{
 				"routine_id":   r.ID,

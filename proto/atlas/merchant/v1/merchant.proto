@@ -165,10 +165,17 @@ message Offer {
   Money buyer_impact = 10;
   Money base_all_in_total = 11;
   Money projected_all_in_total = 12;
+  OfferEconomics economics = 13;
+}
+
+message OfferEconomics {
+  int64 item_cost_minor = 1;
+  int64 threshold_gap_minor = 2;
+  int64 fee_saving_minor = 3;
 }
 
 message CartPatch {
-  string patch_type = 1; // ADD_ITEM | REPLACE_ITEM | BUNDLE | PROMOTION
+  string patch_type = 1; // ADD_ITEM | ADD_ITEMS | REPLACE_ITEM | BUNDLE | PROMOTION
   repeated CartPatchLine lines = 2;
   string source_cart_line_id = 3;
   string source_sku_id = 4;

@@ -653,6 +653,13 @@ func (s *Server) GetOffer(ctx context.Context, in *v1.GetOfferRequest) (*v1.GetO
 	for _, l := range p.Lines {
 		o.CartPatch.Lines = append(o.CartPatch.Lines, &v1.CartPatchLine{SkuId: l.SKUID, Quantity: int32(l.Quantity), Op: l.Op})
 	}
+	if p.Economics != nil && (p.Economics.ItemCostMinor != 0 || p.Economics.ThresholdGapMinor != 0 || p.Economics.FeeSavingMinor != 0) {
+		o.Economics = &v1.OfferEconomics{
+			ItemCostMinor:     p.Economics.ItemCostMinor,
+			ThresholdGapMinor: p.Economics.ThresholdGapMinor,
+			FeeSavingMinor:    p.Economics.FeeSavingMinor,
+		}
+	}
 	return &v1.GetOfferResponse{Envelope: toEnv(s.KEnv(in.Meta)), Offer: o, CandidateJson: string(patch)}, nil
 }
 
@@ -790,7 +797,15 @@ func toOffer(o app.OfferView) *v1.Offer {
 	for _, l := range patch.Lines {
 		p.Lines = append(p.Lines, &v1.CartPatchLine{SkuId: l.SKUID, Quantity: int32(l.Quantity), Op: l.Op})
 	}
-	return &v1.Offer{OfferId: o.OfferID, StrategyType: o.StrategyType, SessionContextVersion: o.SessionContextVersion, CartVersion: o.CartVersion, ExpiresAt: timestamppb.New(o.ExpiresAt), Status: o.Status, GroundedReason: o.GroundedReason, Terms: o.Terms, CartPatch: p, BuyerImpact: money(o.BuyerImpactMinor, "INR"), BaseAllInTotal: money(o.BaseAllInMinor, "INR"), ProjectedAllInTotal: money(o.PatchedAllInMinor, "INR")}
+	out := &v1.Offer{OfferId: o.OfferID, StrategyType: o.StrategyType, SessionContextVersion: o.SessionContextVersion, CartVersion: o.CartVersion, ExpiresAt: timestamppb.New(o.ExpiresAt), Status: o.Status, GroundedReason: o.GroundedReason, Terms: o.Terms, CartPatch: p, BuyerImpact: money(o.BuyerImpactMinor, "INR"), BaseAllInTotal: money(o.BaseAllInMinor, "INR"), ProjectedAllInTotal: money(o.PatchedAllInMinor, "INR")}
+	if patch.Economics != nil && (patch.Economics.ItemCostMinor != 0 || patch.Economics.ThresholdGapMinor != 0 || patch.Economics.FeeSavingMinor != 0) {
+		out.Economics = &v1.OfferEconomics{
+			ItemCostMinor:     patch.Economics.ItemCostMinor,
+			ThresholdGapMinor: patch.Economics.ThresholdGapMinor,
+			FeeSavingMinor:    patch.Economics.FeeSavingMinor,
+		}
+	}
+	return out
 }
 
 type appPatch struct {
@@ -804,6 +819,11 @@ type appPatch struct {
 	SourceSKUID  string `json:"SourceSKUID"`
 	PromotionID  string `json:"PromotionID"`
 	BundleID     string `json:"BundleID"`
+	Economics    *struct {
+		ItemCostMinor     int64 `json:"item_cost_minor"`
+		ThresholdGapMinor int64 `json:"threshold_gap_minor"`
+		FeeSavingMinor    int64 `json:"fee_saving_minor"`
+	} `json:"economics"`
 }
 
 func toSKU(s app.SKUView) *v1.Sku {

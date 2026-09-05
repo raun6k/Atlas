@@ -22,7 +22,7 @@
     "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
     "buyer": {
       "headline": "Running low",
-      "reason": "{{sku_name}} looks due. Last bought {{days_since}} days ago (typical gap {{median_days}} days).",
+      "reason": "{{sku_name}} may be due for replenishment. It was last bought {{days_since}} days ago; the typical gap is {{median_days}} days.",
       "terms": "Replenish · qty {{quantity}}"
     },
     "config": {"min_score": 0.45}
@@ -50,7 +50,7 @@
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item"],
     "buyer": {
       "headline": "Complete this shop",
-      "reason": "{{sku_name}} is often missing from baskets like yours.",
+      "reason": "{{sku_name}} is commonly added with items in your cart.",
       "terms": "Suggested add-on"
     },
     "config": {"min_cart_skus": 2, "min_score": 0.2}
@@ -64,7 +64,7 @@
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item"],
     "buyer": {
       "headline": "Goes with your cart",
-      "reason": "{{sku_name}} is a relevant add for what you already picked.",
+      "reason": "{{sku_name}} is relevant to items currently in your cart.",
       "terms": "Cart recommendation"
     },
     "config": {"min_score": 0.15}
@@ -106,7 +106,7 @@
     "surfaces": ["set_intent", "get_cart"],
     "buyer": {
       "headline": "{{routine_name}}",
-      "reason": "Restock {{routine_name}} (every {{cadence_days}} days). Adds {{item_count}} usual items, starting with {{sku_name}}.",
+      "reason": "These {{item_count}} items are usually restocked together about every {{cadence_days}} days.",
       "terms": "Routine basket"
     },
     "config": {"min_due_score": 0.6}
@@ -134,7 +134,7 @@
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
     "buyer": {
       "headline": "Unlock free delivery",
-      "reason": "Add {{sku_name}} ({{price}}). You are {{gap}} short of free delivery, and this avoids a {{fee_saving}} fee.",
+      "reason": "Adding this item unlocks free delivery.",
       "terms": "Free delivery top-up"
     },
     "config": {}
@@ -148,7 +148,7 @@
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
     "buyer": {
       "headline": "Avoid the small-order fee",
-      "reason": "Add {{sku_name}} ({{price}}). You are {{gap}} under the small-order threshold; this avoids a {{fee_saving}} fee.",
+      "reason": "Adding this item avoids the small-order fee.",
       "terms": "Small-order top-up"
     },
     "config": {}
@@ -162,7 +162,7 @@
     "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
     "buyer": {
       "headline": "{{promo_name}}",
-      "reason": "{{promo_name}} on {{sku_name}} — {{discount}} off with brand-funded support.",
+      "reason": "Buy {{quantity}} and receive {{discount}} off.",
       "terms": "Brand offer"
     },
     "config": {}

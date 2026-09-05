@@ -8,6 +8,7 @@ import {
   modelVisibleGetCapabilities,
   modelVisibleGetOrder,
   modelVisibleGetProduct,
+  modelVisibleOffer,
   modelVisiblePaymentCapabilities,
   modelVisiblePrepareCheckout,
   modelVisibleSearchCatalog,
@@ -391,7 +392,7 @@ test("get_cart model view flattens cart money and slims offers", () => {
         action: "ADD_ITEM",
         item: { sku_id: "QM-SNK-0002-A", quantity: 1 },
         reason: "Spend ₹150 more on merchandise to unlock free delivery.",
-        incremental_cost_minor: 1900,
+        all_in_delta_minor: 1900,
         projected_all_in_total_minor: 9812,
         expires_at: "2026-09-05T04:55:06.000Z",
       },
@@ -516,7 +517,7 @@ test("set_intent model view keeps intent, all-in, and slim offers", () => {
         action: "ADD_ITEM",
         item: { sku_id: "QM-SNK-0001-A", name: "Tea Biscuits Plain - standard pack", quantity: 1 },
         reason: "Add Tea Biscuits Plain - standard pack — you usually repurchase this about every 14 days.",
-        incremental_cost_minor: 4900,
+        all_in_delta_minor: 4900,
         projected_all_in_total_minor: 7912,
         expires_at: "2026-09-05T04:55:02.000Z",
       },
@@ -630,7 +631,7 @@ test("search_catalog model view keeps slim items and offers", () => {
         item: { sku_id: "QM-SNK-0001-B", name: "Tea Biscuits Plain - family pack", quantity: 1 },
         replaces_sku_id: "QM-SNK-0001-A",
         reason: "Family pack offers better unit value than the standard pack.",
-        incremental_cost_minor: 4000,
+        all_in_delta_minor: 4000,
         projected_all_in_total_minor: 11912,
         expires_at: "2026-09-05T04:55:03.000Z",
       },
@@ -870,7 +871,7 @@ test("add_cart_item model view matches get_cart, keeps invalidated ids, and drop
         item: { sku_id: "QM-SNK-0001-B", name: "Tea Biscuits Plain - family pack", quantity: 1 },
         replaces_cart_line_id: "cln_01HZX",
         reason: "Switch to the family pack for a lower unit price.",
-        incremental_cost_minor: 4000,
+        all_in_delta_minor: 4000,
         projected_all_in_total_minor: 11912,
         expires_at: "2026-09-05T04:55:05.000Z",
       },
@@ -1166,4 +1167,80 @@ test("prepare_checkout model view is slim proposal; quote_hash and public_state 
     result_code: "INVALID_ARGUMENT",
     message: "cart is empty",
   });
+});
+
+test("model-visible offer card uses all_in_delta, exclusive item/items, sponsored, and optional economics", () => {
+  const routine = modelVisibleOffer({
+    offer_id: "ofr_routine_1",
+    strategy_type: "ROUTINE",
+    grounded_reason: "These 3 items are usually restocked together about every 7 days.",
+    cart_patch: {
+      patch_type: "ADD_ITEMS",
+      lines: [
+        { sku_id: "QM-DAI-0040-A", name: "Toned Milk 500 ml", quantity: 1, op: "ADD" },
+        { sku_id: "QM-BAK-0012-A", name: "Whole Wheat Bread", quantity: 1, op: "ADD" },
+        { sku_id: "QM-EGG-0003-A", name: "Farm Eggs 6s", quantity: 1, op: "ADD" },
+      ],
+    },
+    buyer_impact: { amount_minor: 8900, currency: "INR" },
+    projected_all_in_total: { amount_minor: 11912, currency: "INR" },
+    expires_at: "2026-09-05T04:55:00.000Z",
+  });
+  assert.deepEqual(routine, {
+    offer_id: "ofr_routine_1",
+    action: "ADD_ITEMS",
+    items: [
+      { sku_id: "QM-DAI-0040-A", name: "Toned Milk 500 ml", quantity: 1 },
+      { sku_id: "QM-BAK-0012-A", name: "Whole Wheat Bread", quantity: 1 },
+      { sku_id: "QM-EGG-0003-A", name: "Farm Eggs 6s", quantity: 1 },
+    ],
+    reason: "These 3 items are usually restocked together about every 7 days.",
+    all_in_delta_minor: 8900,
+    projected_all_in_total_minor: 11912,
+    expires_at: "2026-09-05T04:55:00.000Z",
+  });
+  assert.equal("item" in (routine ?? {}), false);
+
+  const promo = modelVisibleOffer({
+    offer_id: "ofr_promo_1",
+    strategy_type: "BRAND_PROMO",
+    grounded_reason: "Buy 3 and receive ₹30 off.",
+    cart_patch: {
+      patch_type: "PROMOTION",
+      lines: [{ sku_id: "QM-BEV-0031-A", name: "Cola 2 L", quantity: 3, op: "ADD" }],
+    },
+    buyer_impact: { amount_minor: 6900, currency: "INR" },
+    projected_all_in_total: { amount_minor: 9912, currency: "INR" },
+    expires_at: "2026-09-05T04:55:00.000Z",
+  });
+  assert.equal(promo?.action, "PROMOTION");
+  assert.equal(promo?.sponsored, true);
+  assert.equal("items" in (promo ?? {}), false);
+  assert.equal(promo?.all_in_delta_minor, 6900);
+
+  const fee = modelVisibleOffer({
+    offer_id: "ofr_fd_1",
+    strategy_type: "FREE_DELIVERY",
+    grounded_reason: "Adding this item unlocks free delivery.",
+    cart_patch: {
+      patch_type: "ADD_ITEM",
+      lines: [{ sku_id: "QM-SNK-0006-A", name: "Namkeen Mix", quantity: 1, op: "ADD" }],
+    },
+    economics: { item_cost_minor: 4900, threshold_gap_minor: 3000, fee_saving_minor: 2900 },
+    buyer_impact: { amount_minor: 2000, currency: "INR" },
+    projected_all_in_total: { amount_minor: 7212, currency: "INR" },
+    expires_at: "2026-09-05T04:55:00.000Z",
+  });
+  assert.deepEqual(fee, {
+    offer_id: "ofr_fd_1",
+    action: "ADD_ITEM",
+    item: { sku_id: "QM-SNK-0006-A", name: "Namkeen Mix", quantity: 1 },
+    reason: "Adding this item unlocks free delivery.",
+    economics: { item_cost_minor: 4900, threshold_gap_minor: 3000, fee_saving_minor: 2900 },
+    all_in_delta_minor: 2000,
+    projected_all_in_total_minor: 7212,
+    expires_at: "2026-09-05T04:55:00.000Z",
+  });
+  assert.equal("sponsored" in (fee ?? {}), false);
+  assert.equal("items" in (fee ?? {}), false);
 });
