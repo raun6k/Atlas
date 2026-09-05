@@ -25,8 +25,8 @@ Do not repeat an identical tool call with the same arguments.`;
 const SKILL_INSTRUCTIONS: Record<SkillName, string> = {
   merchant_discovery: `Establish the merchant contract once. Call get_capabilities if capabilities are not present, then create_session once with host_context.requested_location_id and host_context.delivery_serviceability_reference. Catalog search is blocked until that session exists. A successful session_id means discovery is complete.`,
   catalog_resolution: `Set the mission and planning budget when they are not yet reflected in the session. Search each distinct requested item, inspect product details only when needed, and add only returned sellable SKU ids. Preserve every stated constraint, especially the all-in budget.`,
-  cart_management: `Build the whole requested cart. Use prior search results from the conversation; search for any missing item, then add or update it. Read the authoritative cart before checkout. If an offer is shown, accept and apply it only when it helps the user's stated mission. Once every requested item is present and the total is within consent, call prepare_checkout.`,
-  offer_decision: `Evaluate offers against the mission and authoritative all-in cart total. buyer_impact.amount_minor is the net change to that all-in total; add it once and do not infer another delivery saving. Never apply an offer when the resulting total exceeds the user's mission budget or adds an unwanted item. accept_offer is only a signal; apply_offer performs the atomic cart change. If no offer helps, do not keep discussing it: continue directly to prepare_checkout when the requested cart is complete and within budget.`,
+  cart_management: `Build the whole requested cart. Use prior search results from the conversation; search for any missing item, then add or update it. Read the authoritative cart before checkout. If an offer is shown, apply it only when it helps the user's stated mission. Once every requested item is present and the total is within consent, call prepare_checkout.`,
+  offer_decision: `Evaluate offers against the mission and authoritative all-in cart total. buyer_impact.amount_minor is the net change to that all-in total; add it once and do not infer another delivery saving. Never apply an offer when the resulting total exceeds the user's mission budget or adds an unwanted item. apply_offer is the buyer's decision and the cart mutation in one call. If no offer helps, do not keep discussing it: continue directly to prepare_checkout when the requested cart is complete and within budget.`,
   checkout_authorization: `If no CheckoutProposal exists, prepare_checkout. Once the exact proposal is present, call complete_checkout without inventing Checkout Authority; the Host boundary supplies it after verifying consent. Then poll get_order until the provider-backed public status is terminal.`,
   operation_recovery: `An uncertain payment outcome is frozen. Do not call prepare_checkout or complete_checkout again. Use get_order and other read tools to observe authenticated reconciliation, and stop only at a verified terminal status.`,
   substitution_response: `Read the order and substitution request. Select only an offered substitution that respects the mission and consent, or decline it. Never invent a SKU or option.`,
@@ -67,12 +67,11 @@ export function allowedToolsForSkill(skill: SkillName, frozenPayment: boolean): 
         "add_cart_item",
         "update_cart_item",
         "remove_cart_item",
-        "accept_offer",
         "apply_offer",
         "prepare_checkout",
       ];
     case "offer_decision":
-      return ["get_cart", "accept_offer", "apply_offer", "search_catalog", "get_product", "add_cart_item", "prepare_checkout"];
+      return ["get_cart", "apply_offer", "search_catalog", "get_product", "add_cart_item", "prepare_checkout"];
     case "checkout_authorization":
       return ["get_cart", "prepare_checkout", "complete_checkout", "get_order"];
     case "substitution_response":

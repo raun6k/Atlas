@@ -56,7 +56,7 @@ function stageFromTools(stage: ProofStage, exchanges: ToolExchangeRecord[], stat
     case "OFFER_DECISION":
       if (!offerInPlay(state, scenario)) return "NOT_APPLICABLE";
       if ((state.offers ?? []).some((o) => ["SHOWN", "ACCEPTED", "APPLIED"].includes(String(o.status ?? "")))) return "PASS";
-      if (toolOk(exchanges, "accept_offer") || toolOk(exchanges, "apply_offer")) return "PASS";
+      if (toolOk(exchanges, "apply_offer")) return "PASS";
       return "FAIL";
     case "QUOTE_HELD":
       return state.checkout_proposal || toolOk(exchanges, "prepare_checkout") ? "PASS" : "FAIL";
@@ -114,7 +114,7 @@ function evidenceTool(stage: ProofStage): string[] {
     case "CART_VALID":
       return ["add_cart_item", "update_cart_item", "get_cart"];
     case "OFFER_DECISION":
-      return ["accept_offer", "apply_offer"];
+      return ["apply_offer"];
     case "QUOTE_HELD":
       return ["prepare_checkout"];
     case "CHECKOUT_ACCEPTED":

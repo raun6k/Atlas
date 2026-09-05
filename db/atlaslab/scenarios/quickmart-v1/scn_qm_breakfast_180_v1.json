@@ -15,7 +15,6 @@
     "add_cart_item",
     "update_cart_item",
     "remove_cart_item",
-    "accept_offer",
     "apply_offer",
     "prepare_checkout",
     "complete_checkout",
@@ -328,7 +327,8 @@
         "step_id": "s13",
         "tool": "get_order",
         "arguments": {
-          "session_id": "$state.session_id"
+          "session_id": "$state.session_id",
+          "merchant_order_id": "$state.merchant_order_id"
         },
         "expected_result_codes": [
           "OK"
@@ -338,6 +338,6 @@
         }
       }
     ],
-    "digest": "62c11774addfd05d5f8172e458cc419ff31083a0cfe539e26101e92060802d56"
+    "digest": "08faed9aecefd43c9a40bdcea703d0220ab224d46f7c05d3b6dcf6473798889e"
   }
 }

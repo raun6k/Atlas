@@ -398,22 +398,6 @@ message RemoveItemRequest {
   string cart_line_id = 5;
 }
 
-message AcceptOfferRequest {
-  RequestMeta meta = 1;
-  string session_id = 2;
-  string offer_id = 3;
-  int64 expected_session_context_version = 4;
-  int64 expected_cart_version = 5;
-}
-
-message AcceptOfferResponse {
-  Envelope envelope = 1;
-  Offer offer = 2;
-  SessionSummary session_summary = 3;
-  Cart cart = 4;
-  repeated Offer offers = 5;
-}
-
 message ApplyOfferRequest {
   RequestMeta meta = 1;
   string session_id = 2;
@@ -558,7 +542,6 @@ service CartService {
   rpc AddItem(AddItemRequest) returns (CartMutationResult);
   rpc UpdateItem(UpdateItemRequest) returns (CartMutationResult);
   rpc RemoveItem(RemoveItemRequest) returns (CartMutationResult);
-  rpc AcceptOffer(AcceptOfferRequest) returns (AcceptOfferResponse);
   rpc ApplyOffer(ApplyOfferRequest) returns (CartMutationResult);
 }
 

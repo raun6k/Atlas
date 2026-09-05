@@ -223,92 +223,6 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 	return views, nil, nil
 }
 
-func (k *Kernel) AcceptOffer(ctx context.Context, m Meta, sessionID, offerID string, expectedSession, expectedCart int64) (Envelope, OfferView, SessionSummary, CartView, []OfferView, error) {
-	if err := requireHost(m); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	m.RequireIdempotency = true
-	m.Tool = "accept_offer"
-	if m.Arguments == nil {
-		m.Arguments = map[string]any{"session_id": sessionID, "offer_id": offerID, "expected_session_context_version": expectedSession, "expected_cart_version": expectedCart}
-	}
-	tx, replay, op, err := k.beginMutation(ctx, m, "accept_offer", m.Arguments)
-	if err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	if replay != nil {
-		var out struct {
-			Env Envelope
-			Off OfferView
-			S   SessionSummary
-			C   CartView
-			O   []OfferView
-		}
-		_ = json.Unmarshal(replay, &out)
-		return out.Env, out.Off, out.S, out.C, out.O, nil
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	s, err := k.loadSession(ctx, tx, sessionID, m.ApprovedHostID)
-	if err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	cv, _ := k.loadCart(ctx, tx, s.CartID)
-	if err := k.guardMutable(s); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	if err := k.expectSession(s, expectedSession); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, wrapConflict(err, s, cv)
-	}
-	if err := k.expectCart(s, expectedCart); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, wrapConflict(err, s, cv)
-	}
-	var o OfferView
-	err = tx.QueryRow(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor FROM offers WHERE offer_id=$1 AND session_id=$2 FOR UPDATE`, offerID, sessionID).
-		Scan(&o.OfferID, &o.StrategyType, &o.SessionContextVersion, &o.CartVersion, &o.ExpiresAt, &o.Status, &o.GroundedReason, &o.Terms, &o.PatchJSON, &o.BuyerImpactMinor)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, apperr.New(apperr.NotFound, "offer not found")
-	}
-	if err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	if o.Status == "EXPIRED" || k.Now().After(o.ExpiresAt) {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, apperr.New(apperr.OfferExpired, "offer expired")
-	}
-	if o.SessionContextVersion != s.SessionContextVersion || o.CartVersion != s.CartVersion {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, apperr.New(apperr.OfferContextInvalid, "offer is bound to a different context")
-	}
-	if o.Status != "GENERATED" && o.Status != "SHOWN" && o.Status != "ACCEPTED" {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, apperr.New(apperr.OfferContextInvalid, "offer cannot be accepted")
-	}
-	if _, err := tx.Exec(ctx, `UPDATE offers SET status='ACCEPTED', updated_at=now() WHERE offer_id=$1`, offerID); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	o.Status = "ACCEPTED"
-	if err := k.writeOfferEvent(ctx, tx, offerID, "OFFER_ACCEPTED", map[string]any{"session_id": sessionID, "signal": true}); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	offers, err := k.currentOffers(ctx, tx, s)
-	if err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	env := k.withRequest(k.env(), m.RequestID, op)
-	aid, err := auditMutation(ctx, tx, m, op, "accept_offer", "offer", offerID, 0, map[string]any{"signal": true}, "Approved Host accepted an offer. Cart was not changed.")
-	if err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	payload := struct {
-		Env Envelope
-		Off OfferView
-		S   SessionSummary
-		C   CartView
-		O   []OfferView
-	}{env, o, s, cv, offers}
-	if err := k.storeIdempotency(ctx, tx, m, "accept_offer", m.Arguments, payload, aid); err != nil {
-		return Envelope{}, OfferView{}, SessionSummary{}, CartView{}, nil, err
-	}
-	return env, o, s, cv, offers, tx.Commit(ctx)
-}
-
 func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID string, expectedSession, expectedCart int64) (CartMutation, error) {
 	out, err := k.mutateCart(ctx, m, "apply_offer", sessionID, "", expectedCart, func(ctx context.Context, tx pgx.Tx, s *SessionSummary) error {
 		if err := k.expectSession(*s, expectedSession); err != nil {
@@ -327,8 +241,8 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		if err != nil {
 			return err
 		}
-		if status != "ACCEPTED" {
-			return apperr.New(apperr.OfferNotAccepted, "offer must be accepted before apply")
+		if status != "GENERATED" && status != "SHOWN" && status != "ACCEPTED" {
+			return apperr.New(apperr.OfferContextInvalid, "offer cannot be applied")
 		}
 		if k.Now().After(exp) {
 			return apperr.New(apperr.OfferExpired, "offer expired")

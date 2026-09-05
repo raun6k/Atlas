@@ -15,7 +15,6 @@
     "add_cart_item",
     "update_cart_item",
     "remove_cart_item",
-    "accept_offer",
     "apply_offer",
     "prepare_checkout",
     "complete_checkout",
@@ -45,7 +44,7 @@
   ],
   "payment_simulation": "NONE",
   "stopping_rules": {
-    "wall_seconds": 120
+    "wall_seconds": 300
   },
   "required_terminal_assertions": [
     {

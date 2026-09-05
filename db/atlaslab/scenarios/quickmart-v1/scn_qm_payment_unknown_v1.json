@@ -15,7 +15,6 @@
     "add_cart_item",
     "update_cart_item",
     "remove_cart_item",
-    "accept_offer",
     "apply_offer",
     "prepare_checkout",
     "complete_checkout",

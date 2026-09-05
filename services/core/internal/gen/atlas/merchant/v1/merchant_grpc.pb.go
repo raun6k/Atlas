@@ -413,12 +413,11 @@ var SessionService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	CartService_GetCart_FullMethodName     = "/atlas.merchant.v1.CartService/GetCart"
-	CartService_AddItem_FullMethodName     = "/atlas.merchant.v1.CartService/AddItem"
-	CartService_UpdateItem_FullMethodName  = "/atlas.merchant.v1.CartService/UpdateItem"
-	CartService_RemoveItem_FullMethodName  = "/atlas.merchant.v1.CartService/RemoveItem"
-	CartService_AcceptOffer_FullMethodName = "/atlas.merchant.v1.CartService/AcceptOffer"
-	CartService_ApplyOffer_FullMethodName  = "/atlas.merchant.v1.CartService/ApplyOffer"
+	CartService_GetCart_FullMethodName    = "/atlas.merchant.v1.CartService/GetCart"
+	CartService_AddItem_FullMethodName    = "/atlas.merchant.v1.CartService/AddItem"
+	CartService_UpdateItem_FullMethodName = "/atlas.merchant.v1.CartService/UpdateItem"
+	CartService_RemoveItem_FullMethodName = "/atlas.merchant.v1.CartService/RemoveItem"
+	CartService_ApplyOffer_FullMethodName = "/atlas.merchant.v1.CartService/ApplyOffer"
 )
 
 // CartServiceClient is the client API for CartService service.
@@ -429,7 +428,6 @@ type CartServiceClient interface {
 	AddItem(ctx context.Context, in *AddItemRequest, opts ...grpc.CallOption) (*CartMutationResult, error)
 	UpdateItem(ctx context.Context, in *UpdateItemRequest, opts ...grpc.CallOption) (*CartMutationResult, error)
 	RemoveItem(ctx context.Context, in *RemoveItemRequest, opts ...grpc.CallOption) (*CartMutationResult, error)
-	AcceptOffer(ctx context.Context, in *AcceptOfferRequest, opts ...grpc.CallOption) (*AcceptOfferResponse, error)
 	ApplyOffer(ctx context.Context, in *ApplyOfferRequest, opts ...grpc.CallOption) (*CartMutationResult, error)
 }
 
@@ -481,16 +479,6 @@ func (c *cartServiceClient) RemoveItem(ctx context.Context, in *RemoveItemReques
 	return out, nil
 }
 
-func (c *cartServiceClient) AcceptOffer(ctx context.Context, in *AcceptOfferRequest, opts ...grpc.CallOption) (*AcceptOfferResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AcceptOfferResponse)
-	err := c.cc.Invoke(ctx, CartService_AcceptOffer_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *cartServiceClient) ApplyOffer(ctx context.Context, in *ApplyOfferRequest, opts ...grpc.CallOption) (*CartMutationResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CartMutationResult)
@@ -509,7 +497,6 @@ type CartServiceServer interface {
 	AddItem(context.Context, *AddItemRequest) (*CartMutationResult, error)
 	UpdateItem(context.Context, *UpdateItemRequest) (*CartMutationResult, error)
 	RemoveItem(context.Context, *RemoveItemRequest) (*CartMutationResult, error)
-	AcceptOffer(context.Context, *AcceptOfferRequest) (*AcceptOfferResponse, error)
 	ApplyOffer(context.Context, *ApplyOfferRequest) (*CartMutationResult, error)
 	mustEmbedUnimplementedCartServiceServer()
 }
@@ -532,9 +519,6 @@ func (UnimplementedCartServiceServer) UpdateItem(context.Context, *UpdateItemReq
 }
 func (UnimplementedCartServiceServer) RemoveItem(context.Context, *RemoveItemRequest) (*CartMutationResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveItem not implemented")
-}
-func (UnimplementedCartServiceServer) AcceptOffer(context.Context, *AcceptOfferRequest) (*AcceptOfferResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AcceptOffer not implemented")
 }
 func (UnimplementedCartServiceServer) ApplyOffer(context.Context, *ApplyOfferRequest) (*CartMutationResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ApplyOffer not implemented")
@@ -632,24 +616,6 @@ func _CartService_RemoveItem_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CartService_AcceptOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AcceptOfferRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CartServiceServer).AcceptOffer(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CartService_AcceptOffer_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CartServiceServer).AcceptOffer(ctx, req.(*AcceptOfferRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _CartService_ApplyOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ApplyOfferRequest)
 	if err := dec(in); err != nil {
@@ -690,10 +656,6 @@ var CartService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveItem",
 			Handler:    _CartService_RemoveItem_Handler,
-		},
-		{
-			MethodName: "AcceptOffer",
-			Handler:    _CartService_AcceptOffer_Handler,
 		},
 		{
 			MethodName: "ApplyOffer",

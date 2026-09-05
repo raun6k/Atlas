@@ -123,7 +123,6 @@ export class MockGateway implements McpClient {
             "add_cart_item",
             "update_cart_item",
             "remove_cart_item",
-            "accept_offer",
             "apply_offer",
             "prepare_checkout",
             "complete_checkout",
@@ -207,16 +206,10 @@ export class MockGateway implements McpClient {
         session.cart_version += 1;
         return this.ok(req, this.sessionPayload(session));
       }
-      case "accept_offer": {
-        if (!session) return this.err(req, "NOT_FOUND", false);
-        const offer = session.offers.find((o) => o.offer_id === req.arguments.offer_id);
-        if (offer) offer.status = "ACCEPTED";
-        return this.ok(req, this.sessionPayload(session));
-      }
       case "apply_offer": {
         if (!session) return this.err(req, "NOT_FOUND", false);
         const offer = session.offers.find((o) => o.offer_id === req.arguments.offer_id);
-        if (offer?.status === "ACCEPTED") {
+        if (offer && offer.status !== "APPLIED") {
           const sku = String(offer.sku_id ?? "sku_qm_coke_750ml");
           const line = session.lines.find((l) => l.sku_id === sku);
           if (line) line.quantity = 3;

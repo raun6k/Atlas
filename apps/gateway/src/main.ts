@@ -29,13 +29,13 @@ const coreHttpOrigin = coreHttp.includes("://") ? coreHttp : `http://${coreHttp}
 const PUBLIC_TOOLS = new Set([
   "get_capabilities", "create_session", "set_intent", "search_catalog", "get_product",
   "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item",
-  "accept_offer", "apply_offer", "prepare_checkout", "complete_checkout",
+  "apply_offer", "prepare_checkout", "complete_checkout",
   "get_order", "respond_to_substitution",
 ]);
 
 const MUTATIONS = new Set([
   "create_session", "set_intent", "add_cart_item", "update_cart_item", "remove_cart_item",
-  "accept_offer", "apply_offer", "prepare_checkout", "complete_checkout", "respond_to_substitution",
+  "apply_offer", "prepare_checkout", "complete_checkout", "respond_to_substitution",
 ]);
 
 function promisify(client: any, method: string, req: unknown): Promise<any> {
@@ -98,8 +98,7 @@ const tools = [
   { name: "add_cart_item", description: "Add SKU line" },
   { name: "update_cart_item", description: "Update line quantity" },
   { name: "remove_cart_item", description: "Remove cart line" },
-  { name: "accept_offer", description: "Record offer acceptance signal" },
-  { name: "apply_offer", description: "Atomically apply stored offer patch" },
+  { name: "apply_offer", description: "Apply a shown offer onto the cart atomically" },
   { name: "prepare_checkout", description: "Atomic hold and CheckoutProposal" },
   { name: "complete_checkout", description: "Consume authority; pending order + payment hook" },
   { name: "get_order", description: "Poll merchant order and substitutions" },
@@ -127,8 +126,6 @@ async function callTool(name: string, args: Record<string, unknown>, meta: any) 
       return promisify(carts, "UpdateItem", { ...m, sessionId: args.session_id, cartId: args.cart_id, expectedCartVersion: args.expected_cart_version, cartLineId: args.cart_line_id, quantity: args.quantity });
     case "remove_cart_item":
       return promisify(carts, "RemoveItem", { ...m, sessionId: args.session_id, cartId: args.cart_id, expectedCartVersion: args.expected_cart_version, cartLineId: args.cart_line_id });
-    case "accept_offer":
-      return promisify(carts, "AcceptOffer", { ...m, sessionId: args.session_id, offerId: args.offer_id, expectedSessionContextVersion: args.expected_session_context_version, expectedCartVersion: args.expected_cart_version });
     case "apply_offer":
       return promisify(carts, "ApplyOffer", { ...m, sessionId: args.session_id, offerId: args.offer_id, expectedSessionContextVersion: args.expected_session_context_version, expectedCartVersion: args.expected_cart_version });
     case "prepare_checkout":

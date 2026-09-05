@@ -23,7 +23,7 @@ test("public MCP excludes get_session, get_profile, get_substitution", () => {
   }
 });
 
-test("public MCP allows the frozen 15-tool family", () => {
+test("public MCP allows the frozen 14-tool family", () => {
   assert.doesNotThrow(() => assertPublicTool("get_capabilities"));
   assert.doesNotThrow(() => assertPublicTool("complete_checkout"));
   assert.doesNotThrow(() => assertPublicTool("respond_to_substitution"));

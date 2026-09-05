@@ -18,7 +18,7 @@ import (
 var PublicTools = []string{
 	"get_capabilities", "create_session", "set_intent", "search_catalog", "get_product",
 	"get_cart", "add_cart_item", "update_cart_item", "remove_cart_item",
-	"accept_offer", "apply_offer", "prepare_checkout", "complete_checkout",
+	"apply_offer", "prepare_checkout", "complete_checkout",
 	"get_order", "respond_to_substitution",
 }
 

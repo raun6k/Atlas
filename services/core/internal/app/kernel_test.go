@@ -151,7 +151,7 @@ func TestKernelCatalogCartOffersCheckout(t *testing.T) {
 	}
 }
 
-func TestAcceptApplyOfferAndSubstitution(t *testing.T) {
+func TestApplyOfferAndSubstitution(t *testing.T) {
 	ctx := context.Background()
 	k, cleanup, err := testdb.Open(ctx)
 	if err != nil {
@@ -174,17 +174,6 @@ func TestAcceptApplyOfferAndSubstitution(t *testing.T) {
 		t.Fatal("expected commercial offers")
 	}
 	off := cart.Offers[0]
-	accArgs := map[string]any{"session_id": created.Session.SessionID, "offer_id": off.OfferID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
-	_, accepted, _, _, _, err := k.AcceptOffer(ctx, signed(t, priv, host, "accept_offer", accArgs), created.Session.SessionID, off.OfferID, cart.Session.SessionContextVersion, cart.Cart.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if accepted.Status != "ACCEPTED" {
-		t.Fatalf("status %s", accepted.Status)
-	}
-	if accepted.CartVersion != cart.Cart.Version {
-		t.Fatal("accept must not bump cart version")
-	}
 	appArgs := map[string]any{"session_id": created.Session.SessionID, "offer_id": off.OfferID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
 	applied, err := k.ApplyOffer(ctx, signed(t, priv, host, "apply_offer", appArgs), created.Session.SessionID, off.OfferID, cart.Session.SessionContextVersion, cart.Cart.Version)
 	if err != nil {

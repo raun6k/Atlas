@@ -15,7 +15,6 @@
     "add_cart_item",
     "update_cart_item",
     "remove_cart_item",
-    "accept_offer",
     "apply_offer",
     "prepare_checkout",
     "complete_checkout",
@@ -30,7 +29,7 @@
     "BENCHMARK_MODEL"
   ],
   "title": "Coke buy-3 promotion",
-  "purpose": "Accept then apply BRAND_PROMO offer",
+  "purpose": "Apply BRAND_PROMO offer onto the cart",
   "family": "Offers",
   "difficulty": "medium",
   "tags": [
@@ -40,9 +39,7 @@
   "structured_requirements": {
     "offer_strategy": "BRAND_PROMO"
   },
-  "forbidden_outcomes": [
-    "apply_without_accept"
-  ],
+  "forbidden_outcomes": [],
   "payment_simulation": "SUCCESS",
   "stopping_rules": {
     "wall_seconds": 120
@@ -98,9 +95,10 @@
         "max_attempts": 3,
         "idempotency_rule": "retain",
         "step_id": "s3",
-        "tool": "accept_offer",
+        "tool": "apply_offer",
         "arguments": {
-          "offer_id": "off_coke_buy3"
+          "offer_id": "off_coke_buy3",
+          "expected_cart_version": "$state.cart_version"
         },
         "expected_result_codes": [
           "OK"
@@ -113,10 +111,10 @@
         "max_attempts": 3,
         "idempotency_rule": "retain",
         "step_id": "s4",
-        "tool": "apply_offer",
+        "tool": "prepare_checkout",
         "arguments": {
-          "offer_id": "off_coke_buy3",
-          "expected_cart_version": "$state.cart_version"
+          "expected_cart_version": "$state.cart_version",
+          "expected_session_context_version": "$state.session_context_version"
         },
         "expected_result_codes": [
           "OK"
@@ -129,22 +127,6 @@
         "max_attempts": 3,
         "idempotency_rule": "retain",
         "step_id": "s5",
-        "tool": "prepare_checkout",
-        "arguments": {
-          "expected_cart_version": "$state.cart_version",
-          "expected_session_context_version": "$state.session_context_version"
-        },
-        "expected_result_codes": [
-          "OK"
-        ],
-        "next": {
-          "OK": "s6"
-        }
-      },
-      {
-        "max_attempts": 3,
-        "idempotency_rule": "retain",
-        "step_id": "s6",
         "tool": "complete_checkout",
         "arguments": {},
         "expected_result_codes": [
@@ -155,6 +137,6 @@
         }
       }
     ],
-    "digest": "dbfca50937115cbcb4a7cbb65549c133aa8c20afaa96597638b9cfd2252afe37"
+    "digest": "59154602a725bfae2d5ecacecd2f5da8419e8523ab4f31b4597441152b361fb3"
   }
 }

@@ -171,16 +171,6 @@ func (s *Server) RemoveItem(ctx context.Context, in *v1.RemoveItemRequest) (*v1.
 	return toMut(out), nil
 }
 
-func (s *Server) AcceptOffer(ctx context.Context, in *v1.AcceptOfferRequest) (*v1.AcceptOfferResponse, error) {
-	m := meta(in.Meta)
-	m.Arguments = map[string]any{"session_id": in.SessionId, "offer_id": in.OfferId, "expected_session_context_version": in.ExpectedSessionContextVersion, "expected_cart_version": in.ExpectedCartVersion}
-	env, off, sess, cart, offers, err := s.K.AcceptOffer(ctx, m, in.SessionId, in.OfferId, in.ExpectedSessionContextVersion, in.ExpectedCartVersion)
-	if err != nil {
-		return nil, toStatus(err)
-	}
-	return &v1.AcceptOfferResponse{Envelope: toEnv(env), Offer: toOffer(off), SessionSummary: toSession(sess), Cart: toCart(cart), Offers: toOffers(offers)}, nil
-}
-
 func (s *Server) ApplyOffer(ctx context.Context, in *v1.ApplyOfferRequest) (*v1.CartMutationResult, error) {
 	m := meta(in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "offer_id": in.OfferId, "expected_session_context_version": in.ExpectedSessionContextVersion, "expected_cart_version": in.ExpectedCartVersion}

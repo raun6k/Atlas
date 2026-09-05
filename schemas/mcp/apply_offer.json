@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "apply_offer",
+  "description": "Apply a shown offer onto the cart. This is the buyer's decision and the cart mutation.",
   "type": "object",
   "additionalProperties": false,
   "required": ["session_id", "offer_id", "expected_session_context_version", "expected_cart_version"],
