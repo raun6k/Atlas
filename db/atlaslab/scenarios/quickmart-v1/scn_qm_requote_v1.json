@@ -18,8 +18,7 @@
     "apply_offer",
     "prepare_checkout",
     "complete_checkout",
-    "get_order",
-    "respond_to_substitution"
+    "get_order"
   ],
   "version": "1",
   "scenario_id": "scn_qm_requote_v1",

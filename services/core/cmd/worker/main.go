@@ -11,7 +11,6 @@ import (
 	"atlas.dev/core/internal/payment"
 	"atlas.dev/core/internal/platform"
 	"atlas.dev/core/internal/provider"
-	"atlas.dev/core/internal/refund"
 	"atlas.dev/core/internal/store"
 )
 
@@ -39,7 +38,6 @@ func main() {
 		Cfg:    pClient.Config(),
 	}
 	payMod := payment.Register(pay)
-	refund.Register(pay)
 	workerID := "worker-" + time.Now().Format("150405")
 	types := append([]string{"EXPIRE_HOLD", "GENERATE_AUDIT_EXPORT", "PUBLISH_OUTBOX"}, payMod.JobTypes()...)
 	for {

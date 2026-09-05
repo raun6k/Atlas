@@ -151,7 +151,7 @@ func TestKernelCatalogCartOffersCheckout(t *testing.T) {
 	}
 }
 
-func TestApplyOfferAndSubstitution(t *testing.T) {
+func TestApplyOffer(t *testing.T) {
 	ctx := context.Background()
 	k, cleanup, err := testdb.Open(ctx)
 	if err != nil {
@@ -181,17 +181,6 @@ func TestApplyOfferAndSubstitution(t *testing.T) {
 	}
 	if applied.Cart.Version != cart.Cart.Version+1 {
 		t.Fatalf("apply should bump cart, got %d", applied.Cart.Version)
-	}
-
-	subArgs := map[string]any{"session_id": "ses_fixture_confirmed_order", "merchant_order_id": "ord_fixture_confirmed_breakfast", "substitution_request_id": "sub_fixture_eggs", "expected_substitution_version": int64(1), "selected_option_id": "sop_same_eggs", "decline": false}
-	_, _, err = k.RespondToSubstitution(ctx, signed(t, priv, host, "respond_to_substitution", subArgs), "ses_fixture_confirmed_order", "ord_fixture_confirmed_breakfast", "sub_fixture_eggs", 1, "sop_same_eggs", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	highArgs := map[string]any{"session_id": "ses_fixture_confirmed_order", "merchant_order_id": "ord_fixture_confirmed_breakfast", "substitution_request_id": "sub_fixture_eggs", "expected_substitution_version": int64(2), "selected_option_id": "sop_brown_eggs", "decline": false}
-	_, _, err = k.RespondToSubstitution(ctx, signed(t, priv, host, "respond_to_substitution", highArgs), "ses_fixture_confirmed_order", "ord_fixture_confirmed_breakfast", "sub_fixture_eggs", 2, "sop_brown_eggs", false)
-	if err == nil || apperr.As(err) == nil {
-		// already responded; creating a fresh request would be needed. The first response consumed OPEN.
 	}
 }
 

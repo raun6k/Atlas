@@ -82,13 +82,12 @@ export function evaluateStages(
   const out: RunStageResult[] = [];
   let blocked = false;
   for (const stage of PROOF_STAGES) {
-    if (blocked && stage !== "OFFER_DECISION") {
-      const na = stage === "OFFER_DECISION" && !offerInPlay(state, scenario);
+    if (blocked) {
       out.push({
         stage,
-        result: na ? "NOT_APPLICABLE" : "NOT_REACHED",
+        result: "NOT_REACHED",
         evidence_refs: [],
-        detail: na ? "No Offer was in play" : "Prior stage did not pass",
+        detail: "Prior stage did not pass",
       });
       continue;
     }
@@ -145,7 +144,6 @@ function categoryFor(assertion: Record<string, unknown>): RequirementCategory {
   if ("payment_status" in assertion) return "PAYMENT";
   if ("search_sku_prefix" in assertion) return "PRODUCT";
   if ("totals_total_minor" in assertion) return "CHECKOUT";
-  if ("substitution_responded" in assertion) return "ORDER";
   if ("signer_rejected_overspend" in assertion) return "SAFETY";
   if ("path" in assertion && String(assertion.path).includes("location")) return "LOCATION";
   if ("path" in assertion && String(assertion.path).includes("budget")) return "BUDGET";

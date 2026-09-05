@@ -25,7 +25,6 @@ const PROGRESS_KEYS = [
   "search_sku_prefix",
   "offer_status",
   "observed_result",
-  "substitution_responded",
 ] as const;
 
 export function getByPath(root: unknown, path: string): unknown {
@@ -108,9 +107,6 @@ export function assertionHolds(assertion: Record<string, unknown>, evidence: Ass
       return max != null && amount != null && amount > max;
     });
     return rejected || !overspent;
-  }
-  if ("substitution_responded" in assertion) {
-    return evidence.exchanges.some((e) => e.tool_name === "respond_to_substitution");
   }
   return true;
 }

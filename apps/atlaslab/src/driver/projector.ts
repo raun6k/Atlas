@@ -8,6 +8,19 @@ import { compactToolSchema } from "../model/tool-schemas.js";
 export const DEFAULT_LOCATION_ID = "loc_qm_koramangala";
 export const DEFAULT_SERVICEABILITY = "blr_koramangala_5th_block";
 
+function stripSubstitutionFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripSubstitutionFields);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (/substitut/i.test(key)) continue;
+      out[key] = stripSubstitutionFields(nested);
+    }
+    return out;
+  }
+  return value;
+}
+
 export function mergePublicState(current: PublicState, patch: PublicState, resultCode: string): PublicState {
   const next: PublicState = {
     ...current,
@@ -21,6 +34,9 @@ export function mergePublicState(current: PublicState, patch: PublicState, resul
   if (patch.payment_status && ["CAPTURED_RECONCILED", "FAILED_VERIFIED", "CANCELLED_VERIFIED"].includes(patch.payment_status)) {
     next.outcome_unknown = false;
     next.effectful_payment_frozen = false;
+  }
+  if (patch.sku_names) {
+    next.sku_names = { ...(current.sku_names ?? {}), ...patch.sku_names };
   }
   if (resultCode === "CART_VERSION_CONFLICT" && patch.cart_version != null) {
     next.cart_version = patch.cart_version;
@@ -63,6 +79,32 @@ function interpolate(value: unknown, state: PublicState): unknown {
     return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, interpolate(v, state)]));
   }
   return value;
+}
+
+function rememberSkuName(names: Record<string, string>, skuId: unknown, name: unknown): void {
+  if (typeof skuId === "string" && skuId && typeof name === "string" && name) names[skuId] = name;
+}
+
+function skuNamesFromPayload(payload: Record<string, unknown>): Record<string, string> {
+  const names: Record<string, string> = {};
+  const cart = payload.cart as { lines?: Array<{ sku_id?: unknown; name?: unknown }> } | undefined;
+  for (const line of cart?.lines ?? []) rememberSkuName(names, line.sku_id, line.name);
+  const items = payload.items;
+  if (Array.isArray(items)) {
+    for (const raw of items) {
+      if (raw && typeof raw === "object") {
+        const row = raw as { sku_id?: unknown; name?: unknown };
+        rememberSkuName(names, row.sku_id, row.name);
+      }
+    }
+  }
+  const product = payload.product as { skus?: Array<{ sku_id?: unknown; name?: unknown }> } | undefined;
+  for (const sku of product?.skus ?? []) rememberSkuName(names, sku.sku_id, sku.name);
+  const order = (payload.order ?? payload.merchant_order) as
+    | { lines?: Array<{ sku_id?: unknown; name?: unknown }> }
+    | undefined;
+  for (const line of order?.lines ?? []) rememberSkuName(names, line.sku_id, line.name);
+  return names;
 }
 
 export function publicFactsFromPayload(payload: Record<string, unknown>): PublicState {
@@ -159,16 +201,19 @@ export function publicFactsFromPayload(payload: Record<string, unknown>): Public
   }
   const order = (payload.order ?? payload.merchant_order) as Record<string, unknown> | undefined;
   if (order && typeof order === "object") {
-    patch.order = order;
-    if (typeof order.merchant_order_id === "string") patch.merchant_order_id = order.merchant_order_id;
-    const publicStatus = String(order.payment_public_status ?? order.status ?? "");
+    const orderRest = stripSubstitutionFields(order) as Record<string, unknown>;
+    patch.order = orderRest;
+    if (typeof orderRest.merchant_order_id === "string") patch.merchant_order_id = orderRest.merchant_order_id;
+    const publicStatus = String(orderRest.payment_public_status ?? orderRest.status ?? "");
     if (publicStatus === "CONFIRMED" || publicStatus === "CAPTURED_RECONCILED") patch.payment_status = "CAPTURED_RECONCILED";
     else if (publicStatus) patch.payment_status = publicStatus;
   }
+  const skuNames = skuNamesFromPayload(payload);
+  if (Object.keys(skuNames).length > 0) patch.sku_names = skuNames;
   const publicState = payload.public_state;
   if (publicState && typeof publicState === "object") {
-    const overlay = Object.fromEntries(
-      Object.entries(publicState as PublicState).filter(([, v]) => v !== undefined),
+    const overlay = stripSubstitutionFields(
+      Object.fromEntries(Object.entries(publicState as PublicState).filter(([, v]) => v !== undefined)),
     ) as PublicState;
     return { ...overlay, ...patch };
   }
@@ -180,8 +225,27 @@ export function applyResultToState(state: PublicState, result: McpCallResult): P
   // HttpMcpClient exposes Gateway's public_state directly, where protobuf int64
   // values are JSON strings. The normalized projection must win so later Host
   // proofs bind numeric versions exactly as Core reconstructs them.
-  return mergePublicState(state, { ...result.publicStatePatch, ...fromPayload }, result.resultCode);
+  return mergePublicState(state, stripSubstitutionFields({ ...result.publicStatePatch, ...fromPayload }) as PublicState, result.resultCode);
 }
+
+const CART_ID_TOOLS = new Set([
+  "add_cart_item",
+  "update_cart_item",
+  "remove_cart_item",
+  "prepare_checkout",
+]);
+const CART_VERSION_TOOLS = new Set([
+  "add_cart_item",
+  "update_cart_item",
+  "remove_cart_item",
+  "apply_offer",
+  "prepare_checkout",
+]);
+const SESSION_VERSION_TOOLS = new Set([
+  "set_intent",
+  "apply_offer",
+  "prepare_checkout",
+]);
 
 export function enrichPublicToolArgs(opts: {
   tool: string;
@@ -200,14 +264,14 @@ export function enrichPublicToolArgs(opts: {
   if (args.budget_minor != null && args.planning_budget_minor == null) {
     args.planning_budget_minor = args.budget_minor;
   }
-  if (opts.state.session_id && args.session_id == null && opts.tool !== "get_capabilities" && opts.tool !== "create_session") {
+  if (opts.state.session_id && opts.tool !== "get_capabilities" && opts.tool !== "create_session") {
     args.session_id = opts.state.session_id;
   }
-  if (opts.state.cart_id && args.cart_id == null) args.cart_id = opts.state.cart_id;
-  if (opts.tool.includes("cart") && args.expected_cart_version == null && opts.state.cart_version != null) {
+  if (opts.state.cart_id && CART_ID_TOOLS.has(opts.tool)) args.cart_id = opts.state.cart_id;
+  if (opts.state.cart_version != null && CART_VERSION_TOOLS.has(opts.tool)) {
     args.expected_cart_version = opts.state.cart_version;
   }
-  if (args.expected_session_context_version == null && opts.state.session_context_version != null) {
+  if (opts.state.session_context_version != null && SESSION_VERSION_TOOLS.has(opts.tool)) {
     args.expected_session_context_version = opts.state.session_context_version;
   }
   if (opts.tool === "complete_checkout" && opts.state.checkout_proposal) {
@@ -215,6 +279,9 @@ export function enrichPublicToolArgs(opts: {
     const proposal = opts.state.checkout_proposal as { checkout_proposal_id?: string };
     args.checkout_proposal_id ??= proposal.checkout_proposal_id;
     args.checkout_proposal ??= opts.state.checkout_proposal;
+  }
+  if (opts.tool === "get_order" && opts.state.merchant_order_id) {
+    args.merchant_order_id = opts.state.merchant_order_id;
   }
   if (opts.tool === "create_session") {
     if (args.subject_reference == null) args.subject_reference = `lab:${opts.runId}`;
@@ -225,10 +292,6 @@ export function enrichPublicToolArgs(opts: {
     if (args.mission == null) args.mission = "";
     if (args.planning_budget_minor == null && args.budget_minor != null) args.planning_budget_minor = args.budget_minor;
     if (args.currency == null) args.currency = "";
-  }
-  if (opts.tool === "respond_to_substitution") {
-    if (args.selected_option_id == null) args.selected_option_id = "";
-    if (args.decline == null) args.decline = false;
   }
   const schema = compactToolSchema(opts.tool as PublicMcpTool);
   const properties = schema.properties as Record<string, unknown> | undefined;

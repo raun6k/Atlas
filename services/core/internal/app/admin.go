@@ -10,7 +10,6 @@ import (
 	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/cart"
 	"atlas.dev/core/internal/ids"
-	"atlas.dev/core/internal/refund"
 	"atlas.dev/core/internal/store"
 
 	"github.com/jackc/pgx/v5"
@@ -178,14 +177,12 @@ func (k *Kernel) SearchResources(ctx context.Context, m Meta, q string) (Envelop
 }
 
 func (k *Kernel) CreateRefund(ctx context.Context, m Meta, orderID string, amount int64, currency, reason string) (Envelope, string, string, error) {
-	if err := k.requireScope(m, "refund:manage"); err != nil {
-		return Envelope{}, "", "", err
-	}
-	res, err := refund.Current().RequestRefund(ctx, refund.Request{OrderID: orderID, AmountMinor: amount, Currency: currency, Reason: reason, OperatorID: m.OperatorID, RequestID: m.RequestID})
-	if err != nil {
-		return Envelope{}, "", "", err
-	}
-	return k.withRequest(k.env(), m.RequestID, ""), res.Code, res.Message, nil
+	_ = m
+	_ = orderID
+	_ = amount
+	_ = currency
+	_ = reason
+	return Envelope{}, "", "", apperr.New(apperr.MerchantPolicyDenied, "refunds are not supported")
 }
 
 func (k *Kernel) AdjustInventory(ctx context.Context, m Meta, locationID, skuID string, delta int32, reason string) error {

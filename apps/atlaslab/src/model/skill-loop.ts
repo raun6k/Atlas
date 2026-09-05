@@ -24,6 +24,7 @@ import {
   SYSTEM_PROMPT,
   type LastActionSummary,
 } from "./skills.js";
+import { modelVisiblePaymentCapabilities, modelVisibleToolResult } from "./visible.js";
 
 export interface SkillLoopResult {
   publicState: PublicState;
@@ -41,13 +42,17 @@ function commerceFingerprint(state: PublicState): string {
   });
 }
 
-function summarizeToolResult(tool: string, result: { resultCode: string; payload: Record<string, unknown>; publicStatePatch: PublicState }): string {
+function summarizeToolResult(
+  tool: string,
+  result: { resultCode: string; payload: Record<string, unknown>; publicStatePatch: PublicState },
+  state: PublicState,
+): string {
   return JSON.stringify({
     tool,
     result_code: result.resultCode,
-    session_id: result.publicStatePatch.session_id ?? result.payload.session_id,
-    cart_id: result.publicStatePatch.cart_id ?? result.payload.cart_id,
-    payment_capabilities: result.payload.payment_capabilities ?? result.publicStatePatch.payment_capabilities,
+    session_id: state.session_id ?? result.publicStatePatch.session_id ?? result.payload.session_id,
+    cart_id: state.cart_id ?? result.publicStatePatch.cart_id ?? result.payload.cart_id,
+    payment_capabilities: modelVisiblePaymentCapabilities(state.payment_capabilities),
   }).slice(0, 1500);
 }
 
@@ -263,14 +268,20 @@ export class SkillLoop {
             arguments: response.toolCall.arguments,
         },
         toolResult: redactUnknown(
-          { result_code: result.resultCode, ...result.payload },
+          modelVisibleToolResult(
+            response.toolCall.tool,
+            result.resultCode,
+            result.payload,
+            argumentsEnriched,
+            { sku_names: state.sku_names },
+          ),
           opts.extraSecrets,
         ) as Record<string, unknown>,
       });
       lastAction = {
         tool: response.toolCall.tool,
         result_code: result.resultCode,
-        summary: summarizeToolResult(response.toolCall.tool, result),
+        summary: summarizeToolResult(response.toolCall.tool, result, state),
       };
       const key = `${response.toolCall.tool}:${argumentDigest(argumentsEnriched)}`;
       if (key === stallKey && commerceFingerprint(state) === before) {

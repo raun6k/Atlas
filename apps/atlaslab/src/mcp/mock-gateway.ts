@@ -105,29 +105,54 @@ export class MockGateway implements McpClient {
         return this.ok(req, {
           contract_version: "atlas.merchant.v1",
           environment: "test",
+          capabilities: {
+            contract_family: "atlas.merchant.v1",
+            contract_version: "atlas.merchant.v1",
+            merchant_display_name: "QuickMart",
+            currency: "INR",
+            locale: "en-IN",
+            max_page_size: 25,
+            offer_ttl_seconds: 300,
+            proposal_hold_ttl_seconds: 120,
+            tools: [
+              "get_capabilities",
+              "create_session",
+              "set_intent",
+              "search_catalog",
+              "get_product",
+              "get_cart",
+              "add_cart_item",
+              "update_cart_item",
+              "remove_cart_item",
+              "apply_offer",
+              "prepare_checkout",
+              "complete_checkout",
+              "get_order",
+            ],
+            payment: {
+              capability_id: "pcap_razorpay_test",
+              provider: "razorpay",
+              environment: "test",
+              money_movement: "simulated",
+              completion_mode: "asynchronous",
+              requires_checkout_proposal: true,
+              requires_checkout_authority: true,
+              supports_buyer_agent_raw_instrument_access: false,
+              terminal_success_state: "CAPTURED_RECONCILED",
+            },
+          },
           payment_capabilities: [
             {
               capability_id: "pcap_razorpay_test",
               provider: "razorpay",
               environment: "test",
               money_movement: "simulated",
+              completion_mode: "asynchronous",
+              requires_checkout_proposal: true,
+              requires_checkout_authority: true,
+              supports_buyer_agent_raw_instrument_access: false,
+              terminal_success_state: "CAPTURED_RECONCILED",
             },
-          ],
-          tools: [
-            "get_capabilities",
-            "create_session",
-            "set_intent",
-            "search_catalog",
-            "get_product",
-            "get_cart",
-            "add_cart_item",
-            "update_cart_item",
-            "remove_cart_item",
-            "apply_offer",
-            "prepare_checkout",
-            "complete_checkout",
-            "get_order",
-            "respond_to_substitution",
           ],
         });
       case "create_session": {
@@ -296,21 +321,7 @@ export class MockGateway implements McpClient {
           }
           session.outcome_unknown = false;
         }
-        const substitution =
-          session.location_id === "loc_qm_hsr" && session.lines.some((l) => l.sku_id === "sku_qm_eggs_white_6")
-            ? {
-                substitution_request_id: "sub_eggs_hsr",
-                options: [{ sku_id: "sku_qm_eggs_brown_6", price_delta_minor: 600 }],
-              }
-            : undefined;
-        return this.ok(req, { ...this.sessionPayload(session), order: session.order, substitution });
-      }
-      case "respond_to_substitution": {
-        if (!session?.order) return this.err(req, "NOT_FOUND", false);
-        return this.ok(req, {
-          ...this.sessionPayload(session),
-          substitution_response: { status: "APPLIED", selected_sku_id: req.arguments.sku_id ?? null },
-        });
+        return this.ok(req, { ...this.sessionPayload(session), order: session.order });
       }
       default:
         return this.err(req, "UNKNOWN_TOOL", false);

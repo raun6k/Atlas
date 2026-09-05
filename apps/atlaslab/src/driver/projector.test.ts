@@ -86,6 +86,31 @@ test("complete checkout projects the order identifier for follow-up reads", () =
   assert.equal(next.payment_status, "PAYMENT_PROCESSING");
 });
 
+test("Host public state drops substitution fields from Atlas orders", () => {
+  const facts = publicFactsFromPayload({
+    order: {
+      merchant_order_id: "ord_1",
+      status: "CONFIRMED",
+      substitutions: [{ substitution_request_id: "sub_1", status: "OPEN" }],
+      substitution: { substitution_request_id: "sub_1" },
+    },
+  });
+  assert.equal(facts.merchant_order_id, "ord_1");
+  assert.equal(facts.order && "substitutions" in facts.order, false);
+  assert.equal(facts.order && "substitution" in facts.order, false);
+  assert.equal(JSON.stringify(facts).toLowerCase().includes("substitut"), false);
+});
+
+test("Host injects merchant_order_id onto get_order", () => {
+  const args = enrichPublicToolArgs({
+    tool: "get_order",
+    args: { session_id: "ses_stale", merchant_order_id: "ord_stale" },
+    state: { session_id: "ses_1", merchant_order_id: "ord_123" },
+    runId: "run_1",
+  });
+  assert.deepEqual(args, { session_id: "ses_1", merchant_order_id: "ord_123" });
+});
+
 test("create_session does not invent a default neighbourhood", () => {
   const args = enrichPublicToolArgs({
     tool: "create_session",
@@ -96,6 +121,19 @@ test("create_session does not invent a default neighbourhood", () => {
   assert.equal(args.subject_reference, "lab:run_1");
   assert.equal(args.delivery_serviceability_reference, undefined);
   assert.equal(args.requested_location_id, undefined);
+});
+
+test("Host overwrites stale cart versions from public_state", () => {
+  const args = enrichPublicToolArgs({
+    tool: "remove_cart_item",
+    args: { cart_line_id: "cln_old", expected_cart_version: 0, session_id: "ses_stale" },
+    state: { session_id: "ses_1", cart_id: "cart_1", cart_version: 3 },
+    runId: "run_1",
+  });
+  assert.equal(args.session_id, "ses_1");
+  assert.equal(args.cart_id, "cart_1");
+  assert.equal(args.expected_cart_version, 3);
+  assert.equal(args.cart_line_id, "cln_old");
 });
 
 test("create_session keeps buyer-supplied delivery refs", () => {

@@ -94,7 +94,7 @@ func seedTrust(ctx context.Context, tx pgx.Tx, hostPEMPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO operator_credentials (operator_id, display_name, credential_salt, credential_hash, scopes, status) VALUES ('op_merchant_quickmart','Merchant operator',$1,$2,ARRAY['merchant:read','merchant:manage','audit:read','audit:export','refund:manage'],'ACTIVE')`, as, ah); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO operator_credentials (operator_id, display_name, credential_salt, credential_hash, scopes, status) VALUES ('op_merchant_quickmart','Merchant operator',$1,$2,ARRAY['merchant:read','merchant:manage','audit:read','audit:export'],'ACTIVE')`, as, ah); err != nil {
 		return err
 	}
 	fs, fh, err := store.HashSecret(fixBearer)
@@ -140,13 +140,7 @@ func seedConfirmedOrder(ctx context.Context, tx pgx.Tx) error {
 			return err
 		}
 	}
-	opts, _ := json.Marshal([]map[string]any{
-		{"option_id": "sop_brown_eggs", "sku_id": "sku_qm_eggs_brown_6", "quantity": 1, "unit_price_minor": 6400, "price_impact": "HIGHER"},
-		{"option_id": "sop_same_eggs", "sku_id": "sku_qm_eggs_white_6", "quantity": 1, "unit_price_minor": 5400, "price_impact": "SAME"},
-	})
-	_, err := tx.Exec(ctx, `INSERT INTO substitution_requests (substitution_request_id, order_id, original_sku_id, original_quantity, options, substitution_version, status, deadline_at)
-		VALUES ('sub_fixture_eggs',$1,'sku_qm_eggs_white_6',1,$2,1,'OPEN', now() + interval '15 minutes')`, orderID, opts)
-	return err
+	return nil
 }
 
 func Current(ctx context.Context, db *store.DB) (ResetResult, error) {

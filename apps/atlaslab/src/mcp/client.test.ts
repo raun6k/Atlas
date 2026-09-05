@@ -17,16 +17,16 @@ test("MCP client refuses internal gRPC, postgres, admin, and worker targets", ()
   }
 });
 
-test("public MCP excludes get_session, get_profile, get_substitution", () => {
-  for (const tool of ["get_session", "get_profile", "get_substitution"]) {
+test("public MCP excludes get_session, get_profile, get_substitution, respond_to_substitution, accept_offer", () => {
+  for (const tool of ["get_session", "get_profile", "get_substitution", "respond_to_substitution", "accept_offer"]) {
     assert.throws(() => assertPublicTool(tool), (err: unknown) => err instanceof LabError && err.code === "FORBIDDEN_INTERNAL_ACCESS");
   }
 });
 
-test("public MCP allows the frozen 14-tool family", () => {
+test("public MCP allows the frozen 13-tool family", () => {
   assert.doesNotThrow(() => assertPublicTool("get_capabilities"));
   assert.doesNotThrow(() => assertPublicTool("complete_checkout"));
-  assert.doesNotThrow(() => assertPublicTool("respond_to_substitution"));
+  assert.doesNotThrow(() => assertPublicTool("apply_offer"));
 });
 
 test("Lab public tools match generated schemas/mcp/tools.json", () => {

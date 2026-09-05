@@ -29,3 +29,23 @@ test("mcpOk keeps non-empty offers", () => {
   assert.equal(Array.isArray(out.offers), true);
   assert.equal((out.offers as Array<{ offer_id: string }>)[0].offer_id, "off_1");
 });
+
+test("mcpOk drops substitution fields from Atlas MCP JSON", () => {
+  const out = mcpOk(
+    {
+      envelope: { requestId: "req-3" },
+      order: {
+        merchantOrderId: "ord_1",
+        status: "CONFIRMED",
+        substitutions: [{ substitutionRequestId: "sub_1", status: "OPEN" }],
+        substitution: { substitutionRequestId: "sub_1" },
+      },
+    },
+    "req-3",
+  );
+  const order = out.order as Record<string, unknown>;
+  assert.equal(order.merchant_order_id, "ord_1");
+  assert.equal("substitutions" in order, false);
+  assert.equal("substitution" in order, false);
+  assert.equal(JSON.stringify(out).toLowerCase().includes("substitut"), false);
+});

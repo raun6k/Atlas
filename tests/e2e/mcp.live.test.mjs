@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Live MCP through Gateway: public family is 15 tools; Host bearer required; no get_session.
+ * Live MCP through Gateway: public family is 13 tools; Host bearer required; no get_session.
  */
 const base = process.env.ATLAS_GATEWAY_HTTP_ADDR
   ? `http://${process.env.ATLAS_GATEWAY_HTTP_ADDR.replace(/^http:\/\//, "")}`
@@ -32,11 +32,11 @@ try {
 
 const listed = await mcp("tools/list");
 const tools = listed.body.result?.tools?.map((t) => t.name) ?? [];
-if (tools.length !== 15) {
-  console.error("expected 15 public tools, got", tools);
+if (tools.length !== 13) {
+  console.error("expected 13 public tools, got", tools);
   process.exit(1);
 }
-for (const forbidden of ["get_session", "get_profile", "get_substitution"]) {
+for (const forbidden of ["get_session", "get_profile", "get_substitution", "respond_to_substitution", "accept_offer"]) {
   if (tools.includes(forbidden)) {
     console.error(forbidden, "must not be public MCP");
     process.exit(1);
@@ -53,4 +53,4 @@ if (caps.status !== 200 || (code && code !== "OK")) {
   console.error("get_capabilities failed", caps.status, caps.body);
   process.exit(1);
 }
-console.log("live MCP ok: 15 tools, Host bearer enforced, get_capabilities OK");
+console.log("live MCP ok: 13 tools, Host bearer enforced, get_capabilities OK");

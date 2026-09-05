@@ -12,7 +12,6 @@ export const PUBLIC_MCP_TOOLS = [
   "prepare_checkout",
   "complete_checkout",
   "get_order",
-  "respond_to_substitution",
 ] as const;
 
 export type PublicMcpTool = (typeof PUBLIC_MCP_TOOLS)[number];
@@ -26,13 +25,14 @@ export const MUTATING_TOOLS: ReadonlySet<PublicMcpTool> = new Set([
   "apply_offer",
   "prepare_checkout",
   "complete_checkout",
-  "respond_to_substitution",
 ]);
 
 export const FORBIDDEN_INTERNAL_TOOLS = [
   "get_session",
   "get_profile",
   "get_substitution",
+  "respond_to_substitution",
+  "accept_offer",
 ] as const;
 
 export const FORBIDDEN_INTERNAL_PATHS = [
@@ -84,8 +84,7 @@ export type SkillName =
   | "cart_management"
   | "offer_decision"
   | "checkout_authorization"
-  | "operation_recovery"
-  | "substitution_response";
+  | "operation_recovery";
 
 export interface Money {
   amount_minor: number;
@@ -407,6 +406,7 @@ export interface PublicState {
   effectful_payment_frozen?: boolean;
   payment_capabilities?: Array<Record<string, unknown>>;
   contract_version?: string;
+  sku_names?: Record<string, string>;
 }
 
 export interface ActionStep {

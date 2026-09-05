@@ -12,9 +12,11 @@ import { SECRET_CANARIES } from "../redaction.js";
 
 class RecordingAdapter implements ModelAdapter {
   snapshots: Record<string, unknown>[] = [];
+  histories: ModelTurnRequest["history"][] = [];
   constructor(private readonly inner: ModelAdapter) {}
   async complete(req: ModelTurnRequest): Promise<ModelTurnResponse> {
     this.snapshots.push(req.snapshot);
+    this.histories.push(req.history);
     return this.inner.complete(req);
   }
 }
@@ -72,8 +74,18 @@ test("snapshot carries last_action after a tool result", async () => {
     model_id: "openrouter/test-model",
   });
   assert.ok(adapter.snapshots.length >= 2);
-  const second = adapter.snapshots[1] as { last_action?: { tool?: string } };
+  const second = adapter.snapshots[1] as {
+    last_action?: { tool?: string };
+    payment_capabilities?: Array<Record<string, unknown>>;
+  };
   assert.equal(second.last_action?.tool, "get_capabilities");
+  assert.equal(second.payment_capabilities?.[0]?.capability_id, undefined);
+  assert.equal(second.payment_capabilities?.[0]?.completion_mode, "asynchronous");
+  const capResult = adapter.histories[1]?.[0]?.toolResult ?? {};
+  assert.equal(capResult.merchant_display_name, "QuickMart");
+  assert.equal(capResult.capabilities, undefined);
+  assert.equal((capResult.payment as { capability_id?: string } | undefined)?.capability_id, undefined);
+  assert.equal(Array.isArray(capResult.tools) && (capResult.tools as string[]).includes("get_capabilities"), false);
 });
 
 test("identical tool calls stall with NO_PROGRESS", async () => {

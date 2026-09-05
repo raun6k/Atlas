@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"atlas.dev/core/internal/apperr"
-	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/ids"
 	"atlas.dev/core/internal/payment"
 	"atlas.dev/core/internal/trust"
@@ -48,18 +47,6 @@ type OrderView struct {
 	CreatedAt           string
 	OperationID         string
 	Lines               []LineView
-	Substitutions       []SubstitutionView
-}
-
-type SubstitutionView struct {
-	ID          string
-	Version     int64
-	OrderID     string
-	OriginalSKU string
-	OriginalQty int32
-	OptionsJSON []byte
-	Deadline    string
-	Status      string
 }
 
 func (k *Kernel) PrepareCheckout(ctx context.Context, m Meta, sessionID, cartID string, expectedSession, expectedCart int64) (Envelope, SessionSummary, CartView, ProposalView, error) {
@@ -148,23 +135,6 @@ func (k *Kernel) PrepareCheckout(ctx context.Context, m Meta, sessionID, cartID 
 		snap, holdExp); err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
-	for _, line := range cv.Lines {
-		rid := ids.New(ids.Reservation)
-		if _, err := tx.Exec(ctx, `INSERT INTO reservations (reservation_id, checkout_proposal_id, sku_id, location_id, quantity, status, expires_at) VALUES ($1,$2,$3,$4,$5,'ACTIVE',$6)`,
-			rid, pid, line.SKUID, s.LocationID, line.Quantity, holdExp); err != nil {
-			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
-		}
-		tag, err := tx.Exec(ctx, `
-			UPDATE inventory SET reserved_quantity = reserved_quantity + $3, updated_at=now()
-			WHERE location_id=$1 AND sku_id=$2
-			  AND (on_hand_quantity - reserved_quantity - safety_buffer) >= $3`, s.LocationID, line.SKUID, line.Quantity)
-		if err != nil {
-			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
-		}
-		if tag.RowsAffected() == 0 {
-			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, apperr.New(apperr.InventoryChanged, "concurrent stock contention; no partial hold")
-		}
-	}
 	if _, err := tx.Exec(ctx, `UPDATE shopping_sessions SET status='CHECKOUT_HELD', updated_at=now() WHERE session_id=$1`, s.SessionID); err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
@@ -176,7 +146,7 @@ func (k *Kernel) PrepareCheckout(ctx context.Context, m Meta, sessionID, cartID 
 		Status: "ACTIVE", Totals: cv.Totals, Lines: cv.Lines, LocationID: s.LocationID,
 	}
 	env := k.withRequest(k.env(), m.RequestID, op)
-	aid, err := auditMutation(ctx, tx, m, op, "prepare_checkout", "checkout_proposal", pid, s.CartVersion, map[string]any{"quote_hash": qh, "amount_minor": cv.Totals.AllInMinor}, "Approved Host prepared checkout. Atlas held inventory atomically.")
+	aid, err := auditMutation(ctx, tx, m, op, "prepare_checkout", "checkout_proposal", pid, s.CartVersion, map[string]any{"quote_hash": qh, "amount_minor": cv.Totals.AllInMinor}, "Approved Host prepared checkout after Atlas verified every line is in stock.")
 	if err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
@@ -356,120 +326,7 @@ func (k *Kernel) GetOrder(ctx context.Context, m Meta, sessionID, orderID string
 		}
 		ov.Lines = append(ov.Lines, l)
 	}
-	srows, err := k.Pool().Query(ctx, `SELECT substitution_request_id, substitution_version, original_sku_id, original_quantity, options, deadline_at, status FROM substitution_requests WHERE order_id=$1`, orderID)
-	if err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	defer srows.Close()
-	for srows.Next() {
-		var sub SubstitutionView
-		var dl time.Time
-		if err := srows.Scan(&sub.ID, &sub.Version, &sub.OriginalSKU, &sub.OriginalQty, &sub.OptionsJSON, &dl, &sub.Status); err != nil {
-			return Envelope{}, OrderView{}, err
-		}
-		sub.OrderID = orderID
-		sub.Deadline = dl.UTC().Format(time.RFC3339)
-		ov.Substitutions = append(ov.Substitutions, sub)
-	}
 	return k.withRequest(k.env(), m.RequestID, ""), ov, nil
-}
-
-func (k *Kernel) GetSubstitution(ctx context.Context, m Meta, subID string) (Envelope, SubstitutionView, error) {
-	var sub SubstitutionView
-	var dl time.Time
-	err := k.Pool().QueryRow(ctx, `SELECT substitution_request_id, order_id, substitution_version, original_sku_id, original_quantity, options, deadline_at, status FROM substitution_requests WHERE substitution_request_id=$1`, subID).
-		Scan(&sub.ID, &sub.OrderID, &sub.Version, &sub.OriginalSKU, &sub.OriginalQty, &sub.OptionsJSON, &dl, &sub.Status)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Envelope{}, SubstitutionView{}, apperr.New(apperr.NotFound, "substitution not found")
-	}
-	if err != nil {
-		return Envelope{}, SubstitutionView{}, err
-	}
-	sub.Deadline = dl.UTC().Format(time.RFC3339)
-	return k.withRequest(k.env(), m.RequestID, ""), sub, nil
-}
-
-func (k *Kernel) RespondToSubstitution(ctx context.Context, m Meta, sessionID, orderID, subID string, expectedVer int64, optionID string, decline bool) (Envelope, OrderView, error) {
-	if err := requireHost(m); err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	m.RequireIdempotency = true
-	m.Tool = "respond_to_substitution"
-	if m.Arguments == nil {
-		m.Arguments = map[string]any{"session_id": sessionID, "merchant_order_id": orderID, "substitution_request_id": subID, "expected_substitution_version": expectedVer, "selected_option_id": optionID, "decline": decline}
-	}
-	tx, replay, op, err := k.beginMutation(ctx, m, "respond_to_substitution", m.Arguments)
-	if err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	if replay != nil {
-		var out struct {
-			Env Envelope
-			O   OrderView
-		}
-		_ = json.Unmarshal(replay, &out)
-		return out.Env, out.O, nil
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var status string
-	var ver int64
-	var opts []byte
-	var originalSKU string
-	var originalQty int32
-	var deadline time.Time
-	err = tx.QueryRow(ctx, `SELECT status, substitution_version, options, original_sku_id, original_quantity, deadline_at FROM substitution_requests WHERE substitution_request_id=$1 AND order_id=$2 FOR UPDATE`, subID, orderID).
-		Scan(&status, &ver, &opts, &originalSKU, &originalQty, &deadline)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Envelope{}, OrderView{}, apperr.New(apperr.NotFound, "substitution not found")
-	}
-	if err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	_ = originalSKU
-	_ = originalQty
-	if ver != expectedVer {
-		return Envelope{}, OrderView{}, apperr.New(apperr.InvalidArgument, "substitution version conflict")
-	}
-	if status != "OPEN" {
-		return Envelope{}, OrderView{}, apperr.New(apperr.InvalidArgument, "substitution is not open")
-	}
-	if k.Now().After(deadline) {
-		_, _ = tx.Exec(ctx, `UPDATE substitution_requests SET status='EXPIRED' WHERE substitution_request_id=$1`, subID)
-		return Envelope{}, OrderView{}, apperr.New(apperr.InvalidArgument, "substitution expired")
-	}
-	newStatus := "APPLIED"
-	if decline {
-		newStatus = "DECLINED"
-	} else {
-		var options []map[string]any
-		_ = json.Unmarshal(opts, &options)
-		found := false
-		for _, o := range options {
-			id, _ := o["option_id"].(string)
-			if id == optionID {
-				found = true
-				impact, _ := o["price_impact"].(string)
-				if impact == "HIGHER" {
-					return Envelope{}, OrderView{}, apperr.New(apperr.MerchantPolicyDenied, "higher-price substitutes are not allowed")
-				}
-			}
-		}
-		if !found {
-			return Envelope{}, OrderView{}, apperr.New(apperr.InvalidArgument, "option is not available")
-		}
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO substitution_responses (substitution_response_id, substitution_request_id, selected_option_id, declined, host_id) VALUES ($1,$2,$3,$4,$5)`,
-		ids.New(ids.SubResponse), subID, nullIfEmpty(optionID), decline, m.ApprovedHostID); err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	if _, err := tx.Exec(ctx, `UPDATE substitution_requests SET status=$2, substitution_version=substitution_version+1 WHERE substitution_request_id=$1`, subID, newStatus); err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	_, _ = audit.Append(ctx, tx, audit.Event{Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, OperationID: op, PrincipalType: "APPROVED_HOST", PrincipalID: m.ApprovedHostID, Channel: "mcp", Action: "respond_to_substitution", ResourceType: "substitution", ResourceID: subID, Body: map[string]any{"decline": decline, "option_id": optionID}, Summary: "Approved Host responded to a substitution request."})
-	if err := tx.Commit(ctx); err != nil {
-		return Envelope{}, OrderView{}, err
-	}
-	return k.GetOrder(ctx, m, sessionID, orderID)
 }
 
 func nullIfEmpty(s string) any {

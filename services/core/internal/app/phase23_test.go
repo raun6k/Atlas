@@ -259,7 +259,7 @@ func TestAuthorityAmountMismatchAndPromptSafety(t *testing.T) {
 	if strings.Join(capBefore.Tools, ",") != strings.Join(capAfter.Tools, ",") {
 		t.Fatal("merchant text must not change public tools")
 	}
-	for _, forbidden := range []string{"get_session", "get_profile", "get_substitution"} {
+	for _, forbidden := range []string{"get_session", "get_profile", "get_substitution", "respond_to_substitution", "accept_offer"} {
 		for _, tool := range capAfter.Tools {
 			if tool == forbidden {
 				t.Fatalf("%s must not be public", forbidden)

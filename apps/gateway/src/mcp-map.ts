@@ -4,6 +4,10 @@ export function snakeKey(key: string): string {
   return key.replace(/[A-Z]/g, (ch) => `_${ch.toLowerCase()}`).replace(/^_/, "");
 }
 
+function isSubstitutionField(key: string): boolean {
+  return /substitut/i.test(key);
+}
+
 export function snake(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(snake);
   if (value && typeof value === "object") {
@@ -15,7 +19,10 @@ export function snake(value: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rec)) {
       if (v === undefined || v === null || v === "") continue;
-      out[snakeKey(k)] = snake(v);
+      if (isSubstitutionField(k)) continue;
+      const next = snakeKey(k);
+      if (isSubstitutionField(next)) continue;
+      out[next] = snake(v);
     }
     return out;
   }

@@ -209,22 +209,12 @@ func (s *Server) GetOrder(ctx context.Context, in *v1.GetOrderRequest) (*v1.GetO
 	return &v1.GetOrderResponse{Envelope: toEnv(env), Order: toOrder(ord)}, nil
 }
 
-func (s *Server) GetSubstitution(ctx context.Context, in *v1.GetSubstitutionRequest) (*v1.GetSubstitutionResponse, error) {
-	env, sub, err := s.K.GetSubstitution(ctx, meta(in.Meta), in.SubstitutionRequestId)
-	if err != nil {
-		return nil, toStatus(err)
-	}
-	return &v1.GetSubstitutionResponse{Envelope: toEnv(env), Substitution: toSub(sub)}, nil
+func (s *Server) GetSubstitution(context.Context, *v1.GetSubstitutionRequest) (*v1.GetSubstitutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "substitutions are not supported")
 }
 
-func (s *Server) RespondToSubstitution(ctx context.Context, in *v1.RespondToSubstitutionRequest) (*v1.RespondToSubstitutionResponse, error) {
-	m := meta(in.Meta)
-	m.Arguments = map[string]any{"session_id": in.SessionId, "merchant_order_id": in.MerchantOrderId, "substitution_request_id": in.SubstitutionRequestId, "expected_substitution_version": in.ExpectedSubstitutionVersion, "selected_option_id": in.SelectedOptionId, "decline": in.Decline}
-	env, ord, err := s.K.RespondToSubstitution(ctx, m, in.SessionId, in.MerchantOrderId, in.SubstitutionRequestId, in.ExpectedSubstitutionVersion, in.SelectedOptionId, in.Decline)
-	if err != nil {
-		return nil, toStatus(err)
-	}
-	return &v1.RespondToSubstitutionResponse{Envelope: toEnv(env), Order: toOrder(ord)}, nil
+func (s *Server) RespondToSubstitution(context.Context, *v1.RespondToSubstitutionRequest) (*v1.RespondToSubstitutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "substitutions are not supported")
 }
 
 func (s *Server) ResetFixtures(ctx context.Context, in *v1.ResetFixturesRequest) (*v1.ResetFixturesResponse, error) {
@@ -839,20 +829,7 @@ func toOrder(o app.OrderView) *v1.MerchantOrder {
 	for _, l := range o.Lines {
 		mo.Lines = append(mo.Lines, &v1.CartLine{SkuId: l.SKUID, ProductId: l.ProductID, Quantity: l.Quantity, UnitPrice: money(l.UnitMinor, o.Currency), LineTotal: money(l.LineMinor, o.Currency)})
 	}
-	for _, sub := range o.Substitutions {
-		mo.Substitutions = append(mo.Substitutions, toSub(sub))
-	}
 	return mo
-}
-
-func toSub(s app.SubstitutionView) *v1.SubstitutionRequest {
-	sr := &v1.SubstitutionRequest{SubstitutionRequestId: s.ID, SubstitutionVersion: s.Version, OrderId: s.OrderID, OriginalSkuId: s.OriginalSKU, OriginalQuantity: s.OriginalQty, Status: s.Status}
-	var opts []map[string]any
-	_ = json.Unmarshal(s.OptionsJSON, &opts)
-	for _, o := range opts {
-		sr.Options = append(sr.Options, &v1.SubstitutionOption{OptionId: str(o["option_id"]), SkuId: str(o["sku_id"]), Quantity: int32(asI64(o["quantity"])), PriceImpact: str(o["price_impact"])})
-	}
-	return sr
 }
 
 func money(minor int64, cur string) *v1.Money {

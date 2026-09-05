@@ -11,7 +11,6 @@
     "remove_cart_item": ["session_id", "cart_id", "expected_cart_version", "cart_line_id"],
     "apply_offer": ["session_id", "offer_id", "expected_session_context_version", "expected_cart_version"],
     "prepare_checkout": ["session_id", "cart_id", "expected_session_context_version", "expected_cart_version"],
-    "get_order": ["session_id", "merchant_order_id"],
-    "respond_to_substitution": ["session_id", "merchant_order_id", "substitution_request_id", "expected_substitution_version"]
+    "get_order": ["session_id", "merchant_order_id"]
   }
 }

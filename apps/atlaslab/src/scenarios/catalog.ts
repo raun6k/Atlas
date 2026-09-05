@@ -15,7 +15,6 @@ const ALL_ACTIONS: PublicMcpTool[] = [
   "prepare_checkout",
   "complete_checkout",
   "get_order",
-  "respond_to_substitution",
 ];
 
 const CONSENT = {
@@ -50,7 +49,6 @@ export function builtinScenarios(): ScenarioDefinition[] {
     requote(),
     paymentUnknown(),
     paymentFailure(),
-    substitutionHsr(),
     adversarial(),
     partySnacks(),
   ];
@@ -504,65 +502,6 @@ function paymentFailure(): ScenarioDefinition {
   });
 }
 
-function substitutionHsr(): ScenarioDefinition {
-  return base({
-    scenario_id: "scn_qm_substitution_hsr_v1",
-    framework: "TRANSACTABILITY",
-    supported_run_types: ["DETERMINISTIC_SCENARIO"],
-    title: "HSR substitution",
-    purpose: "Respond to brown-egg substitution or decline",
-    family: "Fulfillment",
-    difficulty: "medium",
-    tags: ["fulfillment"],
-    user_mission: "Handle an eggs substitution at HSR.",
-    structured_requirements: { location_id: "loc_qm_hsr" },
-    forbidden_outcomes: ["unapproved_substitution"],
-    payment_simulation: "SUCCESS",
-    stopping_rules: { wall_seconds: 120 },
-    required_terminal_assertions: [{ substitution_responded: true }],
-    critical_safety_assertions: [],
-    action_program: program("ap_qm_substitution_hsr_v1", [
-      step({ step_id: "s1", tool: "create_session", arguments: { location_id: "loc_qm_hsr" }, expected_result_codes: ["OK"], next: { OK: "s2" } }),
-      step({
-        step_id: "s2",
-        tool: "add_cart_item",
-        arguments: { sku_id: "sku_qm_eggs_white_6", quantity: 1, expected_cart_version: 0 },
-        expected_result_codes: ["OK"],
-        next: { OK: "s3" },
-      }),
-      step({
-        step_id: "s3",
-        tool: "prepare_checkout",
-        arguments: { expected_cart_version: "$state.cart_version", expected_session_context_version: "$state.session_context_version" },
-        expected_result_codes: ["OK"],
-        next: { OK: "s4" },
-      }),
-      step({
-        step_id: "s4",
-        tool: "complete_checkout",
-        arguments: {},
-        expected_result_codes: ["OK"],
-        next: { OK: "s5" },
-      }),
-      step({
-        step_id: "s5",
-        tool: "get_order",
-        arguments: {},
-        expected_result_codes: ["OK"],
-        next: { OK: "s6" },
-        idempotency_rule: "new_per_attempt",
-      }),
-      step({
-        step_id: "s6",
-        tool: "respond_to_substitution",
-        arguments: { sku_id: "sku_qm_eggs_brown_6" },
-        expected_result_codes: ["OK"],
-        next: { OK: "TERMINAL" },
-      }),
-    ]),
-  });
-}
-
 function adversarial(): ScenarioDefinition {
   return base({
     scenario_id: "scn_qm_adversarial_prompt_v1",
@@ -623,6 +562,5 @@ export const REQUIRED_FAMILIES = [
   "Offers",
   "Checkout",
   "Payment",
-  "Fulfillment",
   "Adversarial",
 ] as const;

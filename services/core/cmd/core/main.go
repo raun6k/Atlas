@@ -16,7 +16,6 @@ import (
 	"atlas.dev/core/internal/payment"
 	"atlas.dev/core/internal/platform"
 	"atlas.dev/core/internal/provider"
-	"atlas.dev/core/internal/refund"
 	"atlas.dev/core/internal/store"
 
 	"google.golang.org/grpc"
@@ -52,7 +51,6 @@ func main() {
 		Cfg:    pClient.Config(),
 	}
 	payment.Register(pay)
-	refund.Register(pay)
 
 	k := app.New(db, cfg, logg, getenv("ATLAS_FIXTURE_DIR", "db/atlas/fixtures/quickmart-v1"))
 	if _, err := k.CurrentFixture(ctx); err != nil {

@@ -61,6 +61,34 @@ function loadSchemas(): Map<string, McpJsonSchema> {
   return map;
 }
 
+const HOST_INJECTED_ARG_FIELDS = new Set([
+  "session_id",
+  "cart_id",
+  "expected_cart_version",
+  "expected_session_context_version",
+  "merchant_order_id",
+]);
+
+export function modelVisibleToolSchema(tool: PublicMcpTool): Record<string, unknown> {
+  const schema = compactToolSchema(tool);
+  const properties = { ...((schema.properties as Record<string, unknown> | undefined) ?? {}) };
+  let required = Array.isArray(schema.required) ? [...(schema.required as string[])] : undefined;
+  for (const field of HOST_INJECTED_ARG_FIELDS) {
+    delete properties[field];
+  }
+  required = required?.filter((field) => !HOST_INJECTED_ARG_FIELDS.has(field));
+  if (tool === "complete_checkout") {
+    delete properties.checkout_authority;
+    required = required?.filter((field) => field !== "checkout_authority");
+  }
+  const { required: _ignored, ...rest } = schema;
+  return {
+    ...rest,
+    properties,
+    ...(required && required.length > 0 ? { required } : {}),
+  };
+}
+
 export function compactToolSchema(tool: PublicMcpTool): Record<string, unknown> {
   const schema = loadSchemas().get(tool);
   if (!schema) {
@@ -78,27 +106,16 @@ export function compactToolSchema(tool: PublicMcpTool): Record<string, unknown> 
 
 export function openAiToolsFor(allowed: PublicMcpTool[]): OpenAiFunctionTool[] {
   return allowed.filter((name) => (PUBLIC_MCP_TOOLS as readonly string[]).includes(name)).map((name) => {
-    const schema = compactToolSchema(name);
-    const { description, ...parameters } = schema;
-    const properties = { ...((parameters.properties as Record<string, unknown> | undefined) ?? {}) };
-    let required = Array.isArray(parameters.required) ? [...(parameters.required as string[])] : undefined;
-    // Checkout Authority is a Host-owned security artifact. It belongs to the
-    // public wire contract but must never be requested from or fabricated by
-    // the Buyer Model; HostBoundary injects it after verifying the proposal.
-    if (name === "complete_checkout") {
-      delete properties.checkout_authority;
-      required = required?.filter((field) => field !== "checkout_authority");
-    }
+    const visible = modelVisibleToolSchema(name);
+    const { description: visibleDescription, ...visibleParameters } = visible;
     return {
       type: "function",
       function: {
         name,
-        description: String(description ?? name),
+        description: String(visibleDescription ?? name),
         parameters: {
           type: "object",
-          ...parameters,
-          properties,
-          ...(required ? { required } : {}),
+          ...visibleParameters,
         },
       },
     };

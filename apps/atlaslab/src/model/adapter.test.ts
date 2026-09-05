@@ -253,6 +253,14 @@ test("OpenRouter HTTP error is MODEL_ERROR", async () => {
   );
 });
 
+test("Buyer Model never receives Host-injected session and order OCC fields", async () => {
+  const { openAiToolsFor } = await import("./tool-schemas.js");
+  const getOrder = openAiToolsFor(["get_order"])[0]!;
+  const getOrderParams = getOrder.function.parameters as { properties: Record<string, unknown>; required?: string[] };
+  assert.equal(getOrderParams.properties.session_id, undefined);
+  assert.equal(getOrderParams.properties.merchant_order_id, undefined);
+});
+
 test("Buyer Model never receives the Host-owned Checkout Authority field", async () => {
   const { openAiToolsFor } = await import("./tool-schemas.js");
   const tool = openAiToolsFor(["complete_checkout"])[0]!;

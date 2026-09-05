@@ -18,7 +18,6 @@ const query = new pkg.atlas.merchant.v1.MerchantQueryService(coreAddr, grpc.cred
 const sessions = new pkg.atlas.merchant.v1.SessionService(coreAddr, grpc.credentials.createInsecure());
 const carts = new pkg.atlas.merchant.v1.CartService(coreAddr, grpc.credentials.createInsecure());
 const checkout = new pkg.atlas.merchant.v1.CheckoutService(coreAddr, grpc.credentials.createInsecure());
-const fulfill = new pkg.atlas.merchant.v1.FulfillmentService(coreAddr, grpc.credentials.createInsecure());
 const admin = new pkg.atlas.merchant.v1.AdminService(coreAddr, grpc.credentials.createInsecure());
 const audit = new pkg.atlas.merchant.v1.AuditService(coreAddr, grpc.credentials.createInsecure());
 const fixtures = new pkg.atlas.merchant.v1.FixtureService(coreAddr, grpc.credentials.createInsecure());
@@ -30,12 +29,12 @@ const PUBLIC_TOOLS = new Set([
   "get_capabilities", "create_session", "set_intent", "search_catalog", "get_product",
   "get_cart", "add_cart_item", "update_cart_item", "remove_cart_item",
   "apply_offer", "prepare_checkout", "complete_checkout",
-  "get_order", "respond_to_substitution",
+  "get_order",
 ]);
 
 const MUTATIONS = new Set([
   "create_session", "set_intent", "add_cart_item", "update_cart_item", "remove_cart_item",
-  "apply_offer", "prepare_checkout", "complete_checkout", "respond_to_substitution",
+  "apply_offer", "prepare_checkout", "complete_checkout",
 ]);
 
 function promisify(client: any, method: string, req: unknown): Promise<any> {
@@ -101,8 +100,7 @@ const tools = [
   { name: "apply_offer", description: "Apply a shown offer onto the cart atomically" },
   { name: "prepare_checkout", description: "Atomic hold and CheckoutProposal" },
   { name: "complete_checkout", description: "Consume authority; pending order + payment hook" },
-  { name: "get_order", description: "Poll merchant order and substitutions" },
-  { name: "respond_to_substitution", description: "Respond to a substitution request" },
+  { name: "get_order", description: "Poll merchant order and payment status" },
 ];
 
 async function callTool(name: string, args: Record<string, unknown>, meta: any) {
@@ -134,8 +132,6 @@ async function callTool(name: string, args: Record<string, unknown>, meta: any) 
       return promisify(checkout, "CompleteCheckout", { ...m, sessionId: args.session_id, checkoutProposalId: args.checkout_proposal_id, checkoutAuthority: args.checkout_authority });
     case "get_order":
       return promisify(checkout, "GetOrder", { ...m, sessionId: args.session_id, merchantOrderId: args.merchant_order_id });
-    case "respond_to_substitution":
-      return promisify(fulfill, "RespondToSubstitution", { ...m, sessionId: args.session_id, merchantOrderId: args.merchant_order_id, substitutionRequestId: args.substitution_request_id, expectedSubstitutionVersion: args.expected_substitution_version, selectedOptionId: args.selected_option_id, decline: args.decline });
     default:
       throw Object.assign(new Error("unknown tool"), { code: "INVALID_ARGUMENT" });
   }
@@ -240,7 +236,7 @@ const server = createServer(async (req, res) => {
       }
       if (body.method === "tools/call") {
         const name = body.params?.name as string;
-        if (!PUBLIC_TOOLS.has(name) || name === "get_session" || name === "get_profile" || name === "get_substitution") {
+        if (!PUBLIC_TOOLS.has(name) || name === "get_session" || name === "get_profile" || name === "get_substitution" || name === "respond_to_substitution" || name === "accept_offer") {
           return json(res, 200, { jsonrpc: "2.0", id: body.id, error: { code: -32601, message: "tool is not on public MCP" } });
         }
         const args = body.params?.arguments ?? {};
@@ -278,9 +274,9 @@ async function handleAdmin(req: IncomingMessage, res: ServerResponse, url: URL) 
     return json(res, 401, { code: "UNAUTHENTICATED" });
   }
   if (!token && !serviceToken) return json(res, 401, { code: "UNAUTHENTICATED" });
-  const meta = atlasMeta(req, { operator_id: "op_merchant_quickmart", operator_scopes: ["merchant:read", "merchant:manage", "audit:read", "audit:export", "refund:manage"] }, "");
+  const meta = atlasMeta(req, { operator_id: "op_merchant_quickmart", operator_scopes: ["merchant:read", "merchant:manage", "audit:read", "audit:export"] }, "");
   meta.operatorId = "op_merchant_quickmart";
-  meta.operatorScopes = ["merchant:read", "merchant:manage", "audit:read", "audit:export", "refund:manage"];
+  meta.operatorScopes = ["merchant:read", "merchant:manage", "audit:read", "audit:export"];
   const p = url.pathname;
   const ok = async (method: string, client: any, reqBody: unknown) =>
     json(res, 200, mcpOk(await promisify(client, method, reqBody), meta.requestId));
@@ -363,18 +359,6 @@ async function handleAdmin(req: IncomingMessage, res: ServerResponse, url: URL) 
     }
     if (req.method === "GET" && p === "/admin/v1/commerce/orders") {
       return await ok("ListOrders", admin, { meta, pageSize: 100 });
-    }
-    const refundMatch = p.match(/^\/admin\/v1\/commerce\/orders\/([^/]+)\/refunds$/);
-    if (req.method === "POST" && refundMatch) {
-      const body = JSON.parse((await readBody(req)).toString() || "{}");
-      const out = await promisify(admin, "CreateRefund", {
-        meta,
-        merchantOrderId: decodeURIComponent(refundMatch[1]),
-        amountMinor: body.amount_minor ?? body.amountMinor,
-        currency: body.currency || "INR",
-        reason: body.reason || body.reason_code || "",
-      });
-      return json(res, 200, mcpOk(out, meta.requestId));
     }
     const orderMatch = p.match(/^\/admin\/v1\/commerce\/orders\/([^/]+)$/);
     if (req.method === "GET" && orderMatch) {
