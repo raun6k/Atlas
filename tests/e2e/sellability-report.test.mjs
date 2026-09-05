@@ -13,7 +13,6 @@ const outDir = join(dirname(fileURLToPath(import.meta.url)), "../../artifacts");
 mkdirSync(outDir, { recursive: true });
 
 let reports = [];
-let pairs = [];
 let sellability = {};
 let live = false;
 try {
@@ -27,12 +26,10 @@ if (live) {
   const headers = { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) };
   try {
     reports = (await (await fetch(`${lab}/lab/v1/reports`, { headers })).json()).items ?? [];
-    pairs = (await (await fetch(`${lab}/lab/v1/pairs`, { headers })).json()).items ?? [];
     const analytics = await (await fetch(`${lab}/lab/v1/analytics/sellability`, { headers })).json();
     sellability = analytics.data ?? {};
   } catch {
     reports = [];
-    pairs = [];
     sellability = {};
   }
 }
@@ -54,7 +51,7 @@ const doc = {
   sellability_denominator: Number(sellability.denominator ?? 0),
   sellability_numerator: Number(sellability.numerator ?? 0),
   excluded_deterministic_or_custom: Number(sellability.excluded_deterministic_or_custom ?? 0),
-  pairs_total: pairs.length,
+  pairs_total: Number(proof?.eligible_pairs ?? 0),
   report_kinds: {
     contract: contractReports.length,
     agent_compatibility: compatibilityReports.length,
