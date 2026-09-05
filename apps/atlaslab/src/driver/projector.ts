@@ -31,7 +31,7 @@ export function mergePublicState(current: PublicState, patch: PublicState, resul
     next.outcome_unknown = true;
     next.effectful_payment_frozen = true;
   }
-  if (patch.payment_status && ["CAPTURED_RECONCILED", "FAILED_VERIFIED", "CANCELLED_VERIFIED"].includes(patch.payment_status)) {
+  if (patch.payment_status && ["CAPTURED_RECONCILED", "FAILED_VERIFIED", "CANCELLED_VERIFIED", "PAYMENT_FAILED_VERIFIED"].includes(patch.payment_status)) {
     next.outcome_unknown = false;
     next.effectful_payment_frozen = false;
   }
@@ -253,6 +253,8 @@ export function enrichPublicToolArgs(opts: {
   state: PublicState;
   runId: string;
   mission?: string;
+  subjectReference?: string;
+  constraints?: Record<string, string>;
 }): Record<string, unknown> {
   const args = { ...opts.args };
   if (args.location_id != null && args.requested_location_id == null) {
@@ -284,14 +286,26 @@ export function enrichPublicToolArgs(opts: {
     args.merchant_order_id = opts.state.merchant_order_id;
   }
   if (opts.tool === "create_session") {
-    if (args.subject_reference == null) args.subject_reference = `lab:${opts.runId}`;
+    if (args.subject_reference == null) args.subject_reference = opts.subjectReference ?? `lab:${opts.runId}`;
     if (args.locale == null) args.locale = "";
   }
   if (opts.tool === "set_intent") {
     if (args.mission == null && opts.mission) args.mission = opts.mission;
     if (args.mission == null) args.mission = "";
     if (args.planning_budget_minor == null && args.budget_minor != null) args.planning_budget_minor = args.budget_minor;
-    if (args.currency == null) args.currency = "";
+    if (args.currency === "") delete args.currency;
+    if (opts.constraints) {
+      const existing =
+        args.constraints && typeof args.constraints === "object" && !Array.isArray(args.constraints)
+          ? (args.constraints as Record<string, unknown>)
+          : {};
+      args.constraints = { ...existing, ...opts.constraints };
+    }
+  }
+  if (opts.tool === "search_catalog") {
+    for (const key of ["brand", "category", "cursor"]) {
+      if (args[key] === "") delete args[key];
+    }
   }
   const schema = compactToolSchema(opts.tool as PublicMcpTool);
   const properties = schema.properties as Record<string, unknown> | undefined;

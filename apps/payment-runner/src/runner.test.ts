@@ -16,20 +16,33 @@ test("runner config rejects secrets and database urls", () => {
   assert.equal(cfg.endpoint, "http://127.0.0.1:8080");
 });
 
-test("health live and ready", async () => {
-  const server = startHealthServer("127.0.0.1:0");
-  if (!server.listening) {
-    await new Promise<void>((resolve) => server.once("listening", resolve));
+test("health live vs ready components", async () => {
+  const liveOnly = startHealthServer("127.0.0.1:0", async () => ({
+    status: "not_ready",
+    process: "payment-runner",
+    components: {
+      process: true,
+      gateway: false,
+      claim_credential: false,
+      browser_executor: false,
+      active_job: false,
+      callback_report: false,
+    },
+  }));
+  if (!liveOnly.listening) {
+    await new Promise<void>((resolve) => liveOnly.once("listening", resolve));
   }
-  const addr = server.address();
+  const addr = liveOnly.address();
   if (!addr || typeof addr === "string") {
     throw new Error("no addr");
   }
   const live = await fetch(`http://127.0.0.1:${addr.port}/health/live`);
   const ready = await fetch(`http://127.0.0.1:${addr.port}/health/ready`);
   assert.equal(live.status, 200);
-  assert.equal(ready.status, 200);
-  server.close();
+  assert.equal(ready.status, 503);
+  const body = await ready.json();
+  assert.equal(body.components.process, true);
+  liveOnly.close();
 });
 
 test("success screen observation is not capture", async () => {

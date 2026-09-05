@@ -1,7 +1,7 @@
 import { newPrefixedId } from "../ids.js";
 import type { LabStore } from "../db/store.js";
 import type { HostBoundary } from "../host/boundary.js";
-import { LabError, type ActionProgram, type ActionStep, type ConsentPolicy, type PublicMcpTool, type PublicState, type RunRecord } from "../types.js";
+import { LabError, type ActionProgram, type ActionStep, type ConsentPolicy, type PublicMcpTool, type PublicState, type RunRecord, type SessionPolicy } from "../types.js";
 import { applyResultToState, enrichPublicToolArgs, persistProjection, resolveArgumentRefs } from "./projector.js";
 
 const MAX_ATTEMPTS = 3;
@@ -26,6 +26,8 @@ export class DeterministicDriver {
     permittedActions: PublicMcpTool[];
     extraSecrets: string[];
     deadlineMs: number;
+    sessionPolicy?: SessionPolicy;
+    signal?: AbortSignal;
   }): Promise<DeterministicDriverResult> {
     if (opts.program.steps.length === 0) throw new LabError("INVALID_PROGRAM", "empty action program");
     if ((opts.program.max_branches ?? MAX_BRANCHES) > MAX_BRANCHES) {
@@ -37,6 +39,9 @@ export class DeterministicDriver {
     const byId = new Map(opts.program.steps.map((s) => [s.step_id, s]));
 
     while (stepId && stepId !== "TERMINAL") {
+      if (opts.signal?.aborted) {
+        return { publicState: state, terminalCode: "CANCELLED", failed: "cancelled" };
+      }
       if (Date.now() > opts.deadlineMs) {
         return { publicState: state, terminalCode: "FAILED_UNRESOLVED", failed: "deadline" };
       }
@@ -70,6 +75,8 @@ export class DeterministicDriver {
       consent: ConsentPolicy;
       permittedActions: PublicMcpTool[];
       extraSecrets: string[];
+      sessionPolicy?: SessionPolicy;
+      signal?: AbortSignal;
     },
     step: ActionStep,
     state: PublicState,
@@ -84,12 +91,18 @@ export class DeterministicDriver {
 
     while (attempt < maxAttempts) {
       attempt += 1;
-      const args = enrichPublicToolArgs({
-        tool: step.tool,
-        args: resolveArgumentRefs(step.arguments, current),
-        state: current,
-        runId: opts.run.run_id,
-      });
+      const scripted = typeof step.arguments === "string" ? {} : step.arguments;
+      const resolved = resolveArgumentRefs(step.arguments, current);
+      const args = restoreScriptedOcc(
+        scripted,
+        resolved,
+        enrichPublicToolArgs({
+          tool: step.tool,
+          args: resolved,
+          state: current,
+          runId: opts.run.run_id,
+        }),
+      );
 
       await this.store.appendEvent({
         run_id: opts.run.run_id,
@@ -109,6 +122,7 @@ export class DeterministicDriver {
           consent: opts.consent,
           publicState: current,
           extraSecrets: opts.extraSecrets,
+          sessionPolicy: opts.sessionPolicy,
         });
         current = applyResultToState(current, result);
         await this.store.insertDriverStep({
@@ -148,4 +162,18 @@ export class DeterministicDriver {
     }
     return { state: current, resultCode: current.last_result_code ?? "FAILED", stop: true, failed: "max_attempts" };
   }
+}
+
+function restoreScriptedOcc(
+  scripted: Record<string, unknown>,
+  resolved: Record<string, unknown>,
+  enriched: Record<string, unknown>,
+): Record<string, unknown> {
+  for (const key of ["expected_cart_version", "expected_session_context_version"] as const) {
+    const raw = scripted[key];
+    if (raw === undefined) continue;
+    if (typeof raw === "string" && raw.startsWith("$state.")) continue;
+    enriched[key] = resolved[key];
+  }
+  return enriched;
 }

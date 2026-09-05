@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { assertPublicMcpTarget, assertPublicTool, HttpMcpClient } from "./client.js";
+import { assertPublicMcpTarget, assertPublicTool, HttpMcpClient, resultCodeFromMcpError } from "./client.js";
 import { LabError, PUBLIC_MCP_TOOLS } from "../types.js";
 
 test("MCP client refuses internal gRPC, postgres, admin, and worker targets", () => {
@@ -53,4 +53,34 @@ test("JSON-RPC errors are never reported to the Buyer as OK", async () => {
   assert.equal(result.ok, false);
   assert.equal(result.resultCode, "MCP_ERROR");
   assert.match(String((result.payload.error as { message: string }).message), /digest mismatch/);
+});
+
+test("MCP JSON-RPC maps Core stale-cart text onto CART_VERSION_CONFLICT and cart_version", async () => {
+  assert.equal(resultCodeFromMcpError("stale cart version"), "CART_VERSION_CONFLICT");
+  const fetchImpl: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: "req_2",
+        error: {
+          code: -32000,
+          message: "CART_VERSION_CONFLICT: stale cart version",
+          data: { code: "CART_VERSION_CONFLICT", current_cart: { cart_id: "cart_1", cart_version: 2 } },
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  const client = new HttpMcpClient("http://gateway.example/mcp", [], fetchImpl);
+  const result = await client.call({
+    tool: "add_cart_item",
+    arguments: { sku_id: "QM-FPR-0061-A", quantity: 1 },
+    requestId: "req_2",
+    idempotencyKey: "idem_2",
+    hostRequestProof: "proof",
+    hostBearer: "bearer",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.resultCode, "CART_VERSION_CONFLICT");
+  assert.equal(result.publicStatePatch.cart_version, 2);
+  assert.match(JSON.stringify(result.payload), /cart_version/);
 });

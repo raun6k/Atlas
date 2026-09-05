@@ -373,6 +373,7 @@ export function modelVisibleApplyOffer(
   const out: Record<string, unknown> = {};
   if (applied) out.applied_offer_id = applied;
   out.cart = cartBody.cart;
+  if (Array.isArray(cartBody.offers)) out.offers = cartBody.offers;
   return out;
 }
 
@@ -413,8 +414,8 @@ export function modelVisibleSku(raw: unknown): Record<string, unknown> | undefin
   const out: Record<string, unknown> = { sku_id: skuId };
   const variant = stringField(sku, "variant");
   if (variant) out.variant = variant;
-  const packSize = versionNumber(sku.pack_size);
-  if (packSize != null) out.pack_size = packSize;
+  const packSize = versionNumber(sku.pack_size ?? sku.pack_quantity);
+  if (packSize != null) out.pack_quantity = packSize;
   const unit = stringField(sku, "unit_of_measure", "unit");
   if (unit) out.unit = unit;
   const price = moneyMinor(sku.selling_price) ?? moneyMinor(sku.price_minor);
@@ -456,11 +457,35 @@ export function modelVisiblePrepareCheckout(payload: Record<string, unknown>, re
 export function modelVisiblePaymentStatus(raw: unknown): string | undefined {
   const status = typeof raw === "string" ? raw : "";
   if (!status) return undefined;
-  if (status === "CAPTURED_RECONCILED" || status === "CONFIRMED") return "PAID";
-  if (status === "FAILED_VERIFIED" || status === "CANCELLED_VERIFIED") return "FAILED";
-  if (status === "OUTCOME_UNKNOWN") return "UNKNOWN";
-  if (status === "PAYMENT_PROCESSING" || status === "PENDING_PAYMENT") return "PROCESSING";
+  if (status === "CAPTURED_RECONCILED" || status === "CONFIRMED" || status === "PAID") return "PAID";
+  if (
+    status === "FAILED_VERIFIED" ||
+    status === "CANCELLED_VERIFIED" ||
+    status === "PAYMENT_FAILED_VERIFIED" ||
+    status === "FAILED"
+  ) {
+    return "FAILED";
+  }
+  if (status === "OUTCOME_UNKNOWN" || status === "UNKNOWN") return "UNKNOWN";
+  if (status === "PAYMENT_PROCESSING" || status === "PENDING_PAYMENT" || status === "PROCESSING") return "PROCESSING";
   return status;
+}
+
+export function isPaidPaymentStatus(raw?: string | null): boolean {
+  return modelVisiblePaymentStatus(raw) === "PAID";
+}
+
+export function isFailedPaymentStatus(raw?: string | null): boolean {
+  return modelVisiblePaymentStatus(raw) === "FAILED";
+}
+
+export function isUnknownPaymentStatus(raw?: string | null): boolean {
+  return modelVisiblePaymentStatus(raw) === "UNKNOWN";
+}
+
+export function isTerminalPaymentStatus(raw?: string | null): boolean {
+  const mapped = modelVisiblePaymentStatus(raw);
+  return mapped === "PAID" || mapped === "FAILED";
 }
 
 export function modelVisibleOrderNextAction(paymentStatus: string | undefined): string {

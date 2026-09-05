@@ -21,6 +21,8 @@ type Candidate struct {
 	BaseAllInMinor int64
 	PatchedAllIn   int64
 	Eligibility    string
+	Economics      RuntimeEconomics
+	Explanation    PublicExplanation
 }
 
 // Drop is a public commercial decision without private scores.
@@ -92,6 +94,7 @@ type CatalogSKU struct {
 	ProductActive bool
 }
 
+// GraphEdge is fixture-advisory catalog metadata. It is not substitution, inventory, or payment authority.
 type GraphEdge struct {
 	Source     string
 	Target     string
@@ -109,6 +112,7 @@ type Inputs struct {
 	Campaigns  []Campaign
 	PromoTerms map[string]PromoTerms
 	Copy       map[string]BuyerCopy
+	Revisions  map[string]string
 }
 
 var strategyOrder = []string{
@@ -162,18 +166,16 @@ func SelectTrace(ctx Context, in Inputs) ([]Candidate, []Drop) {
 			dropped = append(dropped, Drop{Strategy: c.Strategy, Eligibility: sim.Eligibility, Reason: "RANK_ZERO"})
 			continue
 		}
-		c.BuyerImpact = sim.BuyerImpact
 		c.Rank = sim.Rank
 		if c.Relevance > 0 {
 			c.Rank = c.Relevance*10000 + math.Max(0, sim.Rank)/1000
 		}
-		c.BaseAllInMinor = sim.BaseAllInMinor
-		c.PatchedAllIn = sim.PatchedAllInMinor
-		c.Eligibility = sim.Eligibility
 		if sim.ContributionDeltaMinor == nil {
-			c.Eligibility = "ECONOMICS_INCOMPLETE"
+			sim.Eligibility = "ECONOMICS_INCOMPLETE"
 		}
+		AttachEconomics(&c, sim, in)
 		applyBuyerCopy(&c, in)
+		c.Explanation = ExplainCandidate(c)
 		scored = append(scored, c)
 	}
 	sort.SliceStable(scored, func(i, j int) bool {

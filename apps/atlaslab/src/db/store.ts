@@ -2,8 +2,11 @@ import { newPrefixedId } from "../ids.js";
 import type {
   AgentTurnRecord,
   ArtifactRecord,
+  ChildSessionRecord,
   DriverStepRecord,
+  EvalSittingRecord,
   EvaluationRecord,
+  FixtureLeaseRecord,
   GradeRecord,
   ModelInvocationRecord,
   PairResultRecord,
@@ -33,6 +36,7 @@ export interface LabStore {
   insertDriverStep(step: DriverStepRecord): Promise<void>;
   listDriverSteps(runId: string): Promise<DriverStepRecord[]>;
   insertAgentTurn(turn: AgentTurnRecord): Promise<void>;
+  maxAgentTurnNumber(runId: string): Promise<number>;
   insertToolExchange(ex: ToolExchangeRecord): Promise<void>;
   listToolExchanges(runId: string): Promise<ToolExchangeRecord[]>;
   insertProjection(p: StateProjectionRecord): Promise<void>;
@@ -50,6 +54,17 @@ export interface LabStore {
   getArtifactsByReport(reportId: string): Promise<ArtifactRecord[]>;
   putRunProof(runId: string, proof: RunProof, trajectory: TrajectoryStep[], assurance: PaymentAssuranceProjection): Promise<void>;
   getRunProof(runId: string): Promise<{ proof: RunProof; trajectory: TrajectoryStep[]; assurance: PaymentAssuranceProjection } | undefined>;
+  putSitting(s: EvalSittingRecord): Promise<void>;
+  getSitting(id: string): Promise<EvalSittingRecord | undefined>;
+  updateSitting(id: string, patch: Partial<EvalSittingRecord>): Promise<EvalSittingRecord>;
+  listSittings(): Promise<EvalSittingRecord[]>;
+  putChildSession(c: ChildSessionRecord): Promise<void>;
+  getChildSession(runId: string): Promise<ChildSessionRecord | undefined>;
+  listChildSessions(evaluationId: string): Promise<ChildSessionRecord[]>;
+  tryAcquireFixtureLease(lease: Omit<FixtureLeaseRecord, "released_at" | "release_reason">): Promise<FixtureLeaseRecord | null>;
+  heartbeatLease(leaseId: string, expiresAt: string): Promise<void>;
+  releaseLease(leaseId: string, reason: string): Promise<void>;
+  activeLease(snapshotId: string): Promise<FixtureLeaseRecord | undefined>;
   ping(): Promise<boolean>;
   migrationVersion(): Promise<string | null>;
 }
@@ -66,5 +81,11 @@ export function newPairId(): string {
 export function newReportId(): string {
   return newPrefixedId("rpt");
 }
+export function newEvaluationId(): string {
+  return newPrefixedId("eval");
+}
+export function newLeaseId(): string {
+  return newPrefixedId("lease");
+}
 
-export const TERMINAL_STATES: ReadonlySet<RunState> = new Set(["COMPLETED", "CANCELLED", "FAILED"]);
+export const TERMINAL_STATES: ReadonlySet<RunState> = new Set(["COMPLETED", "PARTIAL", "CANCELLED", "FAILED"]);

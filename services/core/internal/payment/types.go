@@ -50,6 +50,7 @@ const (
 	PublicPaymentReconciliationRequired PublicOrderStatus = "PAYMENT_RECONCILIATION_REQUIRED"
 	PublicOutcomeUnknown                PublicOrderStatus = "OUTCOME_UNKNOWN"
 	PublicConfirmed                     PublicOrderStatus = "CONFIRMED"
+	PublicCapturedAwaitingBinding       PublicOrderStatus = "CAPTURED_AWAITING_BINDING"
 )
 
 type Money struct {
@@ -58,29 +59,34 @@ type Money struct {
 }
 
 type PaymentAttempt struct {
-	PaymentAttemptID    string
-	CheckoutProposalID  string
-	MerchantOrderID     string
-	ExecutionPassportID string
-	CapabilityID        string
-	State               State
-	Version             int64
-	Amount              Money
-	RazorpayOrderID     string
-	RazorpayPaymentID   string
-	DuplicateFrozen     bool
-	FulfillmentFrozen   bool
-	HoldReleaseFrozen   bool
-	EffectDisposition   string
-	ReasonCode          string
-	HasCallbackBinding  bool
-	HasWebhookBinding   bool
-	IdempotencyKey      string
-	HostID              string
-	OperationID         string
-	RequestID           string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	PaymentAttemptID         string
+	CheckoutProposalID       string
+	MerchantOrderID          string
+	ExecutionPassportID      string
+	CapabilityID             string
+	State                    State
+	Version                  int64
+	Amount                   Money
+	RazorpayOrderID          string
+	RazorpayPaymentID        string
+	DuplicateFrozen          bool
+	FulfillmentFrozen        bool
+	HoldReleaseFrozen        bool
+	EffectDisposition        string
+	ReasonCode               string
+	HasCallbackBinding       bool
+	HasWebhookBinding        bool
+	IdempotencyKey           string
+	HostID                   string
+	OperationID              string
+	RequestID                string
+	ProviderIdempotencyKey   string
+	ProviderRequestDigest    string
+	ReconcileAttemptCount    int
+	ReconcileNextAttemptAt   *time.Time
+	WaitingEventBindingSince *time.Time
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 func (a PaymentAttempt) HasEventBinding() bool {
@@ -138,21 +144,23 @@ type Reconciliation struct {
 }
 
 type RunnerJob struct {
-	JobID              string
-	PaymentAttemptID   string
-	ExecutorToken      string // returned once on claim; never logged
-	ExecutorTokenHash  string
-	Status             string // ISSUED, CLAIMED, OBSERVED, EXPIRED
-	RazorpayOrderID    string
-	RazorpayKeyID      string
-	AmountMinor        int64
-	Currency           string
-	CallbackOrigin     string
-	Scenario           string
-	CheckoutPageURL    string
-	ClaimedAt          *time.Time
-	ObservationSummary string
-	CreatedAt          time.Time
+	JobID                 string
+	PaymentAttemptID      string
+	ExecutorToken         string // returned once on claim; never logged
+	ExecutorTokenHash     string
+	Status                string // ISSUED, CLAIMED, OBSERVED, EXPIRED
+	RazorpayOrderID       string
+	RazorpayKeyID         string
+	AmountMinor           int64
+	Currency              string
+	CallbackOrigin        string
+	Scenario              string
+	CheckoutPageURL       string
+	ClaimedAt             *time.Time
+	ObservationSummary    string
+	ObservationConfidence string
+	ClaimedByIdentity     string
+	CreatedAt             time.Time
 }
 
 type WorkerJob struct {
@@ -179,6 +187,7 @@ type AuditEvent struct {
 	OccurredAt       time.Time
 	OperationID      string
 	RequestID        string
+	Authoritative    *bool
 }
 
 const (
@@ -191,6 +200,20 @@ const (
 )
 
 const (
-	DispositionExternalUnknown = "EXTERNAL_OUTCOME_UNKNOWN"
-	ReasonPossibleSubmission   = "POSSIBLE_PROVIDER_SUBMISSION"
+	DispositionExternalUnknown  = "EXTERNAL_OUTCOME_UNKNOWN"
+	ReasonPossibleSubmission    = "POSSIBLE_PROVIDER_SUBMISSION"
+	ReasonTransportFailure      = "TRANSPORT_FAILURE"
+	ReasonMalformedResponse     = "MALFORMED_PROVIDER_RESPONSE"
+	ReasonProviderTimeout       = "PROVIDER_TIMEOUT"
+	ReasonBrowserAmbiguity      = "BROWSER_AMBIGUITY"
+	ReasonWebhookDelay          = "WEBHOOK_DELAY"
+	ReasonWebhookTimeout        = "WEBHOOK_TIMEOUT"
+	ReasonProviderMismatch      = "PROVIDER_MISMATCH"
+	ReasonFetchFailure          = "FETCH_FAILURE"
+	ReasonCaptureResponseLoss   = "CAPTURE_RESPONSE_LOSS"
+	ReasonWaitingEventBinding   = "WAITING_EVENT_BINDING"
+	ReasonReconcileExhausted    = "RECONCILE_EXHAUSTED"
+	MaxReconcileAttempts        = 8
+	WebhookBindingTimeout       = 15 * time.Minute
+	ObservationNonAuthoritative = "browser_non_authoritative"
 )

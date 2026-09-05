@@ -36,7 +36,7 @@ export interface IncomingRunRequest {
 
 export function rejectWrongVariant(input: IncomingRunRequest): void {
   const extras = input.extra_fields ?? [];
-  if (input.run_type === "DETERMINISTIC_SCENARIO") {
+  if (input.run_type === "DETERMINISTIC_SCENARIO" || input.run_type === "DETERMINISTIC_SUITE" || input.run_type === "EVALUATION_SITTING") {
     if (!input.deterministic) {
       throw new LabError("WRONG_VARIANT", "deterministic configuration required");
     }
@@ -45,10 +45,10 @@ export function rejectWrongVariant(input: IncomingRunRequest): void {
     }
     for (const key of DETERMINISTIC_FORBIDDEN_KEYS) {
       if (extras.includes(key) || (input.deterministic as unknown as Record<string, unknown>)[key] != null) {
-        throw new LabError("WRONG_VARIANT", `field ${key} is forbidden on DETERMINISTIC_SCENARIO`);
+        throw new LabError("WRONG_VARIANT", `field ${key} is forbidden on ${input.run_type}`);
       }
     }
-  } else if (input.run_type === "BENCHMARK_MODEL") {
+  } else if (input.run_type === "BENCHMARK_MODEL" || input.run_type === "LIVE_SESSION" || input.run_type === "LIVE_COMPATIBILITY_SUITE" || input.run_type === "LIVE_COMMERCIAL_SUITE") {
     if (!input.model?.model_id) {
       throw new LabError("WRONG_VARIANT", "benchmark runs require an exact model_id");
     }
@@ -96,7 +96,8 @@ export function contentAddressConfiguration(
 }
 
 export function evidenceForRunType(runType: RunType): "CONTRACT_EVIDENCE_ONLY" | "BENCHMARK_ELIGIBLE" | "EXPLORATORY" {
-  if (runType === "DETERMINISTIC_SCENARIO") return "CONTRACT_EVIDENCE_ONLY";
+  if (runType === "DETERMINISTIC_SCENARIO" || runType === "DETERMINISTIC_SUITE" || runType === "EVALUATION_SITTING") return "CONTRACT_EVIDENCE_ONLY";
   if (runType === "CUSTOM_MISSION") return "EXPLORATORY";
+  if (runType === "LIVE_COMPATIBILITY_SUITE" || runType === "LIVE_COMMERCIAL_SUITE" || runType === "LIVE_SESSION") return "BENCHMARK_ELIGIBLE";
   return "BENCHMARK_ELIGIBLE";
 }

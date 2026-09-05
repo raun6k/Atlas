@@ -42,7 +42,7 @@
     },
     {
       "path": "strategies.json",
-      "sha256": "9e3893b776d834125f765ae1e7563d079a39fd86de2ce03724a648d679e1230e"
+      "sha256": "cf823e61aa280577b3563fb5a35affaa53a16bda6fc160de4cc6f09ab1765ee2"
     },
     {
       "path": "agent_capabilities.json",
@@ -54,7 +54,7 @@
     },
     {
       "path": "campaigns.json",
-      "sha256": "c2da54673f18947a8b226ea203831272d1930f202b8a073b0d4a092b9e01e8fb"
+      "sha256": "4c9330f93d64fc37facfa855a983e35360326b8c47c0d13f301deebd394a71ab"
     },
     {
       "path": "orders.csv",
@@ -72,5 +72,6 @@
       "path": "routines.json",
       "sha256": "9c0b7ee92f6e382b18b531577b92a5e3988d6a3fc5a168ff41ad64c12f63f280"
     }
-  ]
+  ],
+  "currency": "INR"
 }

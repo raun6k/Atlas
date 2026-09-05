@@ -1,4 +1,5 @@
 import { loadConfig, modelRunsReady, type AtlasLabConfig } from "./config.js";
+import { evaluateProcessReadiness, evaluateReadiness, deterministicGates } from "./readiness.js";
 import { MemoryStore } from "./db/memory-store.js";
 import { PostgresStore } from "./db/postgres-store.js";
 import { applyMigrations } from "./db/migrate.js";
@@ -28,10 +29,12 @@ export async function buildRuntime(overrides: Partial<AtlasLabConfig> = {}, stor
   let resolved: LabStore;
   if (store) {
     resolved = store;
-  } else if (cfg.postgresUrl && !cfg.mockMcp) {
+  } else if (cfg.postgresUrl) {
     await applyMigrations(cfg.postgresUrl);
     const { default: pg } = await import("pg");
     resolved = new PostgresStore(new pg.Pool({ connectionString: cfg.postgresUrl }));
+  } else if (cfg.mode === "release" && !cfg.mockMcp) {
+    throw new Error("release mode requires ATLASLAB_POSTGRES_URL");
   } else {
     resolved = new MemoryStore();
   }
@@ -59,7 +62,7 @@ export async function buildRuntime(overrides: Partial<AtlasLabConfig> = {}, stor
       ? new MockModelAdapter()
       : new OpenRouterAdapter(cfg.openRouterApiKey, cfg.openRouterBaseUrl)
     : null;
-  const orchestrator = new Orchestrator(cfg, resolved, host, fixtures, modelAdapter, mockGateway);
+  const orchestrator = new Orchestrator(cfg, resolved, host, fixtures, modelAdapter, mockGateway, signer);
   return { cfg, store: resolved, orchestrator, mockGateway, signer };
 }
 
@@ -68,19 +71,40 @@ export async function startServer(overrides: Partial<AtlasLabConfig> = {}) {
   const server = createLabServer({
     orchestrator: runtime.orchestrator,
     store: runtime.store,
-    apiToken: runtime.cfg.apiToken,
+    cfg: runtime.cfg,
     live: () => true,
     ready: async () => {
-      const db = await runtime.store.ping();
-      const version = await runtime.store.migrationVersion();
+      const process = await evaluateProcessReadiness(runtime.cfg, runtime.store);
       return {
-        ready: db,
+        ready: process.ready,
         details: {
-          database: db,
-          migrations: version,
+          database: process.diagnostics.database,
+          migrations: process.diagnostics.migrations,
           openrouter_required_for_readiness: false,
-          deterministic_ready: true,
+          deterministic_ready: process.ready,
           model_ready: modelRunsReady(runtime.cfg),
+          process_readiness: process,
+        },
+      };
+    },
+    liveEvalReady: async () => {
+      const snapshot = await evaluateReadiness({
+        cfg: runtime.cfg,
+        store: runtime.store,
+        signer: runtime.signer,
+        fixtures: runtime.orchestrator.fixturesClient(),
+        includeModel: modelRunsReady(runtime.cfg),
+      });
+      return {
+        ready: snapshot.LIVE_EVAL_READY.ready,
+        details: {
+          database: snapshot.LAB_PROCESS_READY.diagnostics.database,
+          migrations: snapshot.LAB_PROCESS_READY.diagnostics.migrations,
+          openrouter_required_for_readiness: false,
+          deterministic_ready: deterministicGates(snapshot),
+          model_ready: snapshot.MODEL_PROVIDER_READY.ready,
+          live_eval_ready: snapshot.LIVE_EVAL_READY.ready,
+          readiness: snapshot,
         },
       };
     },

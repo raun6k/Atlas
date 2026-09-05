@@ -8,6 +8,14 @@ services:
       ATLAS_ENVIRONMENT: test
       ATLAS_POSTGRES_URL: postgres://atlas:atlas@atlas-postgres:5432/atlas?sslmode=disable
       ATLAS_EXPORT_DIR: /tmp/atlas-exports
+      ATLAS_WORKER_HTTP_ADDR: 0.0.0.0:9092
+    expose:
+      - "9092"
     depends_on:
       atlas-postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9092/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6

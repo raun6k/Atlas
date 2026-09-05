@@ -2,6 +2,7 @@ import { sha256Hex } from "../ids.js";
 import type { McpCallRequest, McpCallResult, McpClient } from "./client.js";
 import { assertPublicTool } from "./client.js";
 import { LabError, type PaymentSimulation, type PublicState } from "../types.js";
+import { loadFixtureWorld } from "../deterministic/world.js";
 
 interface MockSession {
   session_id: string;
@@ -41,10 +42,11 @@ export class MockGateway implements McpClient {
   inventoryInvalidated = false;
   invalidateAfterPrepare = false;
   paymentSimulation: PaymentSimulation = "SUCCESS";
-  fixtureDigest = "digest_fix_quickmart_v1_stable";
+  fixtureDigest = "";
   private pollCount = new Map<string, number>();
 
   constructor(opts?: { paymentSimulation?: PaymentSimulation }) {
+    this.fixtureDigest = loadFixtureWorld().digest;
     if (opts?.paymentSimulation) this.paymentSimulation = opts.paymentSimulation;
   }
 

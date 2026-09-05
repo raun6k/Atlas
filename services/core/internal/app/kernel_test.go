@@ -41,7 +41,7 @@ func TestKernelCatalogCartOffersCheckout(t *testing.T) {
 	}
 
 	createArgs := map[string]any{"subject_reference": "buyer-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "buyer-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "buyer-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestApplyOffer(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "buyer-2", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "buyer-2", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "buyer-2", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestControlArmSuppressesOffers(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "ctrl-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": "", "evaluation_arm": "CONTROL"}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "ctrl-1", "blr_koramangala_5th_block", "en-IN", "", "CONTROL")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "ctrl-1", "blr_koramangala_5th_block", "en-IN", "", "CONTROL", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestMinimumOrderDenied(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "mov-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "mov-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "mov-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,19 +307,19 @@ func TestCreateSessionRequiresDeliveryLocation(t *testing.T) {
 	priv := mustKey(t)
 
 	emptyArgs := map[string]any{"subject_reference": "buyer-loc", "delivery_serviceability_reference": "", "locale": "en-IN", "requested_location_id": ""}
-	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", emptyArgs), "buyer-loc", "", "en-IN", "", "")
+	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", emptyArgs), "buyer-loc", "", "en-IN", "", "", nil)
 	if !apperr.Is(err, apperr.InvalidArgument) {
 		t.Fatalf("want INVALID_ARGUMENT for missing delivery location, got %v", err)
 	}
 
 	unknownArgs := map[string]any{"subject_reference": "buyer-loc-2", "delivery_serviceability_reference": "unknown_neighbourhood", "locale": "en-IN", "requested_location_id": ""}
-	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", unknownArgs), "buyer-loc-2", "unknown_neighbourhood", "en-IN", "", "")
+	_, err = k.CreateSession(ctx, signed(t, priv, host, "create_session", unknownArgs), "buyer-loc-2", "unknown_neighbourhood", "en-IN", "", "", nil)
 	if !apperr.Is(err, apperr.InvalidArgument) {
 		t.Fatalf("want INVALID_ARGUMENT for unknown neighbourhood, got %v", err)
 	}
 
 	okArgs := map[string]any{"subject_reference": "buyer-loc-3", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", okArgs), "buyer-loc-3", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", okArgs), "buyer-loc-3", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,6 +342,7 @@ func TestStrategySurfacesUpdate(t *testing.T) {
 	if len(rows) == 0 {
 		t.Fatal("expected strategy rows")
 	}
+	var rev, vis string
 	found := false
 	for _, r := range rows {
 		if r.Type != "FREE_DELIVERY" {
@@ -351,6 +352,8 @@ func TestStrategySurfacesUpdate(t *testing.T) {
 		if len(r.Surfaces) == 0 {
 			t.Fatal("FREE_DELIVERY should have surfaces")
 		}
+		rev = r.Revision
+		vis = r.Visibility
 	}
 	if !found {
 		t.Fatal("FREE_DELIVERY missing")
@@ -358,7 +361,7 @@ func TestStrategySurfacesUpdate(t *testing.T) {
 	updated, err := k.UpdateStrategyConfigs(ctx, app.Meta{
 		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
 	}, []app.StrategyRow{{
-		Type: "FREE_DELIVERY", Enabled: true, Revision: "test-surfaces", Surfaces: []string{"get_cart"},
+		Type: "FREE_DELIVERY", Enabled: true, ExpectedRevision: rev, Surfaces: []string{"get_cart"}, Visibility: vis,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -369,6 +372,9 @@ func TestStrategySurfacesUpdate(t *testing.T) {
 		}
 		if len(r.Surfaces) != 1 || r.Surfaces[0] != "get_cart" {
 			t.Fatalf("surfaces %+v", r.Surfaces)
+		}
+		if r.Revision == rev {
+			t.Fatal("revision must change")
 		}
 	}
 }
@@ -384,9 +390,9 @@ func TestEmptySurfacesSkipOffers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var clear []app.StrategyRow
+	clear := []app.StrategyRow{}
 	for _, r := range rows {
-		clear = append(clear, app.StrategyRow{Type: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: []string{}})
+		clear = append(clear, app.StrategyRow{Type: r.Type, Enabled: r.Enabled, ExpectedRevision: r.Revision, Surfaces: []string{}, Visibility: r.Visibility})
 	}
 	if _, err := k.UpdateStrategyConfigs(ctx, app.Meta{
 		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
@@ -396,7 +402,7 @@ func TestEmptySurfacesSkipOffers(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "surf-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "surf-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "surf-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,7 +435,7 @@ func TestSearchCatalogAssignedSurfaces(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "search-off", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "search-off", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "search-off", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,4 +479,59 @@ func rid() string {
 	id, _ := uuid.NewV7()
 	sum := sha256.Sum256([]byte(id.String()))
 	return hex.EncodeToString(sum[:8]) + id.String()
+}
+
+func TestTreatmentPolicyStampedAndUnknownRejected(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+	createArgs := map[string]any{"subject_reference": "pol-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": "", "evaluation_arm": "TREATMENT", "strategy_allowlist": []string{"FBT"}}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "pol-1", "blr_koramangala_5th_block", "en-IN", "", "TREATMENT", []string{"FBT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Session.Treatment == nil || created.Session.Treatment.PolicyDigest == "" {
+		t.Fatal("treatment policy must be stamped")
+	}
+	if created.Session.Treatment.EconomicObjectiveVersion != "incremental_confirmed_revenue_v1" {
+		t.Fatalf("objective %s", created.Session.Treatment.EconomicObjectiveVersion)
+	}
+	if len(created.Session.StrategyAllowlist) != 1 || created.Session.StrategyAllowlist[0] != "FBT" {
+		t.Fatalf("allowlist %+v", created.Session.StrategyAllowlist)
+	}
+	bad := map[string]any{"subject_reference": "pol-2", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": "", "evaluation_arm": "TREATMENT", "strategy_allowlist": []string{"REORDER"}}
+	if _, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", bad), "pol-2", "blr_koramangala_5th_block", "en-IN", "", "TREATMENT", []string{"REORDER"}); err == nil {
+		t.Fatal("exploratory allowlist must be rejected")
+	}
+	invented := map[string]any{"subject_reference": "pol-3", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created2, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", invented), "pol-3", "blr_koramangala_5th_block", "en-IN", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addArgs := map[string]any{"session_id": created2.Session.SessionID, "cart_id": created2.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-SNK-0001-A", "quantity": int32(1), "discount_amount_minor": int64(9999)}
+	if _, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created2.Session.SessionID, created2.Session.CartID, 0, "QM-SNK-0001-A", 1); err == nil {
+		t.Fatal("invented discount must be rejected")
+	}
+	if _, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", map[string]any{"session_id": created2.Session.SessionID, "cart_id": created2.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-FAKE-9999-A", "quantity": int32(1)}), created2.Session.SessionID, created2.Session.CartID, 0, "QM-FAKE-9999-A", 1); err == nil {
+		t.Fatal("invented SKU must be rejected")
+	}
+}
+
+func TestUnknownStrategyUpdateRejected(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if _, err := k.UpdateStrategyConfigs(ctx, app.Meta{
+		RequestID: rid(), OperatorID: "op_merchant_quickmart", OperatorScopes: []string{"merchant:manage"},
+	}, []app.StrategyRow{{Type: "MADE_UP", Enabled: true, ExpectedRevision: "x"}}); err == nil {
+		t.Fatal("unknown strategy must be rejected")
+	}
 }

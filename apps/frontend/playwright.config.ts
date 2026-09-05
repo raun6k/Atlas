@@ -1,9 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = Number(process.env.ATLAS_FRONTEND_PORT ?? 3000);
+const port = Number(process.env.ATLAS_FRONTEND_PORT ?? 3100);
 const baseURL = process.env.ATLAS_FRONTEND_BASE_URL ?? `http://127.0.0.1:${port}`;
+const testAdminBearer = process.env.ATLAS_TEST_ADMIN_BEARER ?? "operator-test-bearer";
+process.env.ATLAS_TEST_ADMIN_BEARER = testAdminBearer;
 
 const frontendEnv = {
+  ATLAS_FRONTEND_ENABLE_MOCKS: process.env.ATLAS_FRONTEND_ENABLE_MOCKS ?? "1",
+  ATLAS_TEST_ADMIN_BEARER: testAdminBearer,
+  ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD:
+    process.env.ATLAS_SEED_OPERATOR_MERCHANT_PASSWORD ?? testAdminBearer,
   ATLAS_ADMIN_API_URL: process.env.ATLAS_ADMIN_API_URL ?? "http://127.0.0.1:8080",
   ATLASLAB_API_URL: process.env.ATLASLAB_API_URL ?? "http://127.0.0.1:8090",
   ATLAS_FRONTEND_OPERATOR_SESSION_SECRET:
@@ -35,7 +41,7 @@ export default defineConfig({
   webServer: {
     command: `npx next dev --port ${port}`,
     url: `${baseURL}/health/live`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: frontendEnv,
   },

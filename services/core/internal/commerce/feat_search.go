@@ -64,6 +64,9 @@ func RankCatalog(ctx Context, in Inputs, hits []RankedHit) []RankedHit {
 	if len(hits) == 0 {
 		return hits
 	}
+	if ctx.EvaluationArm == "CONTROL" {
+		return hits
+	}
 	useSearch := ctx.Enabled["SEARCH_RANKING"]
 	usePast := ctx.Enabled["PAST_PURCHASE"]
 	if !useSearch && !usePast {

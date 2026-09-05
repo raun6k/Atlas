@@ -31,9 +31,10 @@ func recordEvidence(tx Tx, a PaymentAttempt, decision, mismatch, providerStatus 
 	}
 	mirrorMerchant(tx, audit.Event{
 		Kind: "PROVIDER_EVIDENCE_EVALUATED", RequestID: a.RequestID, OperationID: a.OperationID,
-		PrincipalType: "ATLAS_SYSTEM", Channel: "payment", Action: "reconcile_payment",
+		PrincipalType: audit.PrincipalSystem, Channel: audit.ChannelPaymentFabric, Action: "reconcile_payment",
 		ResourceType: "payment_attempt", ResourceID: a.PaymentAttemptID,
 		Body: body, Summary: "Atlas evaluated authenticated provider evidence for a Test Mode payment.",
+		Correlation: paymentCorrelation(a),
 	})
 	return nil
 }
@@ -52,9 +53,24 @@ func recordAsyncDecision(tx Tx, a PaymentAttempt, attention, summary string, bod
 	}
 	mirrorMerchant(tx, audit.Event{
 		Kind: "ASYNC_DECISION_APPLIED", RequestID: a.RequestID, OperationID: a.OperationID,
-		PrincipalType: "ATLAS_SYSTEM", Channel: "payment", Action: "async_payment_decision",
+		PrincipalType: audit.PrincipalSystem, Channel: audit.ChannelPaymentFabric, Action: "async_payment_decision",
 		ResourceType: "payment_attempt", ResourceID: a.PaymentAttemptID,
 		Body: body, Attention: attention, Summary: summary,
+		Correlation: paymentCorrelation(a),
 	})
 	return nil
+}
+
+func paymentCorrelation(a PaymentAttempt) map[string]string {
+	return audit.Merge(nil, map[string]string{
+		"request_id":            a.RequestID,
+		"operation_id":          a.OperationID,
+		"host_id":               a.HostID,
+		"payment_attempt_id":    a.PaymentAttemptID,
+		"checkout_proposal_id":  a.CheckoutProposalID,
+		"execution_passport_id": a.ExecutionPassportID,
+		"merchant_order_id":     a.MerchantOrderID,
+		"provider_order_id":     a.RazorpayOrderID,
+		"provider_payment_id":   a.RazorpayPaymentID,
+	})
 }

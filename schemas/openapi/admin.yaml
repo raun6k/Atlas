@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Atlas admin and read API
+  title: Atlas admin API
   version: atlas.merchant.v1
-  description: Operator REST mapped onto Core AdminService and AuditService. Refund execution is Payment Fabric.
+  description: Canonical operator REST as implemented by Gateway handleAdmin. Tokens are server-side operator bearers authenticated by Core.
 servers:
   - url: http://127.0.0.1:8080
 paths:
@@ -11,49 +11,45 @@ paths:
       operationId: getMerchantProfile
       tags: [merchant]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       responses:
         "200": { description: Singleton merchant profile }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     put:
       operationId: updateMerchantProfile
       tags: [merchant]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_version: { type: integer }
+                display_name: { type: string }
+                description: { type: string }
+                support_email: { type: string }
       responses:
         "200": { description: Updated profile }
+        "409": { description: VERSION_CONFLICT }
   /admin/v1/merchant/locations:
     get:
       operationId: listLocations
       tags: [merchant]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       responses:
         "200": { description: Locations }
-  /admin/v1/merchant/locations/{location_id}:
-    get:
-      operationId: getLocation
-      tags: [merchant]
-      security: [{ operatorBearer: [] }]
-      parameters:
-        - in: path
-          name: location_id
-          required: true
-          schema: { type: string }
-      responses:
-        "200": { description: Location }
-    put:
-      operationId: updateLocation
-      tags: [merchant]
-      security: [{ operatorBearer: [] }]
-      parameters:
-        - in: path
-          name: location_id
-          required: true
-          schema: { type: string }
-      responses:
-        "200": { description: Updated location }
   /admin/v1/merchant/products:
     get:
       operationId: listProducts
       tags: [catalog]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       responses:
         "200": { description: Product families }
   /admin/v1/merchant/products/{product_id}:
@@ -61,6 +57,7 @@ paths:
       operationId: getProduct
       tags: [catalog]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       parameters:
         - in: path
           name: product_id
@@ -68,18 +65,16 @@ paths:
           schema: { type: string }
       responses:
         "200": { description: Product plus SKUs }
-  /admin/v1/merchant/skus:
-    get:
-      operationId: listSkus
-      tags: [catalog]
-      security: [{ operatorBearer: [] }]
-      responses:
-        "200": { description: SKUs }
   /admin/v1/merchant/inventory:
     get:
       operationId: listInventory
       tags: [catalog]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      parameters:
+        - in: query
+          name: location_id
+          schema: { type: string }
       responses:
         "200": { description: Inventory rows }
   /admin/v1/merchant/inventory/adjustments:
@@ -87,20 +82,203 @@ paths:
       operationId: adjustInventory
       tags: [catalog]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:manage]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [location_id, sku_id]
+              properties:
+                location_id: { type: string }
+                sku_id: { type: string }
+                on_hand_delta: { type: integer }
+                delta: { type: integer }
+                reason: { type: string }
       responses:
         "200": { description: Adjustment result }
+  /admin/v1/merchant/relationships:
+    get:
+      operationId: listRelationships
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Relationships }
+  /admin/v1/merchant/promotions:
+    get:
+      operationId: listPromotions
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Promotions including enabled, revision, locations, benefit, funding, dates }
+  /admin/v1/merchant/promotions/{promotion_id}:
+    put:
+      operationId: updatePromotionEnabled
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:manage]
+      parameters:
+        - in: path
+          name: promotion_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, enabled]
+              properties:
+                expected_version: { type: integer }
+                enabled: { type: boolean }
+      responses:
+        "200": { description: Updated promotion }
+        "409": { description: VERSION_CONFLICT }
+  /admin/v1/merchant/strategies:
+    get:
+      operationId: listStrategies
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Strategy configs }
+    put:
+      operationId: updateStrategies
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:manage]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                strategies:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      strategy_type: { type: string }
+                      strategy: { type: string }
+                      enabled: { type: boolean }
+                      revision: { type: string }
+                      expected_revision: { type: string }
+                      visibility: { type: string }
+                      surfaces: { type: array, items: { type: string } }
+      responses:
+        "200": { description: Updated strategies }
+  /admin/v1/merchant/rules/preview:
+    post:
+      operationId: previewRules
+      tags: [catalog]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Rule economics preview }
+  /admin/v1/commerce/sessions:
+    get:
+      operationId: listSessions
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Sessions }
+  /admin/v1/commerce/sessions/{session_id}:
+    get:
+      operationId: getSession
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Session }
+  /admin/v1/commerce/offers:
+    get:
+      operationId: listOffers
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      parameters:
+        - in: query
+          name: session_id
+          schema: { type: string }
+      responses:
+        "200": { description: Offers }
+  /admin/v1/commerce/offers/{offer_id}:
+    get:
+      operationId: getOffer
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      parameters:
+        - in: path
+          name: offer_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Offer }
+  /admin/v1/commerce/orders:
+    get:
+      operationId: listOrders
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Orders }
+  /admin/v1/commerce/orders/{merchant_order_id}:
+    get:
+      operationId: getOrderAdmin
+      tags: [commerce]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      parameters:
+        - in: path
+          name: merchant_order_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Order }
   /admin/v1/trust/attention:
     get:
       operationId: getAttention
       tags: [trust]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:read]
       responses:
-        "200": { description: Attention summary; never a fabricated zero on failure }
+        "200": { description: Attention summary }
+  /admin/v1/merchant/outcomes:
+    get:
+      operationId: getMerchantOutcomes
+      tags: [trust]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Outcome metrics with evidence_status }
+  /admin/v1/trust/hosts:
+    get:
+      operationId: listHosts
+      tags: [trust]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Approved hosts }
   /admin/v1/search:
     get:
       operationId: searchResources
       tags: [search]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       parameters:
         - in: query
           name: q
@@ -112,6 +290,7 @@ paths:
       operationId: listAuditEvents
       tags: [audit]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:read]
       responses:
         "200": { description: Filtered audit list }
   /admin/v1/audit/events/{audit_event_id}:
@@ -119,6 +298,7 @@ paths:
       operationId: getAuditEvent
       tags: [audit]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:read]
       parameters:
         - in: path
           name: audit_event_id
@@ -131,22 +311,68 @@ paths:
       operationId: createAuditExport
       tags: [audit]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:export]
       responses:
         "200": { description: Export created }
+  /admin/v1/operations:
+    get:
+      operationId: listOperations
+      tags: [operations]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:read]
+      responses:
+        "200": { description: Jobs and operations }
+  /admin/v1/operations/{operation_id}:
+    get:
+      operationId: getOperationTimeline
+      tags: [operations]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [audit:read]
+      parameters:
+        - in: path
+          name: operation_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Operation timeline }
+  /admin/v1/operations/{operation_id}/reconcile:
+    post:
+      operationId: reconcileOperation
+      tags: [operations]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:manage]
+      parameters:
+        - in: path
+          name: operation_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Reconcile job id and status }
+        "409": { description: NOT_RECONCILABLE }
   /admin/v1/system/capabilities:
     get:
       operationId: getSystemCapabilities
       tags: [system]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       responses:
-        "200": { description: Contract and pcap_razorpay_test }
+        "200": { description: Contract and payment capability status }
   /admin/v1/system/health:
     get:
       operationId: getSystemHealth
       tags: [system]
       security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
       responses:
-        "200": { description: Readiness without secrets }
+        "200": { description: Typed readiness components without secrets }
+  /admin/v1/system/outcomes:
+    get:
+      operationId: getSystemOutcomes
+      tags: [system]
+      security: [{ operatorBearer: [] }]
+      x-required-scopes: [merchant:read]
+      responses:
+        "200": { description: Merchant outcome metrics }
   /health/live:
     get:
       operationId: live
@@ -162,3 +388,25 @@ components:
     operatorBearer:
       type: http
       scheme: bearer
+      description: Core AuthenticateOperator hashed bearer. x-atlas-service-token is server-to-server only and does not mint merchant-manage scopes.
+  responses:
+    Unauthenticated:
+      description: Missing or invalid operator bearer
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, request_id]
+            properties:
+              code: { type: string, example: UNAUTHENTICATED }
+              request_id: { type: string }
+    Forbidden:
+      description: Authenticated operator missing required scope
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, request_id]
+            properties:
+              code: { type: string, example: FORBIDDEN }
+              request_id: { type: string }

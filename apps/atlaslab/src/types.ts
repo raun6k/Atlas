@@ -45,7 +45,16 @@ export const FORBIDDEN_INTERNAL_PATHS = [
   "/payment-runner/",
 ] as const;
 
-export type RunType = "DETERMINISTIC_SCENARIO" | "BENCHMARK_MODEL" | "CUSTOM_MISSION";
+export type ExecutionMode = "release" | "development" | "exploratory";
+export type RunType =
+  | "DETERMINISTIC_SCENARIO"
+  | "BENCHMARK_MODEL"
+  | "CUSTOM_MISSION"
+  | "DETERMINISTIC_SUITE"
+  | "LIVE_COMPATIBILITY_SUITE"
+  | "LIVE_COMMERCIAL_SUITE"
+  | "LIVE_SESSION"
+  | "EVALUATION_SITTING";
 export type EvidenceEligibility =
   | "CONTRACT_EVIDENCE_ONLY"
   | "BENCHMARK_ELIGIBLE"
@@ -59,6 +68,7 @@ export type RunState =
   | "RECONCILING"
   | "EVALUATING"
   | "COMPLETED"
+  | "PARTIAL"
   | "CANCEL_REQUESTED"
   | "CANCELLED"
   | "FAILED";
@@ -85,6 +95,13 @@ export type SkillName =
   | "offer_decision"
   | "checkout_authorization"
   | "operation_recovery";
+
+export interface SessionPolicy {
+  subjectReference?: string;
+  strategyAllowlist?: string[];
+  constraints?: Record<string, string>;
+  planningBudgetMinor?: number;
+}
 
 export interface Money {
   amount_minor: number;
@@ -129,7 +146,7 @@ export interface ModelDriverConfiguration {
   token_ceiling: number;
   cost_ceiling_usd_micros: number;
   buyer_spend_minor: number;
-  routing_policy: "same_model_provider_fallback";
+  routing_policy: "same_model_provider_fallback" | "exact_model_no_fallback";
   arm?: CommercialArm;
   pairing_key?: string;
   custom_input_digest?: string;
@@ -167,6 +184,8 @@ export interface RunRecord {
   end_at: string | null;
   created_at: string;
   updated_at: string;
+  parent_evaluation_id?: string | null;
+  provenance?: ExecutionProvenance | null;
 }
 
 export interface RunInputRecord {
@@ -280,6 +299,7 @@ export const PROOF_STAGES = [
   "CHECKOUT_ACCEPTED",
   "PAYMENT_RECONCILED",
   "ORDER_CONFIRMED",
+  "REVENUE_ELIGIBLE",
 ] as const;
 export type ProofStage = (typeof PROOF_STAGES)[number];
 export type StageResult = "PASS" | "FAIL" | "UNRESOLVED" | "NOT_REACHED" | "NOT_APPLICABLE";
@@ -452,6 +472,130 @@ export interface ScenarioDefinition {
   critical_safety_assertions: Array<Record<string, unknown>>;
   commercial_eligibility?: { pairing_key?: string };
   action_program?: ActionProgram;
+}
+
+export type RevenueStatus =
+  | "NO_ELIGIBLE_SESSIONS"
+  | "INSUFFICIENT_SAMPLE"
+  | "REVENUE_UNAVAILABLE"
+  | "OUTCOME_UNKNOWN"
+  | "ZERO_CONFIRMED_REVENUE"
+  | "CONFIRMED_REVENUE";
+
+export type ReadinessName =
+  | "LAB_PROCESS_READY"
+  | "ATLAS_MCP_READY"
+  | "FIXTURE_CONTROL_READY"
+  | "HOST_SIGNING_READY"
+  | "MODEL_PROVIDER_READY"
+  | "PAYMENT_RAIL_READY"
+  | "LIVE_EVAL_READY";
+
+export interface ReadinessCheck {
+  name: ReadinessName;
+  ready: boolean;
+  checked_at: string;
+  code: string;
+  diagnostics: Record<string, unknown>;
+}
+
+export interface ExecutionProvenance {
+  execution_mode: ExecutionMode;
+  mock_mcp: boolean;
+  mock_fixture_reset: boolean;
+  provider_mode: string;
+  readiness_snapshot: Record<ReadinessName, ReadinessCheck>;
+  atlas_contract_version: string;
+  atlas_git_revision: string;
+  evaluator_set_version: string;
+  oracle_fee_spec_version: string;
+  fixture_snapshot_id: string;
+  fixture_digest: string | null;
+  model_id: string | null;
+}
+
+export interface EvaluationEvidenceSnapshot {
+  merchant_order_id: string | null;
+  payment_attempt_id: string | null;
+  provider_order_id: string | null;
+  provider_payment_id: string | null;
+  confirmed_order_amount_minor: number | null;
+  currency: string | null;
+  merchant_order_state: string | null;
+  payment_attempt_state: string | null;
+  authenticated_provider_event_ref: string | null;
+  provider_fetch_ref: string | null;
+  event_binding_status: string | null;
+  provider_fetch_match_status: string | null;
+  strategy_revision: string | null;
+  strategy_allowlist_digest: string | null;
+  shown_offer_ids: string[];
+  applied_offer_ids: string[];
+  attribution_id: string | null;
+  fixture_snapshot_id: string | null;
+  fixture_digest: string | null;
+  contract_version: string | null;
+  capabilities_ok: boolean;
+  active_location_id: string | null;
+  sellable_sku_id: string | null;
+  cart_version: number | null;
+  session_context_version: number | null;
+  checkout_proposal_id: string | null;
+  reservations_active: boolean;
+  core_order_confirmed: boolean;
+}
+
+export interface EvalSittingRecord {
+  evaluation_id: string;
+  parent_run_id: string;
+  state: RunState;
+  planned_sessions: number;
+  started_sessions: number;
+  completed_sessions: number;
+  failed_sessions: number;
+  excluded_sessions: number;
+  aborted_sessions: number;
+  never_started_sessions: number;
+  spend_usd_micros: number;
+  aborted_reason: string | null;
+  wall_deadline_at: string;
+  randomization_seed: string | null;
+  first_arm: CommercialArm | null;
+  lock: Record<string, unknown> | null;
+  provenance: ExecutionProvenance;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChildSessionRecord {
+  evaluation_id: string;
+  child_run_id: string;
+  arm: CommercialArm | null;
+  mission_id: string | null;
+  buyer_subject: string | null;
+  policy_digest: string | null;
+  strategy_allowlist: string[];
+  fixture_snapshot_id: string | null;
+  fixture_digest: string | null;
+  model_id: string | null;
+  model_invocation_ids: string[];
+  merchant_order_id: string | null;
+  payment_attempt_id: string | null;
+  provider_refs: Record<string, unknown>;
+  evidence: EvaluationEvidenceSnapshot | null;
+  final_state: string | null;
+  external_effect_possible: boolean;
+}
+
+export interface FixtureLeaseRecord {
+  lease_id: string;
+  snapshot_id: string;
+  owner_evaluation_id: string;
+  acquired_at: string;
+  heartbeat_at: string;
+  expires_at: string;
+  released_at: string | null;
+  release_reason: string | null;
 }
 
 export class LabError extends Error {

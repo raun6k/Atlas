@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { generateEphemeralHostSigner, signCheckoutAuthority, signHostRequestProof } from "./signer.js";
+import { hostProofArguments } from "./boundary.js";
 import { LabError, type ConsentPolicy } from "../types.js";
 import { decodeJwt } from "jose";
 
@@ -9,6 +10,18 @@ const consent: ConsentPolicy = {
   currency: "INR",
   capability_id: "pcap_razorpay_test",
 };
+
+test("complete_checkout proof args match Core's hashed map", () => {
+  assert.deepEqual(
+    hostProofArguments("complete_checkout", {
+      session_id: "ses_1",
+      checkout_proposal_id: "cpo_1",
+      checkout_proposal: { checkout_proposal_id: "cpo_1", quote_hash: "qh" },
+      checkout_authority: "[REDACTED]",
+    }),
+    { session_id: "ses_1", checkout_proposal_id: "cpo_1" },
+  );
+});
 
 test("Host Request Proof is compact ES256 JWS", async () => {
   const signer = generateEphemeralHostSigner();

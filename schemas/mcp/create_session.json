@@ -18,6 +18,11 @@
       "type": "string",
       "enum": ["CONTROL", "TREATMENT"],
       "description": "Host-stamped experiment arm. AtlasLab Host overwrites any Buyer-supplied value before signing (ID-600)."
+    },
+    "strategy_allowlist": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO", "FBT"] },
+      "description": "Host-stamped demo strategy allowlist. Empty on TREATMENT resolves to all enabled DEMO strategies; CONTROL uses an empty allowlist. AtlasLab Host overwrites any Buyer-supplied value. Exploratory strategies are rejected."
     }
   }
 }

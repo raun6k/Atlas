@@ -23,6 +23,7 @@ message RequestMeta {
   string approved_host_id = 4;
   string operator_id = 5;
   repeated string operator_scopes = 6;
+  map<string, string> correlation = 7;
 }
 
 message Warning {
@@ -65,6 +66,7 @@ message PaymentCapability {
   bool requires_checkout_authority = 7;
   bool supports_buyer_agent_raw_instrument_access = 8;
   string terminal_success_state = 9;
+  string status = 10;
 }
 
 message Location {
@@ -172,6 +174,31 @@ message OfferEconomics {
   int64 item_cost_minor = 1;
   int64 threshold_gap_minor = 2;
   int64 fee_saving_minor = 3;
+  int64 discount_amount_minor = 4;
+  int64 quote_delta_minor = 5;
+  OfferExplanation explanation = 6;
+}
+
+message OfferExplanation {
+  string what_changed = 1;
+  string why_eligible = 2;
+  int64 buyer_cost_delta_minor = 3;
+  int64 buyer_save_minor = 4;
+  string delivery_change = 5;
+  string quantity_change = 6;
+  string funded_by = 7;
+}
+
+message TreatmentPolicy {
+  string policy_id = 1;
+  repeated string strategy_allowlist = 2;
+  map<string, string> strategy_revisions = 3;
+  map<string, string> campaign_revisions = 4;
+  string ranking_version = 5;
+  string economic_objective_version = 6;
+  string policy_digest = 7;
+  string arm = 8;
+  google.protobuf.Timestamp effective_at = 9;
 }
 
 message CartPatch {
@@ -246,6 +273,7 @@ message Envelope {
   google.protobuf.Timestamp occurred_at = 3;
   string operation_id = 4;
   repeated Warning warnings = 5;
+  map<string, string> correlation = 6;
 }
 
 message CartMutationResult {
@@ -254,6 +282,7 @@ message CartMutationResult {
   Cart cart = 3;
   repeated Offer offers = 4;
   repeated string invalidated_offer_ids = 5;
+  TreatmentPolicy treatment_policy = 6;
 }
 
 message GetCapabilitiesRequest {
@@ -327,6 +356,8 @@ message CreateSessionRequest {
   string requested_location_id = 5;
   // Host-stamped CONTROL | TREATMENT | empty. Buyer Agents must not set this (ID-600).
   string evaluation_arm = 6;
+  // Host-stamped strategy allowlist. Empty on TREATMENT resolves to all enabled DEMO strategies. CONTROL uses an empty allowlist. Buyer Agents must not set this.
+  repeated string strategy_allowlist = 7;
 }
 
 message CreateSessionResponse {
@@ -334,6 +365,7 @@ message CreateSessionResponse {
   SessionSummary session_summary = 2;
   Cart cart = 3;
   repeated Offer offers = 4;
+  TreatmentPolicy treatment_policy = 5;
 }
 
 message SetIntentRequest {
@@ -352,6 +384,7 @@ message SetIntentResponse {
   Cart cart = 3;
   repeated Offer offers = 4;
   repeated string invalidated_offer_ids = 5;
+  TreatmentPolicy treatment_policy = 6;
 }
 
 message GetSessionRequest {
@@ -365,6 +398,7 @@ message GetSessionResponse {
   Cart cart = 3;
   string subject_reference = 4;
   string host_id = 5;
+  TreatmentPolicy treatment_policy = 6;
 }
 
 message GetCartRequest {
@@ -377,6 +411,7 @@ message GetCartResponse {
   SessionSummary session_summary = 2;
   Cart cart = 3;
   repeated Offer offers = 4;
+  TreatmentPolicy treatment_policy = 5;
 }
 
 message AddItemRequest {
@@ -702,6 +737,19 @@ message Promotion {
   repeated string eligible_sku_ids = 4;
   int32 minimum_quantity = 5;
   int64 discount_amount_minor = 6;
+  bool enabled = 7;
+  int64 revision = 8;
+  repeated string eligible_location_ids = 9;
+  int64 minimum_basket_value_minor = 10;
+  string benefit_type = 11;
+  string funding_split = 12;
+  int64 budget_cap_minor = 13;
+  int64 current_usage_minor = 14;
+  string starts_at = 15;
+  string ends_at = 16;
+  string attribution_status = 17;
+  int64 attributed_revenue_minor = 18;
+  bool runtime_applied = 19;
 }
 
 message ListPromotionsResponse {
@@ -721,6 +769,8 @@ message StrategyConfig {
   bool enabled = 2;
   string revision = 3;
   repeated string surfaces = 4;
+  string expected_revision = 5;
+  string visibility = 6;
 }
 
 message ListStrategiesResponse {
@@ -838,11 +888,29 @@ message AttentionSummary {
   int32 commerce_replan = 5;
   int32 recovery_delayed = 6;
   string headline = 7;
+  int32 captured_unbound = 8;
+  int32 failed_job = 9;
+  int32 inventory_hold_leak = 10;
+  int32 stale_strategy = 11;
+  int32 incomplete_merchant_data = 12;
+  int32 missing_evaluation_evidence = 13;
+}
+
+message AttentionItem {
+  string category = 1;
+  string severity = 2;
+  string state = 3;
+  string owner = 4;
+  map<string, string> resource_ids = 5;
+  string explanation = 6;
+  string next_safe_action = 7;
+  bool retry_allowed = 8;
 }
 
 message GetAttentionResponse {
   Envelope envelope = 1;
   AttentionSummary summary = 2;
+  repeated AttentionItem items = 3;
 }
 
 message ResourceSearchRequest {
@@ -888,6 +956,9 @@ message AuditEvent {
   string summary_sentence = 10;
   string attention_code = 11;
   string event_body_json = 12;
+  map<string, string> correlation = 13;
+  bool non_authoritative = 14;
+  string source_channel = 15;
 }
 
 message ListAuditEventsResponse {
@@ -915,6 +986,8 @@ message GetOperationTimelineRequest {
 message AssuranceStage {
   string stage = 1;
   bool reached = 2;
+  bool authoritative = 3;
+  string note = 4;
 }
 
 message GetOperationTimelineResponse {
@@ -968,6 +1041,15 @@ message JobRow {
   string job_type = 2;
   string status = 3;
   string operation_id = 4;
+  int32 attempt_count = 5;
+  string last_error_class = 6;
+  string next_retry_at = 7;
+  string lease_owner = 8;
+  string lease_expires_at = 9;
+  bool retryable = 10;
+  string dead_letter_reason = 11;
+  string operator_action = 12;
+  string last_error = 13;
 }
 
 message ListOperationsResponse {
@@ -983,6 +1065,16 @@ message ReconcileOperationRequest {
 message ReconcileOperationResponse {
   Envelope envelope = 1;
   bool scheduled = 2;
+  string status = 3;
+  string job_id = 4;
+  string code = 5;
+}
+
+message HealthComponent {
+  string name = 1;
+  string status = 2;
+  string detail = 3;
+  string evidence_status = 4;
 }
 
 message SystemHealthResponse {
@@ -990,6 +1082,27 @@ message SystemHealthResponse {
   string status = 2;
   bool database = 3;
   bool migrations = 4;
+  repeated HealthComponent components = 5;
+}
+
+message OutcomeMetric {
+  string name = 1;
+  bool eligible = 2;
+  string evidence_status = 3;
+  int64 value = 4;
+  bool value_present = 5;
+  int32 numerator = 6;
+  int32 denominator = 7;
+  bool ratio_present = 8;
+}
+
+message GetMerchantOutcomesRequest {
+  RequestMeta meta = 1;
+}
+
+message GetMerchantOutcomesResponse {
+  Envelope envelope = 1;
+  repeated OutcomeMetric metrics = 2;
 }
 
 service AdminService {
@@ -1027,6 +1140,7 @@ service AdminService {
   rpc ReconcileOperation(ReconcileOperationRequest) returns (ReconcileOperationResponse);
   rpc GetSystemCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc GetSystemHealth(GetProfileRequest) returns (SystemHealthResponse);
+  rpc GetMerchantOutcomes(GetMerchantOutcomesRequest) returns (GetMerchantOutcomesResponse);
 }
 
 service AuditService {

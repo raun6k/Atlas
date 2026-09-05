@@ -2,8 +2,11 @@ import { utcNow } from "../ids.js";
 import type {
   AgentTurnRecord,
   ArtifactRecord,
+  ChildSessionRecord,
   DriverStepRecord,
+  EvalSittingRecord,
   EvaluationRecord,
+  FixtureLeaseRecord,
   GradeRecord,
   ModelInvocationRecord,
   PairResultRecord,
@@ -35,8 +38,11 @@ export class MemoryStore implements LabStore {
   pairs = new Map<string, PairResultRecord>();
   artifacts: ArtifactRecord[] = [];
   proofs = new Map<string, { proof: RunProof; trajectory: TrajectoryStep[]; assurance: PaymentAssuranceProjection }>();
+  sittings = new Map<string, EvalSittingRecord>();
+  children = new Map<string, ChildSessionRecord>();
+  leases = new Map<string, FixtureLeaseRecord>();
   ready = true;
-  version: string | null = "0002_proof";
+  version: string | null = "0006_release_repair";
 
   async putConfiguration(cfg: RunConfigurationRecord): Promise<void> {
     this.configurations.set(cfg.configuration_id, cfg);
@@ -106,6 +112,10 @@ export class MemoryStore implements LabStore {
     list.push(turn);
     this.agentTurns.set(turn.run_id, list);
   }
+  async maxAgentTurnNumber(runId: string): Promise<number> {
+    const list = this.agentTurns.get(runId) ?? [];
+    return list.reduce((max, t) => Math.max(max, t.turn_number), 0);
+  }
   async insertToolExchange(ex: ToolExchangeRecord): Promise<void> {
     const list = this.exchanges.get(ex.run_id) ?? [];
     list.push(ex);
@@ -169,6 +179,54 @@ export class MemoryStore implements LabStore {
   async getRunProof(runId: string) {
     return this.proofs.get(runId);
   }
+  async putSitting(s: EvalSittingRecord): Promise<void> {
+    this.sittings.set(s.evaluation_id, s);
+  }
+  async getSitting(id: string) {
+    return this.sittings.get(id);
+  }
+  async updateSitting(id: string, patch: Partial<EvalSittingRecord>): Promise<EvalSittingRecord> {
+    const current = this.sittings.get(id);
+    if (!current) throw new LabError("NOT_FOUND", "evaluation not found", 404);
+    if (current.state === "CANCELLED" && patch.state && patch.state !== "CANCELLED") {
+      return current;
+    }
+    const next = { ...current, ...patch, updated_at: utcNow() };
+    this.sittings.set(id, next);
+    return next;
+  }
+  async listSittings() {
+    return [...this.sittings.values()];
+  }
+  async putChildSession(c: ChildSessionRecord): Promise<void> {
+    this.children.set(c.child_run_id, c);
+  }
+  async getChildSession(runId: string) {
+    return this.children.get(runId);
+  }
+  async listChildSessions(evaluationId: string) {
+    return [...this.children.values()].filter((c) => c.evaluation_id === evaluationId);
+  }
+  async tryAcquireFixtureLease(lease: Omit<FixtureLeaseRecord, "released_at" | "release_reason">): Promise<FixtureLeaseRecord | null> {
+    const active = [...this.leases.values()].find((l) => l.snapshot_id === lease.snapshot_id && !l.released_at && l.expires_at > utcNow());
+    if (active) return null;
+    const stored: FixtureLeaseRecord = { ...lease, released_at: null, release_reason: null };
+    this.leases.set(lease.lease_id, stored);
+    return stored;
+  }
+  async heartbeatLease(leaseId: string, expiresAt: string): Promise<void> {
+    const lease = this.leases.get(leaseId);
+    if (lease && !lease.released_at) {
+      this.leases.set(leaseId, { ...lease, heartbeat_at: utcNow(), expires_at: expiresAt });
+    }
+  }
+  async releaseLease(leaseId: string, reason: string): Promise<void> {
+    const lease = this.leases.get(leaseId);
+    if (lease) this.leases.set(leaseId, { ...lease, released_at: utcNow(), release_reason: reason });
+  }
+  async activeLease(snapshotId: string) {
+    return [...this.leases.values()].find((l) => l.snapshot_id === snapshotId && !l.released_at && l.expires_at > utcNow());
+  }
   async ping() {
     return this.ready;
   }
@@ -190,10 +248,10 @@ export class MemoryStore implements LabStore {
   private assertChild(runId: string, table: string): void {
     const run = this.runs.get(runId);
     if (!run) throw new LabError("NOT_FOUND", "run not found", 404);
-    if (table === "driver_steps" && run.run_type !== "DETERMINISTIC_SCENARIO") {
-      throw new LabError("WRONG_VARIANT", "driver_steps allowed only on DETERMINISTIC_SCENARIO");
+    if (table === "driver_steps" && run.run_type !== "DETERMINISTIC_SCENARIO" && run.run_type !== "DETERMINISTIC_SUITE") {
+      throw new LabError("WRONG_VARIANT", "driver_steps allowed only on deterministic runs");
     }
-    if ((table === "agent_turns" || table === "model_invocations") && run.run_type === "DETERMINISTIC_SCENARIO") {
+    if ((table === "agent_turns" || table === "model_invocations") && (run.run_type === "DETERMINISTIC_SCENARIO" || run.run_type === "DETERMINISTIC_SUITE")) {
       throw new LabError("WRONG_VARIANT", `${table} allowed only on model runs`);
     }
   }

@@ -54,6 +54,26 @@ test("deterministic and custom runs cannot enter denominators", () => {
   assert.equal(cannotEnterDenominator(run({ run_type: "DETERMINISTIC_SCENARIO", evidence_eligibility: "CONTRACT_EVIDENCE_ONLY" })), true);
   assert.equal(cannotEnterDenominator(run({ run_type: "CUSTOM_MISSION", evidence_eligibility: "EXPLORATORY" })), true);
   assert.equal(
+    cannotEnterDenominator(
+      run({
+        run_type: "BENCHMARK_MODEL",
+        evidence_eligibility: "BENCHMARK_ELIGIBLE",
+        scenario_id: "suite_agent_compat_v1",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    cannotEnterDenominator(
+      run({
+        run_type: "BENCHMARK_MODEL",
+        evidence_eligibility: "BENCHMARK_ELIGIBLE",
+        scenario_id: "suite_commercial_uplift_v1",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
     pairEligible(
       run({ run_type: "DETERMINISTIC_SCENARIO", evidence_eligibility: "CONTRACT_EVIDENCE_ONLY" }),
       run(),
@@ -106,4 +126,19 @@ test("OUTCOME_UNKNOWN excludes the pair", () => {
   assert.equal(pair.eligible, false);
   assert.equal(pair.exclusion_reason, "OUTCOME_UNKNOWN");
   assert.equal(pair.deltas, null);
+});
+
+test("critical safety failure excludes the pair", () => {
+  const pair = pairRuns({
+    pairingKey: "pair_qm_party_snacks",
+    control: run({ run_id: "run_c", arm: "CONTROL" }),
+    treatment: run({ run_id: "run_t", arm: "TREATMENT", configuration_digest: "digest_b" }),
+    firstArm: "CONTROL",
+    controlRevenueMinor: 10000,
+    treatmentRevenueMinor: 12000,
+    criticalSafetyFailure: true,
+  });
+  assert.equal(pair.eligible, false);
+  assert.equal(pair.exclusion_reason, "CRITICAL_SAFETY_FAILURE");
+  assert.equal((pair.guardrails as { critical_safety_failure: boolean }).critical_safety_failure, true);
 });

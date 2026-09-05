@@ -28,7 +28,7 @@ func CanTransition(from, to State) bool {
 		return false
 	}
 	// OUTCOME_UNKNOWN and RECONCILING may move to each other and then to a terminal.
-	if from == StateOutcomeUnknown && (to == StateReconciling || to.Terminal()) {
+	if from == StateOutcomeUnknown && (to == StateReconciling || to.Terminal() || to == StateProviderOrderCreated || to == StateRunnerQueued) {
 		return true
 	}
 	if from == StateReconciling && (to == StateOutcomeUnknown || to.Terminal()) {

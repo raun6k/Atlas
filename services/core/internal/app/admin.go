@@ -9,6 +9,7 @@ import (
 	"atlas.dev/core/internal/apperr"
 	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/cart"
+	"atlas.dev/core/internal/commerce"
 	"atlas.dev/core/internal/ids"
 	"atlas.dev/core/internal/store"
 
@@ -16,18 +17,20 @@ import (
 )
 
 type AuditEventView struct {
-	ID           string
-	Sequence     int64
-	Kind         string
-	OccurredAt   string
-	RequestID    string
-	OperationID  string
-	Action       string
-	ResourceType string
-	ResourceID   string
-	Summary      string
-	Attention    string
-	BodyJSON     []byte
+	ID               string
+	Sequence         int64
+	Kind             string
+	OccurredAt       string
+	RequestID        string
+	OperationID      string
+	Action           string
+	ResourceType     string
+	ResourceID       string
+	Summary          string
+	Attention        string
+	BodyJSON         []byte
+	Correlation      map[string]string
+	NonAuthoritative bool
 }
 
 func (k *Kernel) ListAuditEvents(ctx context.Context, m Meta, kind, resourceType, resourceID, requestID, operationID string, pageSize int32) (Envelope, []AuditEventView, string, error) {
@@ -110,7 +113,7 @@ func (k *Kernel) CreateAuditExport(ctx context.Context, m Meta, format, filterJS
 		ids.New(ids.Job), mustJSON(map[string]any{"export_id": exportID}), "export:"+exportID); err != nil {
 		return Envelope{}, "", "", err
 	}
-	_, _ = audit.Append(ctx, tx, audit.Event{Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, PrincipalType: "OPERATOR", PrincipalID: m.OperatorID, Channel: "admin", Action: "create_audit_export", ResourceType: "audit_export", ResourceID: exportID, Body: map[string]any{"format": format}, Summary: "Operator requested an audit export."})
+	_, _ = audit.Append(ctx, tx, audit.Event{Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, PrincipalType: audit.PrincipalOperator, PrincipalID: m.OperatorID, Channel: audit.ChannelAdmin, Action: "create_audit_export", ResourceType: "audit_export", ResourceID: exportID, Body: map[string]any{"format": format}, Summary: "Operator requested an audit export.", Correlation: map[string]string{"request_id": m.RequestID}})
 	if err := tx.Commit(ctx); err != nil {
 		return Envelope{}, "", "", err
 	}
@@ -127,25 +130,6 @@ func (k *Kernel) GetAuditExport(ctx context.Context, m Meta, exportID string) (E
 		return Envelope{}, "", "", "", apperr.New(apperr.NotFound, "export not found")
 	}
 	return k.withRequest(k.env(), m.RequestID, ""), exportID, status, path, err
-}
-
-func (k *Kernel) Attention(ctx context.Context, m Meta) (Envelope, map[string]any, error) {
-	if err := k.requireScope(m, "audit:read"); err != nil {
-		return Envelope{}, nil, err
-	}
-	var unknown, denied, failedJobs, authDenied int
-	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM audit_events WHERE attention_code IS NOT NULL AND attention_code <> ''`).Scan(&unknown)
-	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM payment_attempts WHERE state='OUTCOME_UNKNOWN'`).Scan(&denied)
-	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE status='FAILED'`).Scan(&failedJobs)
-	_ = k.Pool().QueryRow(ctx, `SELECT COUNT(*) FROM policy_decisions WHERE result='DENY'`).Scan(&authDenied)
-	headline := "No unresolved merchant attention."
-	if unknown+denied+failedJobs+authDenied > 0 {
-		headline = "Unresolved merchant attention items exist."
-	}
-	return k.withRequest(k.env(), m.RequestID, ""), map[string]any{
-		"completeness": "COMPLETE", "unresolved_money": denied, "evidence_rejected": 0, "authorization_security": authDenied,
-		"commerce_replan": 0, "recovery_delayed": failedJobs, "headline": headline, "needs_attention_count": unknown + denied + failedJobs + authDenied,
-	}, nil
 }
 
 func (k *Kernel) SearchResources(ctx context.Context, m Meta, q string) (Envelope, []map[string]string, error) {
@@ -205,7 +189,7 @@ func (k *Kernel) AdjustInventory(ctx context.Context, m Meta, locationID, skuID 
 	if tag.RowsAffected() == 0 {
 		return apperr.New(apperr.InvalidArgument, "inventory adjustment rejected")
 	}
-	_, _ = audit.Append(ctx, tx, audit.Event{Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, PrincipalType: "OPERATOR", PrincipalID: m.OperatorID, Channel: "admin", Action: "inventory_adjust", ResourceType: "inventory", ResourceID: skuID, Body: map[string]any{"delta": delta, "reason": reason, "location_id": locationID}, Summary: "Operator adjusted inventory."})
+	_, _ = audit.Append(ctx, tx, audit.Event{Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, PrincipalType: audit.PrincipalOperator, PrincipalID: m.OperatorID, Channel: audit.ChannelAdmin, Action: "inventory_adjust", ResourceType: "inventory", ResourceID: skuID, Body: map[string]any{"delta": delta, "reason": reason, "location_id": locationID}, Summary: "Operator adjusted inventory.", Correlation: map[string]string{"request_id": m.RequestID}})
 	return tx.Commit(ctx)
 }
 
@@ -274,7 +258,7 @@ func (k *Kernel) AuthenticateFixtureControl(ctx context.Context, bearer string) 
 }
 
 func (k *Kernel) ListStrategyConfigs(ctx context.Context) ([]StrategyRow, error) {
-	rows, err := k.Pool().Query(ctx, `SELECT strategy_type, enabled, revision, COALESCE(surfaces, '{}') FROM commercial_strategies ORDER BY strategy_type`)
+	rows, err := k.Pool().Query(ctx, `SELECT strategy_type, enabled, revision, COALESCE(surfaces, '{}'), visibility FROM commercial_strategies ORDER BY strategy_type`)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +266,7 @@ func (k *Kernel) ListStrategyConfigs(ctx context.Context) ([]StrategyRow, error)
 	var out []StrategyRow
 	for rows.Next() {
 		var r StrategyRow
-		if err := rows.Scan(&r.Type, &r.Enabled, &r.Revision, &r.Surfaces); err != nil {
+		if err := rows.Scan(&r.Type, &r.Enabled, &r.Revision, &r.Surfaces, &r.Visibility); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -291,10 +275,12 @@ func (k *Kernel) ListStrategyConfigs(ctx context.Context) ([]StrategyRow, error)
 }
 
 type StrategyRow struct {
-	Type     string
-	Enabled  bool
-	Revision string
-	Surfaces []string
+	Type             string
+	Enabled          bool
+	Revision         string
+	ExpectedRevision string
+	Surfaces         []string
+	Visibility       string
 }
 
 func (k *Kernel) UpdateStrategyConfigs(ctx context.Context, m Meta, rows []StrategyRow) ([]StrategyRow, error) {
@@ -307,16 +293,51 @@ func (k *Kernel) UpdateStrategyConfigs(ctx context.Context, m Meta, rows []Strat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	for _, r := range rows {
+		if err := commerce.ValidateStrategyType(r.Type); err != nil {
+			return nil, apperr.New(apperr.InvalidArgument, err.Error())
+		}
 		surfs := r.Surfaces
 		if surfs == nil {
 			surfs = []string{}
 		}
-		tag, err := tx.Exec(ctx, `UPDATE commercial_strategies SET enabled=$2, revision=$3, surfaces=$4 WHERE strategy_type=$1`, r.Type, r.Enabled, r.Revision, surfs)
+		var curRev, vis string
+		var cfg []byte
+		err := tx.QueryRow(ctx, `SELECT revision, visibility, COALESCE(config, '{}'::jsonb) FROM commercial_strategies WHERE strategy_type=$1`, r.Type).
+			Scan(&curRev, &vis, &cfg)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperr.New(apperr.InvalidArgument, "unknown strategy "+r.Type)
+		}
+		if err != nil {
+			return nil, err
+		}
+		expected := strings.TrimSpace(r.ExpectedRevision)
+		if expected == "" {
+			expected = strings.TrimSpace(r.Revision)
+		}
+		if expected == "" || expected != curRev {
+			return nil, apperr.New(apperr.InvalidArgument, "expected revision mismatch for "+r.Type)
+		}
+		nextRev := ids.New("srev")
+		if vis == "" {
+			vis = commerce.VisibilityExploratory
+		}
+		if r.Visibility != "" {
+			if r.Visibility != commerce.VisibilityDemo && r.Visibility != commerce.VisibilityExploratory {
+				return nil, apperr.New(apperr.InvalidArgument, "invalid visibility")
+			}
+			vis = r.Visibility
+		}
+		tag, err := tx.Exec(ctx, `UPDATE commercial_strategies SET enabled=$2, revision=$3, surfaces=$4, visibility=$5 WHERE strategy_type=$1 AND revision=$6`,
+			r.Type, r.Enabled, nextRev, surfs, vis, curRev)
 		if err != nil {
 			return nil, err
 		}
 		if tag.RowsAffected() == 0 {
-			return nil, apperr.New(apperr.InvalidArgument, "unknown strategy "+r.Type)
+			return nil, apperr.New(apperr.InvalidArgument, "strategy revision conflict for "+r.Type)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategy_snapshots (snapshot_id, strategy_type, revision, enabled, visibility, surfaces, config)
+			VALUES ($1,$2,$3,$4,$5,$6,$7)`, ids.New("ssnap"), r.Type, nextRev, r.Enabled, vis, surfs, cfg); err != nil {
+			return nil, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -347,7 +368,7 @@ func (k *Kernel) PreviewRuleEconomics(ctx context.Context, m Meta) (cart.Totals,
 		return cart.Totals{}, nil, err
 	}
 	tot := cart.PriceCart(nil, fees, promos, bundles, locID, k.Now())
-	orows, err := tx.Query(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor FROM offers WHERE status IN ('SHOWN','ACCEPTED') ORDER BY created_at DESC LIMIT 10`)
+	orows, err := tx.Query(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor FROM offers WHERE status IN ('SHOWN','SELECTED','APPLIED') ORDER BY created_at DESC LIMIT 10`)
 	if err != nil {
 		return tot, nil, err
 	}
@@ -360,21 +381,7 @@ func (k *Kernel) PreviewRuleEconomics(ctx context.Context, m Meta) (cart.Totals,
 		}
 		offers = append(offers, o)
 	}
-	return tot, offers, nil
-}
-
-func (k *Kernel) UpdatePromotionEnabled(ctx context.Context, m Meta, promotionID string, enabled bool) error {
-	if err := k.requireScope(m, "merchant:manage"); err != nil {
-		return err
-	}
-	tag, err := k.Pool().Exec(ctx, `UPDATE promotions SET enabled=$2 WHERE promotion_id=$1`, promotionID, enabled)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return apperr.New(apperr.NotFound, "promotion not found")
-	}
-	return nil
+	return tot, offers, orows.Err()
 }
 
 func nullJSON(s string) string {

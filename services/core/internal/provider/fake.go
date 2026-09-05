@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // FakeRazorpay is an in-process Test Mode API. It is not a capture bypass:
@@ -32,7 +33,10 @@ type FakeRazorpay struct {
 	FailNextCapture bool
 	FailNextRefund  bool
 	DropNextCreate  bool // simulate possible submission: accept then lose the response
+	DropNextCapture bool
 	acceptedCreates int
+	orderByIdem     map[string]string
+	captureByIdem   map[string]string
 }
 
 type fakeOrder struct {
@@ -72,6 +76,8 @@ func NewFakeRazorpay() *FakeRazorpay {
 		orders:        map[string]*fakeOrder{},
 		payments:      map[string]*fakePayment{},
 		refunds:       map[string]*fakeRefund{},
+		orderByIdem:   map[string]string{},
+		captureByIdem: map[string]string{},
 	}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
 	return f
@@ -134,13 +140,33 @@ func (f *FakeRazorpay) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 		Notes          map[string]string `json:"notes"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	idem := r.Header.Get("X-Razorpay-Idempotency")
 	f.mu.Lock()
+	if idem != "" {
+		if existingID, ok := f.orderByIdem[idem]; ok {
+			o := f.orders[existingID]
+			f.mu.Unlock()
+			if f.DropNextCreate {
+				f.DropNextCreate = false
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			writeJSON(w, map[string]any{
+				"id": o.ID, "amount": o.Amount, "currency": o.Currency, "status": o.Status, "receipt": o.Receipt, "notes": o.Notes,
+			})
+			return
+		}
+	}
 	id := f.nextID("order_")
 	f.orders[id] = &fakeOrder{
 		ID: id, Amount: req.Amount, Currency: req.Currency, Status: "created",
 		Receipt: req.Receipt, PaymentCapture: req.PaymentCapture, Notes: req.Notes,
 	}
+	if idem != "" {
+		f.orderByIdem[idem] = id
+	}
 	f.acceptedCreates++
+	o := f.orders[id]
 	f.mu.Unlock()
 	if f.DropNextCreate {
 		f.DropNextCreate = false
@@ -148,8 +174,14 @@ func (f *FakeRazorpay) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 		return // empty body simulates lost response after accept
 	}
 	writeJSON(w, map[string]any{
-		"id": id, "amount": req.Amount, "currency": req.Currency, "status": "created", "receipt": req.Receipt, "notes": req.Notes,
+		"id": o.ID, "amount": o.Amount, "currency": o.Currency, "status": o.Status, "receipt": o.Receipt, "notes": o.Notes,
 	})
+}
+
+func (f *FakeRazorpay) AcceptedCreates() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.acceptedCreates
 }
 
 func (f *FakeRazorpay) handleGetOrder(w http.ResponseWriter, r *http.Request) {
@@ -216,11 +248,33 @@ func (f *FakeRazorpay) handleCapture(w http.ResponseWriter, r *http.Request) {
 		Currency string `json:"currency"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	idem := r.Header.Get("X-Razorpay-Idempotency")
 	f.mu.Lock()
+	if idem != "" {
+		if existingID, ok := f.captureByIdem[idem]; ok {
+			p := f.payments[existingID]
+			f.mu.Unlock()
+			if f.DropNextCapture {
+				f.DropNextCapture = false
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			writeJSON(w, paymentJSON(p))
+			return
+		}
+	}
 	p, ok := f.payments[id]
 	if !ok {
 		f.mu.Unlock()
 		http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+		return
+	}
+	if p.Captured {
+		if idem != "" {
+			f.captureByIdem[idem] = p.ID
+		}
+		f.mu.Unlock()
+		writeJSON(w, paymentJSON(p))
 		return
 	}
 	if p.Status != "authorized" {
@@ -238,7 +292,15 @@ func (f *FakeRazorpay) handleCapture(w http.ResponseWriter, r *http.Request) {
 	if o := f.orders[p.OrderID]; o != nil {
 		o.Status = "paid"
 	}
+	if idem != "" {
+		f.captureByIdem[idem] = p.ID
+	}
 	f.mu.Unlock()
+	if f.DropNextCapture {
+		f.DropNextCapture = false
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	writeJSON(w, paymentJSON(p))
 }
 
@@ -404,7 +466,8 @@ func (f *FakeRazorpay) SignCallback(orderID, paymentID string) string {
 
 func (f *FakeRazorpay) WebhookPayload(event, orderID, paymentID, eventID string, amount int64, currency, status string) []byte {
 	payload := map[string]any{
-		"event": event,
+		"event":      event,
+		"created_at": time.Now().Unix(),
 		"payload": map[string]any{
 			"payment": map[string]any{
 				"entity": map[string]any{

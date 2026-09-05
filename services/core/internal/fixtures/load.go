@@ -3,10 +3,13 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"atlas.dev/core/internal/inventory"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -96,7 +99,7 @@ func loadMerchant(ctx context.Context, tx pgx.Tx, dir string) error {
 	}
 	currency := strings.ToUpper(strings.TrimSpace(m.DefaultCurrency))
 	if len(currency) != 3 {
-		currency = "INR"
+		return fmt.Errorf("merchant default_currency must be ISO-4217")
 	}
 	locale := m.DefaultLocale
 	if locale == "" {
@@ -347,21 +350,13 @@ func loadOffers(ctx context.Context, tx pgx.Tx, dir string) error {
 		}
 		onHand := int(csvInt(row, "on_hand_quantity", 0))
 		safety := int(csvInt(row, "safety_buffer", 0))
-		sellable := onHand - safety
-		if sellable < 0 {
-			sellable = 0
-		}
-		status := "in_stock"
-		if !assorted {
-			status = "not_assorted"
-		} else if sellable == 0 {
-			status = "out"
-		}
+		reserved := int(csvInt(row, "reserved_quantity", 0))
+		status := inventory.Status(assorted, inventory.Sellable(onHand, reserved, safety))
 		if _, err := tx.Exec(ctx, `INSERT INTO inventory (
 				location_id, sku_id, assorted, on_hand_quantity, reserved_quantity, safety_buffer, stock_status,
 				stock_confidence, expiry_risk, low_stock_threshold)
-			VALUES ($1,$2,$3,$4,0,$5,$6,'medium','low',0)`,
-			loc, sku, assorted, onHand, safety, status); err != nil {
+			VALUES ($1,$2,$3,$4,$5,$6,$7,'medium','low',0)`,
+			loc, sku, assorted, onHand, reserved, safety, status); err != nil {
 			return err
 		}
 	}
@@ -487,6 +482,11 @@ func loadStrategies(ctx context.Context, tx pgx.Tx, dir string) error {
 			rev = "unspecified"
 		}
 		enabled, _ := s["enabled"].(bool)
+		vis, _ := s["visibility"].(string)
+		if vis != "DEMO" {
+			vis = "EXPLORATORY"
+			enabled = false
+		}
 		cfg := map[string]any{}
 		if raw, ok := s["config"].(map[string]any); ok {
 			for k, v := range raw {
@@ -497,9 +497,9 @@ func loadStrategies(ctx context.Context, tx pgx.Tx, dir string) error {
 			cfg["buyer"] = buyer
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO commercial_strategies (
-				strategy_type, enabled, revision, priority, objective_metric, config, surfaces)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(cfg), stringSlice(s["surfaces"])); err != nil {
+				strategy_type, enabled, revision, priority, objective_metric, config, surfaces, visibility)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			t, enabled, rev, asInt(s["priority"]), strField(s, "objective_metric"), jsonBytes(cfg), stringSlice(s["surfaces"]), vis); err != nil {
 			return err
 		}
 	}

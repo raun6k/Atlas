@@ -10,6 +10,7 @@ import (
 	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/cart"
 	"atlas.dev/core/internal/commerce"
+	"atlas.dev/core/internal/fixtures"
 	"atlas.dev/core/internal/ids"
 	"atlas.dev/core/internal/inventory"
 
@@ -17,7 +18,7 @@ import (
 )
 
 func (k *Kernel) invalidateOffers(ctx context.Context, tx pgx.Tx, sessionID, reason string) ([]string, error) {
-	rows, err := tx.Query(ctx, `SELECT offer_id FROM offers WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','ACCEPTED')`, sessionID)
+	rows, err := tx.Query(ctx, `SELECT offer_id FROM offers WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','SELECTED')`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,15 +35,16 @@ func (k *Kernel) invalidateOffers(ctx context.Context, tx pgx.Tx, sessionID, rea
 	if len(idsList) == 0 {
 		return nil, nil
 	}
-	_, err = tx.Exec(ctx, `UPDATE offers SET status='INVALIDATED', updated_at=now() WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','ACCEPTED')`, sessionID)
+	_, err = tx.Exec(ctx, `UPDATE offers SET status='INVALIDATED', updated_at=now() WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','SELECTED')`, sessionID)
 	_ = reason
 	return idsList, err
 }
 
 func (k *Kernel) currentOffers(ctx context.Context, tx pgx.Tx, s SessionSummary) ([]OfferView, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor
-		FROM offers WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','ACCEPTED') AND session_context_version=$2 AND cart_version=$3 AND expires_at > now()
+		SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor,
+		       discount_amount_minor, quote_delta_minor, public_explanation
+		FROM offers WHERE session_id=$1 AND status IN ('GENERATED','SHOWN','SELECTED') AND session_context_version=$2 AND cart_version=$3 AND expires_at > now()
 		ORDER BY display_order, offer_id`, s.SessionID, s.SessionContextVersion, s.CartVersion)
 	if err != nil {
 		return nil, err
@@ -51,7 +53,7 @@ func (k *Kernel) currentOffers(ctx context.Context, tx pgx.Tx, s SessionSummary)
 	var out []OfferView
 	for rows.Next() {
 		var o OfferView
-		if err := rows.Scan(&o.OfferID, &o.StrategyType, &o.SessionContextVersion, &o.CartVersion, &o.ExpiresAt, &o.Status, &o.GroundedReason, &o.Terms, &o.PatchJSON, &o.BuyerImpactMinor); err != nil {
+		if err := rows.Scan(&o.OfferID, &o.StrategyType, &o.SessionContextVersion, &o.CartVersion, &o.ExpiresAt, &o.Status, &o.GroundedReason, &o.Terms, &o.PatchJSON, &o.BuyerImpactMinor, &o.DiscountAmountMinor, &o.QuoteDeltaMinor, &o.ExplanationJSON); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
@@ -79,24 +81,25 @@ func (k *Kernel) writeOfferEventStandalone(ctx context.Context, offerID, eventTy
 }
 
 func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary, cv CartView, surface string) (commerce.Context, commerce.Inputs, error) {
-	known := commerce.KnownTypes()
 	enabled := map[string]bool{}
 	copyByType := map[string]commerce.BuyerCopy{}
-	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled, COALESCE(surfaces, '{}'), COALESCE(config, '{}'::jsonb) FROM commercial_strategies`)
+	strategyRev := map[string]string{}
+	rows, err := tx.Query(ctx, `SELECT strategy_type, enabled, COALESCE(surfaces, '{}'), COALESCE(config, '{}'::jsonb), visibility, revision FROM commercial_strategies`)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
 	}
 	for rows.Next() {
-		var t string
+		var t, vis, rev string
 		var on bool
 		var surfaces []string
 		var cfg []byte
-		if err := rows.Scan(&t, &on, &surfaces, &cfg); err != nil {
+		if err := rows.Scan(&t, &on, &surfaces, &cfg, &vis, &rev); err != nil {
 			rows.Close()
 			return commerce.Context{}, commerce.Inputs{}, err
 		}
 		copyByType[t] = commerce.BuyerCopyFromConfig(cfg)
-		if !known[t] || !on {
+		strategyRev[t] = rev
+		if !commerce.IsKnownType(t) || vis != commerce.VisibilityDemo || !on {
 			continue
 		}
 		if surface == "" || inSlice(surfaces, surface) {
@@ -104,6 +107,17 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		}
 	}
 	rows.Close()
+	if s.EvaluationArm == "CONTROL" {
+		enabled = map[string]bool{}
+	} else if len(s.StrategyAllowlist) > 0 {
+		allowed := map[string]bool{}
+		for _, t := range s.StrategyAllowlist {
+			if enabled[t] {
+				allowed[t] = true
+			}
+		}
+		enabled = allowed
+	}
 	promos, bundles, err := k.pricingRules(ctx, tx)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
@@ -118,8 +132,9 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		JOIN products pr ON pr.product_id=s.product_id
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$1
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$1
-		WHERE s.lifecycle IN ('sellable','active') AND i.assorted=TRUE
-		  AND p.effective_from <= now() AND (p.effective_to IS NULL OR p.effective_to > now())`, s.LocationID)
+		JOIN locations loc ON loc.location_id=$1
+		WHERE s.lifecycle IN ('sellable','active') AND `+inventory.DiscoverableSQL+`
+		  AND `+inventory.PriceEffectiveSQL+` AND `+inventory.LocationActiveSQL, s.LocationID)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
 	}
@@ -158,6 +173,7 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		edges = append(edges, e)
 	}
 	erows.Close()
+	// Edges are fixture-advisory only. Strategies must not treat them as stock, substitution, or payment authority.
 	fees, err := k.locationFees(ctx, tx, s.LocationID)
 	if err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
@@ -173,7 +189,7 @@ func (k *Kernel) commerceInputs(ctx context.Context, tx pgx.Tx, s SessionSummary
 		Constraints: s.Constraints, Mission: s.Mission, EvaluationArm: s.EvaluationArm, Now: k.Now(),
 		BuyerID: s.SubjectReference,
 	}
-	in := commerce.Inputs{Promotions: promos, Bundles: bundles, SKUs: skus, Edges: edges, Copy: copyByType}
+	in := commerce.Inputs{Promotions: promos, Bundles: bundles, SKUs: skus, Edges: edges, Copy: copyByType, Revisions: strategyRev}
 	if err := k.attachCommerceSignals(ctx, tx, s, &cctx, &in); err != nil {
 		return commerce.Context{}, commerce.Inputs{}, err
 	}
@@ -195,8 +211,20 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 	for i, c := range cands {
 		oid := ids.New(ids.Offer)
 		cid := ids.New(ids.Candidate)
-		feat, _ := json.Marshal(map[string]any{"strategy": c.Strategy, "eligibility": c.Eligibility})
-		econ, _ := json.Marshal(map[string]any{"private": true, "score": c.Rank})
+		rev := in.Revisions[c.Strategy]
+		feat, _ := json.Marshal(map[string]any{
+			"strategy": c.Strategy, "eligibility": c.Eligibility, "inputs": c.Economics.EligibilityInputs,
+			"relationship_source": "fixture", "relationship_authoritative": false,
+			"relationship_revision": rev, "fixture_snapshot_id": fixtures.SnapshotID,
+		})
+		econ, _ := json.Marshal(map[string]any{
+			"private": true, "score": c.Rank,
+			"discount_amount_minor":        c.Economics.DiscountAmountMinor,
+			"merchant_funded_minor":        c.Economics.MerchantFundedMinor,
+			"partner_funded_minor":         c.Economics.PartnerFundedMinor,
+			"expected_margin_impact_minor": c.Economics.ExpectedMarginImpactMinor,
+			"quote_delta_minor":            c.Economics.QuoteDeltaMinor,
+		})
 		arm := s.EvaluationArm
 		var armArg any
 		if arm != "" {
@@ -207,8 +235,26 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 			return nil, nil, err
 		}
 		patch, _ := json.Marshal(c.Patch)
-		if _, err := tx.Exec(ctx, `INSERT INTO offers (offer_id, candidate_id, session_id, cart_id, session_context_version, cart_version, strategy_type, status, grounded_reason, terms, cart_patch, buyer_impact_minor, expires_at, display_order) VALUES ($1,$2,$3,$4,$5,$6,$7,'SHOWN',$8,$9,$10,$11,$12,$13)`,
-			oid, cid, s.SessionID, s.CartID, s.SessionContextVersion, s.CartVersion, c.Strategy, c.Reason, c.Terms, patch, c.BuyerImpact, exp, i); err != nil {
+		expl, _ := json.Marshal(c.Explanation)
+		elig, _ := json.Marshal(c.Economics.EligibilityInputs)
+		digest := strategyDigest(c.Strategy, rev)
+		if _, err := tx.Exec(ctx, `INSERT INTO offers (
+			offer_id, candidate_id, session_id, cart_id, session_context_version, cart_version, strategy_type, status,
+			grounded_reason, terms, cart_patch, buyer_impact_minor, expires_at, display_order,
+			strategy_revision, source_promotion_id, eligibility_inputs, discount_amount_minor, merchant_funded_minor,
+			partner_funded_minor, expected_margin_impact_minor, quote_delta_minor, public_explanation)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,'GENERATED',$8,$9,$10,$11,$12,$13,$14,NULLIF($15,''),$16,$17,$18,$19,$20,$21,$22)`,
+			oid, cid, s.SessionID, s.CartID, s.SessionContextVersion, s.CartVersion, c.Strategy, c.Reason, c.Terms, patch, c.BuyerImpact, exp, i,
+			rev, c.Economics.SourcePromotionID, elig, c.Economics.DiscountAmountMinor, c.Economics.MerchantFundedMinor,
+			c.Economics.PartnerFundedMinor, c.Economics.ExpectedMarginImpactMinor, c.Economics.QuoteDeltaMinor, expl); err != nil {
+			return nil, nil, err
+		}
+		if err := k.writeOfferEvent(ctx, tx, oid, "OFFER_GENERATED", map[string]any{
+			"session_id": s.SessionID, "strategy": c.Strategy, "strategy_revision": rev, "strategy_digest": digest,
+		}, requestID, operationID); err != nil {
+			return nil, nil, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE offers SET status='SHOWN', updated_at=now() WHERE offer_id=$1`, oid); err != nil {
 			return nil, nil, err
 		}
 		if err := k.writeOfferEvent(ctx, tx, oid, "OFFER_SHOWN", map[string]any{
@@ -216,13 +262,26 @@ func (k *Kernel) regenerateOffers(ctx context.Context, tx pgx.Tx, s SessionSumma
 		}, requestID, operationID); err != nil {
 			return nil, nil, err
 		}
+		if _, err := tx.Exec(ctx, `INSERT INTO commercial_attributions (
+			attribution_id, offer_id, candidate_id, session_id, strategy_type, experiment_assignment,
+			applied_quantity, outcome_completeness, attribution_state, strategy_revision, strategy_digest,
+			quote_delta_minor, merchant_funded_minor, partner_funded_minor, cart_patch)
+			VALUES ($1,$2,$3,$4,$5,$6,0,'INCOMPLETE','GENERATED',$7,$8,$9,$10,$11,$12)`,
+			ids.New(ids.Attribution), oid, cid, s.SessionID, c.Strategy, armArg, rev, digest,
+			c.Economics.QuoteDeltaMinor, c.Economics.MerchantFundedMinor, c.Economics.PartnerFundedMinor, patch); err != nil {
+			return nil, nil, err
+		}
 		shown = append(shown, map[string]any{
 			"offer_id": oid, "strategy": c.Strategy, "eligibility": c.Eligibility, "display_order": i, "drop_reason": "",
+			"quote_delta_minor": c.Economics.QuoteDeltaMinor, "strategy_revision": rev,
 		})
 		views = append(views, OfferView{
 			OfferID: oid, StrategyType: c.Strategy, SessionContextVersion: s.SessionContextVersion, CartVersion: s.CartVersion,
 			ExpiresAt: exp, Status: "SHOWN", GroundedReason: c.Reason, Terms: c.Terms, PatchJSON: patch, BuyerImpactMinor: c.BuyerImpact,
-			BaseAllInMinor: c.BaseAllInMinor, PatchedAllInMinor: c.PatchedAllIn,
+			BaseAllInMinor: c.BaseAllInMinor, PatchedAllInMinor: c.PatchedAllIn, StrategyRevision: rev,
+			DiscountAmountMinor: c.Economics.DiscountAmountMinor, MerchantFundedMinor: c.Economics.MerchantFundedMinor,
+			PartnerFundedMinor: c.Economics.PartnerFundedMinor, ExpectedMarginMinor: c.Economics.ExpectedMarginImpactMinor,
+			QuoteDeltaMinor: c.Economics.QuoteDeltaMinor, ExplanationJSON: expl,
 		})
 	}
 	var droppedPublic []map[string]any
@@ -244,14 +303,18 @@ func (k *Kernel) recordCommercialDecision(ctx context.Context, tx pgx.Tx, reques
 	body := map[string]any{"surface": surface, "session_id": sessionID, "shown": shown, "dropped": dropped}
 	_, err := audit.Append(ctx, tx, audit.Event{
 		Kind: "COMMERCIAL_DECISION_RECORDED", RequestID: requestID, OperationID: operationID,
-		PrincipalType: "ATLAS_SYSTEM", Channel: "mcp", Action: "select_offers",
+		PrincipalType: audit.PrincipalSystem, Channel: audit.ChannelMCP, Action: "select_offers",
 		ResourceType: "session", ResourceID: sessionID, Body: body,
-		Summary: "Atlas recorded why commercial offers were shown or dropped.",
+		Summary:     "Atlas recorded why commercial offers were shown or dropped.",
+		Correlation: map[string]string{"request_id": requestID, "operation_id": operationID, "session_id": sessionID},
 	})
 	return err
 }
 
 func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID string, expectedSession, expectedCart int64) (CartMutation, error) {
+	if err := rejectBuyerEconomics(m.Arguments); err != nil {
+		return CartMutation{}, err
+	}
 	out, err := k.mutateCart(ctx, m, "apply_offer", sessionID, "", expectedCart, func(ctx context.Context, tx pgx.Tx, s *SessionSummary) error {
 		if err := k.expectSession(*s, expectedSession); err != nil {
 			return err
@@ -260,16 +323,16 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		var patchRaw []byte
 		var exp time.Time
 		var scv, cv, shownImpact int64
-		var strategy, candidateID string
-		err := tx.QueryRow(ctx, `SELECT status, cart_patch, expires_at, session_context_version, cart_version, buyer_impact_minor, strategy_type, COALESCE(candidate_id,'') FROM offers WHERE offer_id=$1 AND session_id=$2 FOR UPDATE`, offerID, sessionID).
-			Scan(&status, &patchRaw, &exp, &scv, &cv, &shownImpact, &strategy, &candidateID)
+		var strategy string
+		err := tx.QueryRow(ctx, `SELECT status, cart_patch, expires_at, session_context_version, cart_version, buyer_impact_minor, strategy_type FROM offers WHERE offer_id=$1 AND session_id=$2 FOR UPDATE`, offerID, sessionID).
+			Scan(&status, &patchRaw, &exp, &scv, &cv, &shownImpact, &strategy)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return apperr.New(apperr.NotFound, "offer not found")
 		}
 		if err != nil {
 			return err
 		}
-		if status != "GENERATED" && status != "SHOWN" && status != "ACCEPTED" {
+		if status != "GENERATED" && status != "SHOWN" && status != "SELECTED" {
 			return apperr.New(apperr.OfferContextInvalid, "offer cannot be applied")
 		}
 		if k.Now().After(exp) {
@@ -300,6 +363,15 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		if sim.BuyerImpact > shownImpact {
 			return apperr.New(apperr.RequoteRequired, "current economics are worse than the shown offer")
 		}
+		if _, err := tx.Exec(ctx, `UPDATE offers SET status='SELECTED', updated_at=now() WHERE offer_id=$1`, offerID); err != nil {
+			return err
+		}
+		if err := k.writeOfferEvent(ctx, tx, offerID, "OFFER_SELECTED", map[string]any{"session_id": sessionID, "strategy": strategy}, m.RequestID, ""); err != nil {
+			return err
+		}
+		if err := k.enforceEconomicConstraints(ctx, tx, *s, offerID, patch, m); err != nil {
+			return err
+		}
 		if err := k.applyPatch(ctx, tx, s, patch); err != nil {
 			return err
 		}
@@ -308,6 +380,7 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		}
 		if err := k.writeOfferEvent(ctx, tx, offerID, "OFFER_APPLIED", map[string]any{
 			"session_id": sessionID, "buyer_impact_minor": sim.BuyerImpact, "strategy": strategy,
+			"quote_delta_minor": sim.PatchedAllInMinor - sim.BaseAllInMinor,
 		}, m.RequestID, ""); err != nil {
 			return err
 		}
@@ -315,9 +388,11 @@ func (k *Kernel) ApplyOffer(ctx context.Context, m Meta, sessionID, offerID stri
 		for _, l := range patch.Lines {
 			appliedQty += l.Quantity
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO commercial_attributions (attribution_id, offer_id, candidate_id, session_id, strategy_type, experiment_assignment, applied_quantity, outcome_completeness)
-			VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,$7,'APPLIED_ONLY')`,
-			ids.New(ids.Attribution), offerID, candidateID, sessionID, strategy, nullIfEmpty(s.EvaluationArm), appliedQty)
+		_, err = tx.Exec(ctx, `UPDATE commercial_attributions SET
+			applied_quantity=$2, outcome_completeness='APPLIED_ONLY', attribution_state='APPLIED',
+			quote_delta_minor=$3, updated_at=now()
+			WHERE offer_id=$1 AND session_id=$4`,
+			offerID, appliedQty, sim.PatchedAllInMinor-sim.BaseAllInMinor, sessionID)
 		return err
 	})
 	if err != nil {
@@ -420,4 +495,85 @@ func (k *Kernel) offersForSurface(ctx context.Context, tx pgx.Tx, s SessionSumma
 		return nil, err
 	}
 	return filterOffersByEnabled(offers, cctx.Enabled), nil
+}
+
+func rejectBuyerEconomics(args map[string]any) error {
+	if args == nil {
+		return nil
+	}
+	banned := []string{"discount_amount_minor", "unit_price_minor", "merchant_funded_minor", "partner_funded_minor", "funding", "campaign_budget_minor", "price_override_minor"}
+	for _, k := range banned {
+		if _, ok := args[k]; ok {
+			return apperr.New(apperr.InvalidArgument, "buyer cannot supply "+k)
+		}
+	}
+	return nil
+}
+
+func strategyDigest(strategy, revision string) string {
+	return digestOf(map[string]string{"strategy": strategy, "revision": revision})
+}
+
+func (k *Kernel) enforceEconomicConstraints(ctx context.Context, tx pgx.Tx, s SessionSummary, offerID string, patch commerce.Patch, m Meta) error {
+	if patch.PromotionID == "" {
+		return nil
+	}
+	var discount, partner int64
+	_ = tx.QueryRow(ctx, `SELECT discount_amount_minor, partner_funded_minor FROM offers WHERE offer_id=$1`, offerID).Scan(&discount, &partner)
+	consume := partner
+	if consume <= 0 {
+		consume = discount
+	}
+	var campID string
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(campaign_id,'') FROM promotions WHERE promotion_id=$1`, patch.PromotionID).Scan(&campID)
+	if campID != "" && consume > 0 {
+		tag, err := tx.Exec(ctx, `
+			UPDATE campaigns SET budget_consumed_minor = budget_consumed_minor + $2
+			WHERE campaign_id=$1 AND (budget_minor = 0 OR budget_consumed_minor + $2 <= budget_minor)`,
+			campID, consume)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			_ = k.constraintAudit(ctx, tx, m, s.SessionID, offerID, "CAMPAIGN_BUDGET", "REJECTED", map[string]any{"campaign_id": campID, "amount_minor": consume})
+			return apperr.New(apperr.OfferContextInvalid, "campaign budget would be exceeded")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO campaign_budget_ledger (ledger_id, campaign_id, session_id, offer_id, amount_minor) VALUES ($1,$2,$3,$4,$5)`,
+			ids.New("cbl"), campID, s.SessionID, offerID, consume); err != nil {
+			return err
+		}
+		_ = k.constraintAudit(ctx, tx, m, s.SessionID, offerID, "CAMPAIGN_BUDGET", "ALLOWED", map[string]any{"campaign_id": campID, "amount_minor": consume})
+	}
+	buyer := s.SubjectReference
+	if buyer == "" {
+		buyer = "anonymous"
+	}
+	var maxBuyer int
+	_ = tx.QueryRow(ctx, `SELECT COALESCE((condition->>'max_redemptions_per_buyer')::int, 0) FROM promotions WHERE promotion_id=$1`, patch.PromotionID).Scan(&maxBuyer)
+	if maxBuyer > 0 {
+		var n int
+		_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM buyer_promo_redemptions WHERE buyer_id=$1 AND promotion_id=$2`, buyer, patch.PromotionID).Scan(&n)
+		if n >= maxBuyer {
+			_ = k.constraintAudit(ctx, tx, m, s.SessionID, offerID, "PER_BUYER_CAP", "REJECTED", map[string]any{"promotion_id": patch.PromotionID})
+			return apperr.New(apperr.OfferContextInvalid, "per-buyer promotion cap reached")
+		}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO buyer_promo_redemptions (redemption_id, buyer_id, promotion_id, session_id, offer_id) VALUES ($1,$2,$3,$4,$5)`,
+		ids.New("red"), buyer, patch.PromotionID, s.SessionID, offerID); err != nil {
+		_ = k.constraintAudit(ctx, tx, m, s.SessionID, offerID, "PER_SESSION_CAP", "REJECTED", map[string]any{"promotion_id": patch.PromotionID})
+		return apperr.New(apperr.OfferContextInvalid, "promotion already applied in this session")
+	}
+	_ = k.constraintAudit(ctx, tx, m, s.SessionID, offerID, "PER_SESSION_CAP", "ALLOWED", map[string]any{"promotion_id": patch.PromotionID})
+	return nil
+}
+
+func (k *Kernel) constraintAudit(ctx context.Context, tx pgx.Tx, m Meta, sessionID, offerID, kind, result string, detail map[string]any) error {
+	body := map[string]any{"constraint": kind, "result": result, "offer_id": offerID, "detail": detail}
+	_, err := audit.Append(ctx, tx, audit.Event{
+		Kind: "COMMERCIAL_CONSTRAINT_DECISION", RequestID: m.RequestID, PrincipalType: "ATLAS_SYSTEM", Channel: "mcp",
+		Action: "apply_offer", ResourceType: "offer", ResourceID: offerID, Body: body,
+		Summary: "Atlas enforced a commercial economic constraint.",
+	})
+	_ = sessionID
+	return err
 }

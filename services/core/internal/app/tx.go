@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 
 	"atlas.dev/core/internal/apperr"
 	"atlas.dev/core/internal/audit"
@@ -103,9 +105,9 @@ func (k *Kernel) loadSession(ctx context.Context, tx pgx.Tx, sessionID, hostID s
 	var evalArm *string
 	var constraintsRaw []byte
 	err := tx.QueryRow(ctx, `
-		SELECT session_id, session_context_version, location_id, status, planning_budget_minor, mission, approved_host_id, subject_reference, evaluation_arm, constraints
+		SELECT session_id, session_context_version, location_id, status, planning_budget_minor, mission, approved_host_id, subject_reference, evaluation_arm, constraints, COALESCE(strategy_allowlist, '{}')
 		FROM shopping_sessions WHERE session_id=$1 FOR UPDATE`, sessionID).Scan(
-		&s.SessionID, &s.SessionContextVersion, &s.LocationID, &s.Status, &budget, &mission, &s.HostID, &s.SubjectReference, &evalArm, &constraintsRaw)
+		&s.SessionID, &s.SessionContextVersion, &s.LocationID, &s.Status, &budget, &mission, &s.HostID, &s.SubjectReference, &evalArm, &constraintsRaw, &s.StrategyAllowlist)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, apperr.New(apperr.NotFound, "session not found")
 	}
@@ -129,11 +131,20 @@ func (k *Kernel) loadSession(ctx context.Context, tx pgx.Tx, sessionID, hostID s
 		s.PlanningBudgetMinor = *budget
 		s.HasBudget = true
 	}
-	s.Currency = "INR"
+	s.Treatment = k.loadTreatment(ctx, tx, s.SessionID)
+	if s.Treatment != nil {
+		s.TreatmentPolicyID = s.Treatment.PolicyID
+		if len(s.StrategyAllowlist) == 0 {
+			s.StrategyAllowlist = s.Treatment.StrategyAllowlist
+		}
+	}
 	var cartID string
 	var cartVer int64
-	if err := tx.QueryRow(ctx, `SELECT cart_id, cart_version FROM carts WHERE session_id=$1 FOR UPDATE`, sessionID).Scan(&cartID, &cartVer); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT cart_id, cart_version, currency FROM carts WHERE session_id=$1 FOR UPDATE`, sessionID).Scan(&cartID, &cartVer, &s.Currency); err != nil {
 		return s, err
+	}
+	if s.Currency == "" {
+		s.Currency, _ = k.merchantCurrency(ctx, tx)
 	}
 	s.CartID = cartID
 	s.CartVersion = cartVer
@@ -186,8 +197,8 @@ func (k *Kernel) recalcAndStoreCart(ctx context.Context, tx pgx.Tx, session Sess
 	tot := cart.Recalc(lines, fees, promos, bundles, session.LocationID, k.Now())
 	_, err = tx.Exec(ctx, `
 		UPDATE carts SET merchandise_minor=$2, discounts_minor=$3, delivery_fee_minor=$4, handling_fee_minor=$5,
-			tax_minor=$6, all_in_total_minor=$7, updated_at=now() WHERE cart_id=$1`,
-		session.CartID, tot.MerchandiseMinor, tot.DiscountsMinor, tot.DeliveryFeeMinor, tot.HandlingFeeMinor, tot.TaxMinor, tot.AllInMinor)
+			tax_minor=$6, all_in_total_minor=$7, currency=$8, updated_at=now() WHERE cart_id=$1`,
+		session.CartID, tot.MerchandiseMinor, tot.DiscountsMinor, tot.DeliveryFeeMinor, tot.HandlingFeeMinor, tot.TaxMinor, tot.AllInMinor, tot.Currency)
 	if err != nil {
 		return CartView{}, err
 	}
@@ -211,17 +222,28 @@ func (k *Kernel) lineModels(ctx context.Context, tx pgx.Tx, cartID string) ([]ca
 	return lines, rows.Err()
 }
 
+func (k *Kernel) merchantCurrency(ctx context.Context, tx pgx.Tx) (string, error) {
+	var c string
+	err := tx.QueryRow(ctx, `SELECT currency FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&c)
+	if err != nil || strings.TrimSpace(c) == "" {
+		return "", apperr.New(apperr.TemporarilyUnavailable, "merchant fixture is not loaded")
+	}
+	return strings.ToUpper(strings.TrimSpace(c)), nil
+}
+
 func (k *Kernel) locationFees(ctx context.Context, tx pgx.Tx, locationID string) (cart.LocationFees, error) {
 	var f cart.LocationFees
 	err := tx.QueryRow(ctx, `
 		SELECT l.delivery_fee_minor, l.handling_fee_minor, l.minimum_order_value_minor, COALESCE(l.free_delivery_threshold_minor,0),
 		       COALESCE(m.delivery_fee_after_threshold_minor,0), COALESCE(m.small_order_threshold_minor,0),
-		       COALESCE(m.small_order_fee_minor,0), COALESCE(m.fee_after_small_order_threshold_minor,0)
+		       COALESCE(m.small_order_fee_minor,0), COALESCE(m.fee_after_small_order_threshold_minor,0),
+		       COALESCE(NULLIF(m.currency,''), '')
 		FROM locations l
 		LEFT JOIN merchant_profile m ON m.singleton_key='singleton'
 		WHERE l.location_id=$1`, locationID).Scan(
 		&f.DeliveryFeeMinor, &f.HandlingFeeMinor, &f.MinimumOrderValueMinor, &f.FreeDeliveryThresholdMinor,
-		&f.DeliveryFeeAfterThresholdMinor, &f.SmallOrderThresholdMinor, &f.SmallOrderFeeMinor, &f.FeeAfterSmallOrderThresholdMinor)
+		&f.DeliveryFeeAfterThresholdMinor, &f.SmallOrderThresholdMinor, &f.SmallOrderFeeMinor, &f.FeeAfterSmallOrderThresholdMinor,
+		&f.Currency)
 	return f, err
 }
 
@@ -357,32 +379,39 @@ func (k *Kernel) bumpCart(ctx context.Context, tx pgx.Tx, session *SessionSummar
 
 func (k *Kernel) skuPriceQty(ctx context.Context, tx pgx.Tx, locationID, skuID string) (productID, name string, price int64, sellable int, err error) {
 	var onHand, reserved, buffer int
-	var lifecycle, stock string
+	var lifecycle string
 	var assorted bool
 	err = tx.QueryRow(ctx, `
-		SELECT s.product_id, s.name, s.lifecycle, p.selling_price_minor, i.on_hand_quantity, i.reserved_quantity, i.safety_buffer, i.assorted, i.stock_status
+		SELECT s.product_id, s.name, s.lifecycle, p.selling_price_minor, i.on_hand_quantity, i.reserved_quantity, i.safety_buffer, i.assorted
 		FROM skus s
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$1
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$1
-		WHERE s.sku_id=$2 AND p.effective_from <= now() AND (p.effective_to IS NULL OR p.effective_to > now())`, locationID, skuID).Scan(&productID, &name, &lifecycle, &price, &onHand, &reserved, &buffer, &assorted, &stock)
+		JOIN locations loc ON loc.location_id=$1
+		WHERE s.sku_id=$2 AND `+inventory.PriceEffectiveSQL+` AND `+inventory.LocationActiveSQL, locationID, skuID).Scan(&productID, &name, &lifecycle, &price, &onHand, &reserved, &buffer, &assorted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", 0, 0, apperr.New(apperr.ItemUnavailable, "SKU is not assorted at this location")
 	}
 	if err != nil {
 		return "", "", 0, 0, err
 	}
-	if (lifecycle != "sellable" && lifecycle != "active") || !assorted || stock == "out_of_stock" {
+	if (lifecycle != "sellable" && lifecycle != "active") || !assorted {
 		return "", "", 0, 0, apperr.New(apperr.ItemUnavailable, "SKU is not sellable")
 	}
-	return productID, name, price, inventory.Sellable(onHand, reserved, buffer), nil
+	qty := inventory.Sellable(onHand, reserved, buffer)
+	if qty <= 0 {
+		return "", "", 0, 0, apperr.New(apperr.ItemUnavailable, "SKU is not sellable")
+	}
+	return productID, name, price, qty, nil
 }
 
 func auditMutation(ctx context.Context, tx pgx.Tx, m Meta, op, action, resType, resID string, ver int64, body map[string]any, summary string) (string, error) {
-	principal := "APPROVED_HOST"
+	principal := audit.PrincipalApprovedHost
 	pid := m.ApprovedHostID
+	ch := audit.ChannelMCP
 	if m.OperatorID != "" {
-		principal = "OPERATOR"
+		principal = audit.PrincipalOperator
 		pid = m.OperatorID
+		ch = audit.ChannelAdmin
 	}
 	return audit.Append(ctx, tx, audit.Event{
 		Kind:          "BOUNDARY_COMMAND_EVALUATED",
@@ -390,13 +419,17 @@ func auditMutation(ctx context.Context, tx pgx.Tx, m Meta, op, action, resType, 
 		OperationID:   op,
 		PrincipalType: principal,
 		PrincipalID:   pid,
-		Channel:       "mcp",
+		Channel:       ch,
 		Action:        action,
 		ResourceType:  resType,
 		ResourceID:    resID,
 		ResourceVer:   ver,
 		Body:          body,
 		Summary:       summary,
+		Correlation: audit.Merge(m.Correlation, map[string]string{
+			"request_id": m.RequestID, "operation_id": op, "host_id": m.ApprovedHostID,
+			resType + "_id": resID,
+		}),
 	})
 }
 
@@ -408,6 +441,13 @@ func wrapConflict(err error, session SessionSummary, cart CartView) error {
 	if e.Code == apperr.CartVersionConflict || e.Code == apperr.SessionVersionConflict {
 		e.Session = session
 		e.Cart = cart
+		if e.Details == nil {
+			e.Details = map[string]string{}
+		}
+		e.Details["cart_version"] = fmt.Sprintf("%d", cart.Version)
+		if !strings.Contains(e.Message, "cart_version=") {
+			e.Message = fmt.Sprintf("%s cart_version=%d", e.Message, cart.Version)
+		}
 	}
 	return e
 }

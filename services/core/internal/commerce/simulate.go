@@ -14,6 +14,7 @@ type SimulatedCandidate struct {
 	PatchedAllInMinor         int64
 	MerchantRevenueDeltaMinor int64
 	ContributionDeltaMinor    *int64
+	DiscountDeltaMinor        int64
 	Eligibility               string
 }
 
@@ -30,6 +31,7 @@ func Simulate(ctx Context, in Inputs, c Candidate, now time.Time) (SimulatedCand
 		BaseAllInMinor:            base.AllInMinor,
 		PatchedAllInMinor:         patched.AllInMinor,
 		MerchantRevenueDeltaMinor: impact,
+		DiscountDeltaMinor:        patched.DiscountsMinor - base.DiscountsMinor,
 		Eligibility:               "OK",
 	}
 	out.BuyerImpact = impact

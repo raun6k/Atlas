@@ -53,12 +53,16 @@ func (t *pgTx) NextRecordSequence() int64 {
 func scanAttempt(row pgx.Row) (PaymentAttempt, error) {
 	var a PaymentAttempt
 	var rzpOrder, rzpPay, effect, reason, opID, reqID *string
+	var provIdem, provDigest *string
+	var nextAt, waitSince *time.Time
+	var reconCount int
 	err := row.Scan(
 		&a.PaymentAttemptID, &a.CheckoutProposalID, &a.MerchantOrderID, &a.ExecutionPassportID,
 		&a.CapabilityID, &a.State, &a.Version, &a.Amount.AmountMinor, &a.Amount.Currency,
 		&rzpOrder, &rzpPay, &a.DuplicateFrozen, &a.FulfillmentFrozen, &a.HoldReleaseFrozen,
 		&effect, &reason, &a.HasCallbackBinding, &a.HasWebhookBinding,
 		&a.IdempotencyKey, &a.HostID, &a.CreatedAt, &a.UpdatedAt, &opID, &reqID,
+		&provIdem, &provDigest, &reconCount, &nextAt, &waitSince,
 	)
 	if err != nil {
 		return PaymentAttempt{}, err
@@ -81,6 +85,15 @@ func scanAttempt(row pgx.Row) (PaymentAttempt, error) {
 	if reqID != nil {
 		a.RequestID = *reqID
 	}
+	if provIdem != nil {
+		a.ProviderIdempotencyKey = *provIdem
+	}
+	if provDigest != nil {
+		a.ProviderRequestDigest = *provDigest
+	}
+	a.ReconcileAttemptCount = reconCount
+	a.ReconcileNextAttemptAt = nextAt
+	a.WaitingEventBindingSince = waitSince
 	return a, nil
 }
 
@@ -88,7 +101,9 @@ const attemptCols = `payment_attempt_id, checkout_proposal_id, merchant_order_id
 	capability_id, state, version, amount_minor, currency, razorpay_order_id, razorpay_payment_id,
 	duplicate_attempt_frozen, fulfillment_frozen, hold_release_frozen, effect_disposition, reason_code,
 	has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at,
-	COALESCE(operation_id,''), COALESCE(request_id,'')`
+	COALESCE(operation_id,''), COALESCE(request_id,''),
+	provider_idempotency_key, provider_request_digest, COALESCE(reconcile_attempt_count,0),
+	reconcile_next_attempt_at, waiting_event_binding_since`
 
 func (t *pgTx) GetAttemptByID(id string) (PaymentAttempt, bool) {
 	a, err := scanAttempt(t.tx.QueryRow(t.ctx, `SELECT `+attemptCols+` FROM payment_attempts WHERE payment_attempt_id=$1`, id))
@@ -132,15 +147,34 @@ func (t *pgTx) InsertAttempt(a PaymentAttempt) error {
 			capability_id, state, version, amount_minor, currency, razorpay_order_id, razorpay_payment_id,
 			duplicate_attempt_frozen, fulfillment_frozen, hold_release_frozen, effect_disposition, reason_code,
 			has_callback_binding, has_webhook_binding, idempotency_key, host_id, created_at, updated_at,
-			operation_id, request_id
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),NULLIF($11,''),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NULLIF($23,''),NULLIF($24,''))`,
+			operation_id, request_id, provider_idempotency_key, provider_request_digest, reconcile_attempt_count,
+			reconcile_next_attempt_at, waiting_event_binding_since
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),NULLIF($11,''),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NULLIF($23,''),NULLIF($24,''),NULLIF($25,''),NULLIF($26,''),$27,$28,$29)`,
 		a.PaymentAttemptID, a.CheckoutProposalID, a.MerchantOrderID, a.ExecutionPassportID,
 		a.CapabilityID, string(a.State), a.Version, a.Amount.AmountMinor, a.Amount.Currency,
 		a.RazorpayOrderID, a.RazorpayPaymentID, a.DuplicateFrozen, a.FulfillmentFrozen, a.HoldReleaseFrozen,
 		nullIfEmpty(a.EffectDisposition), nullIfEmpty(a.ReasonCode), a.HasCallbackBinding, a.HasWebhookBinding,
 		a.IdempotencyKey, a.HostID, a.CreatedAt, a.UpdatedAt, a.OperationID, a.RequestID,
+		a.ProviderIdempotencyKey, a.ProviderRequestDigest, a.ReconcileAttemptCount, a.ReconcileNextAttemptAt, a.WaitingEventBindingSince,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if a.ExecutionPassportID == "" {
+		return nil
+	}
+	tag, cerr := t.tx.Exec(t.ctx, `
+		UPDATE execution_passports
+		SET consumed_at=now(), status='consumed'
+		WHERE passport_id=$1 AND consumed_at IS NULL AND (expires_at IS NULL OR expires_at > now()) AND COALESCE(status,'issued') IN ('issued','')`,
+		a.ExecutionPassportID)
+	if cerr != nil {
+		return cerr
+	}
+	if tag.RowsAffected() == 0 {
+		return Err("AUTHORITY_INVALID", "execution passport is not consumable")
+	}
+	return nil
 }
 
 func (t *pgTx) UpdateAttempt(a PaymentAttempt) error {
@@ -160,11 +194,14 @@ func (t *pgTx) UpdateAttempt(a PaymentAttempt) error {
 		UPDATE payment_attempts SET
 			state=$2, version=$3, razorpay_order_id=NULLIF($4,''), razorpay_payment_id=NULLIF($5,''),
 			duplicate_attempt_frozen=$6, fulfillment_frozen=$7, hold_release_frozen=$8,
-			effect_disposition=$9, reason_code=$10, has_callback_binding=$11, has_webhook_binding=$12, updated_at=$13
+			effect_disposition=$9, reason_code=$10, has_callback_binding=$11, has_webhook_binding=$12, updated_at=$13,
+			provider_idempotency_key=NULLIF($14,''), provider_request_digest=NULLIF($15,''),
+			reconcile_attempt_count=$16, reconcile_next_attempt_at=$17, waiting_event_binding_since=$18
 		WHERE payment_attempt_id=$1`,
 		a.PaymentAttemptID, string(a.State), a.Version, a.RazorpayOrderID, a.RazorpayPaymentID,
 		a.DuplicateFrozen, a.FulfillmentFrozen, a.HoldReleaseFrozen,
 		nullIfEmpty(a.EffectDisposition), nullIfEmpty(a.ReasonCode), a.HasCallbackBinding, a.HasWebhookBinding, a.UpdatedAt,
+		a.ProviderIdempotencyKey, a.ProviderRequestDigest, a.ReconcileAttemptCount, a.ReconcileNextAttemptAt, a.WaitingEventBindingSince,
 	)
 	return err
 }
@@ -226,6 +263,15 @@ func (t *pgTx) InsertOrder(o MerchantOrder) error {
 			return err
 		}
 	}
+	if o.SessionID != "" {
+		_, _ = t.tx.Exec(t.ctx, `
+			UPDATE commercial_attributions SET
+				order_id=$2, checkout_proposal_id=NULLIF($3,''), attribution_state='ORDER_CONFIRMED', updated_at=now()
+			WHERE session_id=$1 AND attribution_state='APPLIED'`,
+			o.SessionID, o.OrderID, o.CheckoutProposalID)
+		_, _ = t.tx.Exec(t.ctx, `UPDATE offers SET status='ORDER_CONFIRMED', updated_at=now()
+			WHERE session_id=$1 AND status IN ('APPLIED','RETAINED')`, o.SessionID)
+	}
 	return nil
 }
 
@@ -252,15 +298,24 @@ func (t *pgTx) UpdateOrder(o MerchantOrder) error {
 			UPDATE commercial_attributions SET
 				order_id=$2,
 				paid_quantity = applied_quantity,
-				captured_revenue_minor = $3,
-				net_realized_revenue_minor = $3,
+				captured_revenue_minor = quote_delta_minor,
+				net_realized_revenue_minor = quote_delta_minor,
+				attributed_revenue_minor = quote_delta_minor,
+				attributed_margin_minor = COALESCE(attributed_margin_minor, 0),
 				outcome_completeness = 'PAID_COMPLETE',
+				attribution_state = 'PAYMENT_RECONCILED',
 				updated_at=now()
-			WHERE session_id=$1 AND outcome_completeness='APPLIED_ONLY'`,
-			o.SessionID, o.OrderID, o.Amount.AmountMinor)
+			WHERE session_id=$1 AND attribution_state IN ('APPLIED','ORDER_CONFIRMED')`,
+			o.SessionID, o.OrderID)
+		_, _ = t.tx.Exec(t.ctx, `
+			UPDATE commercial_attributions SET attribution_state = 'REVENUE_ATTRIBUTED', updated_at=now()
+			WHERE session_id=$1 AND order_id=$2 AND attribution_state='PAYMENT_RECONCILED'`,
+			o.SessionID, o.OrderID)
+		_, _ = t.tx.Exec(t.ctx, `UPDATE offers SET status='ATTRIBUTED', updated_at=now()
+			WHERE session_id=$1 AND status IN ('APPLIED','RETAINED','ORDER_CONFIRMED')`, o.SessionID)
 		_, _ = t.tx.Exec(t.ctx, `
 			INSERT INTO offer_events (offer_event_id, offer_id, event_type, payload)
-			SELECT 'oev_' || replace(gen_random_uuid()::text, '-', ''), offer_id, 'OFFER_RETAINED_IN_PAID_ORDER', jsonb_build_object('order_id', $2::text)
+			SELECT 'oev_' || replace(gen_random_uuid()::text, '-', ''), offer_id, 'OFFER_REVENUE_ATTRIBUTED', jsonb_build_object('order_id', $2::text)
 			FROM commercial_attributions WHERE session_id=$1 AND order_id=$2`, o.SessionID, o.OrderID)
 	}
 	return nil
@@ -408,7 +463,8 @@ func (t *pgTx) ClaimIssuedRunnerJob(tokenHash string) (RunnerJob, bool) {
 }
 
 func (t *pgTx) UpdateRunnerJob(j RunnerJob) error {
-	_, err := t.tx.Exec(t.ctx, `UPDATE test_runner_jobs SET status=$2, observation_summary=$3 WHERE job_id=$1`, j.JobID, j.Status, j.ObservationSummary)
+	_, err := t.tx.Exec(t.ctx, `UPDATE test_runner_jobs SET status=$2, observation_summary=$3, observation_confidence=$4, claimed_by_identity=COALESCE(NULLIF($5,''), claimed_by_identity) WHERE job_id=$1`,
+		j.JobID, j.Status, j.ObservationSummary, nullIfEmpty(j.ObservationConfidence), j.ClaimedByIdentity)
 	return err
 }
 
@@ -484,10 +540,19 @@ func (t *pgTx) InsertAudit(e AuditEvent) error {
 		}
 	}
 	body, _ := json.Marshal(e.SafeBody)
+	auth := true
+	if e.Authoritative != nil {
+		auth = *e.Authoritative
+	}
+	if e.Kind == "RUNNER_OBSERVATION" {
+		auth = false
+	}
+	corr := map[string]string{"request_id": e.RequestID, "operation_id": e.OperationID, "payment_attempt_id": e.PaymentAttemptID, "merchant_order_id": e.OrderID}
+	corrJSON, _ := json.Marshal(corr)
 	_, err := t.tx.Exec(t.ctx, `
-		INSERT INTO payment_audit_events (audit_event_id, kind, payment_attempt_id, order_id, refund_id, safe_body, occurred_at, operation_id, request_id)
-		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,NULLIF($8,''),NULLIF($9,''))`,
-		e.AuditEventID, e.Kind, nullIfEmpty(e.PaymentAttemptID), nullIfEmpty(e.OrderID), nullIfEmpty(e.RefundID), body, e.OccurredAt, e.OperationID, e.RequestID,
+		INSERT INTO payment_audit_events (audit_event_id, kind, payment_attempt_id, order_id, refund_id, safe_body, occurred_at, operation_id, request_id, correlation, authoritative)
+		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,NULLIF($8,''),NULLIF($9,''),$10::jsonb,$11)`,
+		e.AuditEventID, e.Kind, nullIfEmpty(e.PaymentAttemptID), nullIfEmpty(e.OrderID), nullIfEmpty(e.RefundID), body, e.OccurredAt, e.OperationID, e.RequestID, corrJSON, auth,
 	)
 	return err
 }
@@ -553,6 +618,55 @@ func (t *pgTx) FreezeHold(proposalID string) error {
 		}
 	}
 	_, err := t.tx.Exec(t.ctx, `INSERT INTO payment_hold_flags (checkout_proposal_id, converted, frozen) VALUES ($1, FALSE, TRUE) ON CONFLICT (checkout_proposal_id) DO UPDATE SET frozen=TRUE, updated_at=now()`, proposalID)
+	return err
+}
+
+func (t *pgTx) ReleaseHold(proposalID string) error {
+	if t.hooks.ReleaseHold != nil {
+		if err := t.hooks.ReleaseHold(t.ctx, proposalID); err != nil {
+			return err
+		}
+	}
+	rows, err := t.tx.Query(t.ctx, `SELECT sku_id, location_id, quantity FROM reservations WHERE checkout_proposal_id=$1 AND status='ACTIVE' FOR UPDATE`, proposalID)
+	if err != nil {
+		return err
+	}
+	type r struct {
+		sku, loc string
+		qty      int
+	}
+	var list []r
+	for rows.Next() {
+		var x r
+		if err := rows.Scan(&x.sku, &x.loc, &x.qty); err != nil {
+			rows.Close()
+			return err
+		}
+		list = append(list, x)
+	}
+	rows.Close()
+	for _, x := range list {
+		if _, err := t.tx.Exec(t.ctx, `UPDATE inventory SET reserved_quantity = GREATEST(reserved_quantity - $3, 0), updated_at=now() WHERE location_id=$1 AND sku_id=$2`, x.loc, x.sku, x.qty); err != nil {
+			return err
+		}
+	}
+	if _, err := t.tx.Exec(t.ctx, `UPDATE reservations SET status='RELEASED' WHERE checkout_proposal_id=$1 AND status='ACTIVE'`, proposalID); err != nil {
+		return err
+	}
+	_, err = t.tx.Exec(t.ctx, `INSERT INTO payment_hold_flags (checkout_proposal_id, converted, frozen) VALUES ($1, FALSE, FALSE) ON CONFLICT (checkout_proposal_id) DO UPDATE SET frozen=FALSE, updated_at=now()`, proposalID)
+	return err
+}
+
+func (t *pgTx) SetOrderPaymentPublicStatus(orderID, status string) error {
+	_, err := t.tx.Exec(t.ctx, `UPDATE orders SET payment_public_status=$2, updated_at=now() WHERE order_id=$1`, orderID, status)
+	return err
+}
+
+func (t *pgTx) ReleaseSessionToActive(sessionID string) error {
+	if sessionID == "" {
+		return nil
+	}
+	_, err := t.tx.Exec(t.ctx, `UPDATE shopping_sessions SET status='ACTIVE', updated_at=now() WHERE session_id=$1 AND status='PAYMENT_PENDING'`, sessionID)
 	return err
 }
 

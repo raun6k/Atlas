@@ -19,7 +19,7 @@ async function serve() {
   return { server, runtime, base };
 }
 
-test("GET /health/live and /health/ready do not require OpenRouter", async () => {
+test("process readiness stays independent from live-eval readiness", async () => {
   const { server, base } = await serve();
   try {
     const live = await fetch(`${base}/health/live`);
@@ -29,6 +29,10 @@ test("GET /health/live and /health/ready do not require OpenRouter", async () =>
     const body = (await ready.json()) as { openrouter_required_for_readiness: boolean; deterministic_ready: boolean };
     assert.equal(body.openrouter_required_for_readiness, false);
     assert.equal(body.deterministic_ready, true);
+    const liveEval = await fetch(`${base}/health/live-eval/ready`);
+    assert.equal(liveEval.status, 503);
+    const liveEvalBody = (await liveEval.json()) as { live_eval_ready: boolean };
+    assert.equal(liveEvalBody.live_eval_ready, false);
   } finally {
     server.close();
   }
@@ -87,6 +91,30 @@ test("POST /lab/v1/runs requires bearer and rejects wrong variant", async () => 
   }
 });
 
+test("Lab HTTP rejects malformed and oversized request bodies", async () => {
+  const { server, base } = await serve();
+  const headers = { "content-type": "application/json", authorization: "Bearer lab-contract-token" };
+  try {
+    const malformed = await fetch(`${base}/lab/v1/runs`, {
+      method: "POST",
+      headers,
+      body: "{not-json",
+    });
+    assert.equal(malformed.status, 400);
+    assert.equal(((await malformed.json()) as { error: { code: string } }).error.code, "INVALID_JSON");
+
+    const oversized = await fetch(`${base}/lab/v1/runs`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ custom_user_input: "x".repeat(1_048_576) }),
+    });
+    assert.equal(oversized.status, 413);
+    assert.equal(((await oversized.json()) as { error: { code: string } }).error.code, "PAYLOAD_TOO_LARGE");
+  } finally {
+    server.close();
+  }
+});
+
 test("deterministic run over Lab HTTP works without OpenRouter", async () => {
   const { server, base } = await serve();
   try {
@@ -122,6 +150,39 @@ test("model run creation is 409 when OpenRouter is unset", async () => {
       body: JSON.stringify({ run_type: "BENCHMARK_MODEL", scenario_id: "scn_qm_breakfast_180_v1", model_id: "or/x" }),
     });
     assert.equal(res.status, 409);
+  } finally {
+    server.close();
+  }
+});
+
+test("POST /lab/v1/deterministic-eval is 409 when mock MCP is on", async () => {
+  const { server, base } = await serve();
+  try {
+    const res = await fetch(`${base}/lab/v1/deterministic-eval`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer lab-contract-token" },
+    });
+    assert.equal(res.status, 409);
+    const body = (await res.json()) as { error: { code: string } };
+    assert.equal(body.error.code, "ATLAS_REQUIRED");
+  } finally {
+    server.close();
+  }
+});
+
+test("POST live model eval suites are 409 without OpenRouter or real Atlas", async () => {
+  const { server, base } = await serve();
+  try {
+    for (const path of ["/lab/v1/agent-compatibility-eval", "/lab/v1/commercial-uplift-eval"]) {
+      const res = await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer lab-contract-token" },
+        body: JSON.stringify({ model_id: "or/x" }),
+      });
+      assert.equal(res.status, 409);
+      const body = (await res.json()) as { error: { code: string } };
+      assert.ok(["ATLAS_REQUIRED", "MODEL_UNAVAILABLE"].includes(body.error.code));
+    }
   } finally {
     server.close();
   }

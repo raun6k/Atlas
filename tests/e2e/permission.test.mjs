@@ -27,12 +27,14 @@ function connectUrl(u, user, password, db) {
 
 const atlas = pgUrl(process.env.ATLAS_POSTGRES_URL, "postgres://atlas:atlas@127.0.0.1:5432/atlas?sslmode=disable");
 const lab = pgUrl(process.env.ATLASLAB_POSTGRES_URL, "postgres://atlaslab:atlaslab@127.0.0.1:5433/atlaslab?sslmode=disable");
+const endpoint = (u) => `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+console.log(`permission test endpoints: atlas=${endpoint(atlas)} atlaslab=${endpoint(lab)}`);
 
 const atlasSelf = tryPs(connectUrl(atlas, "atlas", "atlas", "atlas"), "SELECT 1");
 const labSelf = tryPs(connectUrl(lab, "atlaslab", "atlaslab", "atlaslab"), "SELECT 1");
 if (!atlasSelf.ok || !labSelf.ok) {
-  console.log("permission test skipped (postgres not reachable)");
-  process.exit(process.env.JOIN_PERMISSION_REQUIRED === "1" ? 1 : 0);
+  console.error("FAIL: permission test requires both databases; use join-permission-soft for unit-only runs");
+  process.exit(1);
 }
 
 const atlasReadsLab = tryPs(connectUrl(lab, "atlas", "atlas", "atlaslab"), "SELECT 1");

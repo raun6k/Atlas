@@ -15,17 +15,29 @@ services:
       ATLASLAB_HOST_SIGNING_KEY: ${ATLASLAB_HOST_SIGNING_KEY:-}
       ATLASLAB_FIXTURE_CONTROL_CREDENTIAL: ${ATLASLAB_FIXTURE_CONTROL_CREDENTIAL:-fixture-test-control}
       ATLASLAB_FIXTURE_SNAPSHOT_ID: fix_quickmart_v1
+      ATLASLAB_MODE: ${ATLASLAB_MODE:-release}
       ATLASLAB_API_TOKEN: ${ATLASLAB_API_TOKEN:-${ATLASLAB_SERVICE_TOKEN:-}}
+      ATLASLAB_API_READ_TOKEN: ${ATLASLAB_API_READ_TOKEN:-${ATLASLAB_API_TOKEN:-${ATLASLAB_SERVICE_TOKEN:-}}}
+      ATLASLAB_API_WRITE_TOKEN: ${ATLASLAB_API_WRITE_TOKEN:-${ATLASLAB_API_TOKEN:-${ATLASLAB_SERVICE_TOKEN:-}}}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ATLASLAB_MAX_TURNS: ${ATLASLAB_MAX_TURNS:-12}
+      ATLASLAB_MAX_TOOL_CALLS: ${ATLASLAB_MAX_TOOL_CALLS:-12}
+      ATLASLAB_MAX_TOKENS: ${ATLASLAB_MAX_TOKENS:-12000}
+      ATLASLAB_MAX_TOKENS_PER_TURN: ${ATLASLAB_MAX_TOKENS_PER_TURN:-768}
+      ATLASLAB_MAX_COST_USD: ${ATLASLAB_MAX_COST_USD:-1.00}
       ATLASLAB_MOCK_MCP: ${ATLASLAB_MOCK_MCP:-0}
       ATLASLAB_MOCK_FIXTURE_RESET: ${ATLASLAB_MOCK_FIXTURE_RESET:-0}
+      ATLAS_PAYMENT_RUNNER_URL: http://payment-runner:8091
+      ATLAS_WORKER_HEALTH_URL: http://worker:9092
+      ATLASLAB_PROVIDER_ASSISTED_PAYMENTS: ${ATLASLAB_PROVIDER_ASSISTED_PAYMENTS:-0}
+      ATLASLAB_PROVIDER_PAYMENT_WAIT_SECONDS: ${ATLASLAB_PROVIDER_PAYMENT_WAIT_SECONDS:-600}
     ports:
       - "8090:8090"
     depends_on:
       atlaslab-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6

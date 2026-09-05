@@ -8,6 +8,13 @@ import (
 	"atlas.dev/core/internal/provider"
 )
 
+var allowedWebhookEvents = map[string]bool{
+	"payment.captured":   true,
+	"payment.failed":     true,
+	"payment.authorized": true,
+	"order.paid":         true,
+}
+
 type WebhookIngest struct {
 	RawBody   []byte
 	Signature string
@@ -58,6 +65,14 @@ func (s *Service) IngestWebhook(ctx context.Context, in WebhookIngest) error {
 	if err := json.Unmarshal(in.RawBody, &parsed); err != nil {
 		return Err("PROVIDER_PAYLOAD_INVALID", "webhook json is invalid")
 	}
+	now := time.Now().UTC()
+	occurred := now
+	if parsed.Created > 0 {
+		occurred = time.Unix(parsed.Created, 0).UTC()
+		if occurred.After(now.Add(5 * time.Minute)) {
+			return Err("PROVIDER_EVENT_TIMESTAMP_INVALID", "webhook created_at is too far in the future")
+		}
+	}
 	digest := provider.BodyDigest(in.RawBody)
 	orderID := parsed.Payload.Payment.Entity.OrderID
 	if orderID == "" {
@@ -81,11 +96,27 @@ func (s *Service) IngestWebhook(ctx context.Context, in WebhookIngest) error {
 			RowID: NewEventRowID(), ProviderEventID: in.EventID, EventType: parsed.Event,
 			BodyDigest: digest, SignatureValid: true, RazorpayOrderID: orderID, RazorpayPaymentID: paymentID,
 			AmountMinor: amount, Currency: currency, ProviderStatus: status,
-			ReceivedAt: tx.Now(), SourceOccurredAt: time.Unix(parsed.Created, 0).UTC(),
+			ReceivedAt: tx.Now(), SourceOccurredAt: occurred,
 			PaymentAttemptID: attemptID,
 		}
 		if err := tx.InsertProviderEvent(ev); err != nil {
 			return err
+		}
+		if !allowedWebhookEvents[parsed.Event] {
+			return tx.InsertAudit(AuditEvent{
+				AuditEventID: NewAuditID(), Kind: "PROVIDER_EVENT_IGNORED",
+				PaymentAttemptID: attemptID, OrderID: "",
+				SafeBody:   map[string]any{"provider_event_id": in.EventID, "event_type": parsed.Event, "reason": "event_type_not_allowlisted"},
+				OccurredAt: tx.Now(),
+			})
+		}
+		if parsed.Created > 0 && now.Sub(occurred) > 15*time.Minute {
+			_ = tx.InsertAudit(AuditEvent{
+				AuditEventID: NewAuditID(), Kind: "PROVIDER_EVENT_STALE",
+				PaymentAttemptID: attemptID,
+				SafeBody:         map[string]any{"provider_event_id": in.EventID, "created_at": parsed.Created},
+				OccurredAt:       tx.Now(),
+			})
 		}
 		if !ok {
 			return tx.InsertAudit(AuditEvent{
@@ -93,6 +124,25 @@ func (s *Service) IngestWebhook(ctx context.Context, in WebhookIngest) error {
 				SafeBody:   map[string]any{"provider_event_id": in.EventID, "event_type": parsed.Event, "razorpay_order_id": orderID},
 				OccurredAt: tx.Now(),
 			})
+		}
+		if paymentID != "" && !validRazorpayPaymentID(paymentID) {
+			return tx.InsertAudit(AuditEvent{
+				AuditEventID: NewAuditID(), Kind: "PROVIDER_EVENT_REJECTED",
+				PaymentAttemptID: attempt.PaymentAttemptID, OrderID: attempt.MerchantOrderID,
+				SafeBody:   map[string]any{"reason": "payment_id_format", "provider_event_id": in.EventID},
+				OccurredAt: tx.Now(),
+			})
+		}
+		if amount != 0 && (amount != attempt.Amount.AmountMinor || (currency != "" && currency != attempt.Amount.Currency)) {
+			if err := tx.InsertAudit(AuditEvent{
+				AuditEventID: NewAuditID(), Kind: "PROVIDER_EVENT_REJECTED",
+				PaymentAttemptID: attempt.PaymentAttemptID, OrderID: attempt.MerchantOrderID,
+				SafeBody:   map[string]any{"reason": "amount_currency_mismatch", "provider_event_id": in.EventID, "not_capture": true},
+				OccurredAt: tx.Now(),
+			}); err != nil {
+				return err
+			}
+			return s.scheduleReconcileNow(tx, attempt.PaymentAttemptID, "mismatch-"+in.EventID)
 		}
 		if attempt.State.Terminal() {
 			return tx.InsertAudit(AuditEvent{
@@ -125,7 +175,7 @@ func (s *Service) IngestWebhook(ctx context.Context, in WebhookIngest) error {
 			PaymentAttemptID: attempt.PaymentAttemptID, OrderID: attempt.MerchantOrderID,
 			SafeBody: map[string]any{
 				"provider_event_id": in.EventID, "event_type": parsed.Event,
-				"razorpay_order_id": orderID, "not_capture": true,
+				"razorpay_order_id": orderID, "not_capture": true, "not_settlement": true,
 			},
 			OccurredAt: tx.Now(),
 		})

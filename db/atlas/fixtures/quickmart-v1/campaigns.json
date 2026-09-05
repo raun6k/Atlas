@@ -17,6 +17,7 @@
     "budget_minor": 200000,
     "budget_consumed_minor": 0,
     "budget_remaining_minor": 200000,
+    "revision": "v1",
     "brand_funding_pct": 70,
     "merchant_funding_pct": 30,
     "start_at": "2026-09-05T00:00:00+05:30",

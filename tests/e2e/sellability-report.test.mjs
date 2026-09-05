@@ -14,6 +14,7 @@ mkdirSync(outDir, { recursive: true });
 
 let reports = [];
 let pairs = [];
+let sellability = {};
 let live = false;
 try {
   const res = await fetch(`${lab}/health/live`);
@@ -27,18 +28,20 @@ if (live) {
   try {
     reports = (await (await fetch(`${lab}/lab/v1/reports`, { headers })).json()).items ?? [];
     pairs = (await (await fetch(`${lab}/lab/v1/pairs`, { headers })).json()).items ?? [];
+    const analytics = await (await fetch(`${lab}/lab/v1/analytics/sellability`, { headers })).json();
+    sellability = analytics.data ?? {};
   } catch {
     reports = [];
     pairs = [];
+    sellability = {};
   }
 }
 
-const eligibleReports = reports.filter((r) => r.evidence_eligibility === "BENCHMARK_ELIGIBLE");
-const ineligible = reports.filter((r) =>
-  ["CONTRACT_EVIDENCE_ONLY", "BENCHMARK_INELIGIBLE", "EXPLORATORY"].includes(r.evidence_eligibility) ||
-  r.run_type === "DETERMINISTIC_SCENARIO" ||
-  r.run_type === "CUSTOM_MISSION",
-);
+const contractReports = reports.filter((r) => r.kind === "CONTRACT");
+const compatibilityReports = reports.filter((r) => r.kind === "AGENT_COMPATIBILITY");
+const commercialReports = reports.filter((r) => r.kind === "COMMERCIAL_UPLIFT");
+const commercial = commercialReports.at(-1) ?? null;
+const proof = commercial?.report?.proof ?? null;
 
 const doc = {
   generated_at: new Date().toISOString(),
@@ -48,14 +51,31 @@ const doc = {
     "Razorpay Test Mode pairs do not establish real-world causal uplift. Deterministic and custom AtlasLab runs are excluded from Agent Sellability and incrementality denominators.",
   lab_reachable: live,
   reports_total: reports.length,
-  sellability_denominator: eligibleReports.length,
-  excluded_deterministic_or_custom: ineligible.length,
+  sellability_denominator: Number(sellability.denominator ?? 0),
+  sellability_numerator: Number(sellability.numerator ?? 0),
+  excluded_deterministic_or_custom: Number(sellability.excluded_deterministic_or_custom ?? 0),
   pairs_total: pairs.length,
+  report_kinds: {
+    contract: contractReports.length,
+    agent_compatibility: compatibilityReports.length,
+    commercial_uplift: commercialReports.length,
+  },
+  commercial: commercial
+    ? {
+        report_id: commercial.report_id,
+        run_id: commercial.run_id,
+        model_id: commercial.report?.model_id ?? null,
+        fixture_digest: commercial.report?.fixture_digest ?? null,
+        proof,
+        portfolio: commercial.report?.portfolio ?? null,
+      }
+    : null,
 };
 
 writeFileSync(join(outDir, "sellability-incrementality-report.json"), JSON.stringify(doc, null, 2));
 console.log("wrote artifacts/sellability-incrementality-report.json");
 console.log(doc.caveat);
 if (!live) {
-  console.log("Lab HTTP not reachable; report records empty denominators without claiming uplift.");
+  console.error("Lab HTTP not reachable; refusing empty sellability report");
+  process.exit(1);
 }

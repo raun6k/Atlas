@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"atlas.dev/core/internal/audit"
 	"atlas.dev/core/internal/commerce"
 	"atlas.dev/core/internal/ids"
+	"atlas.dev/core/internal/inventory"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -32,6 +34,8 @@ type Capabilities struct {
 	MaxPageSize            int32
 	OfferTTLSeconds        int32
 	ProposalHoldTTLSeconds int32
+	PaymentStatus          string
+	PaymentCapabilityID    string
 }
 
 func (k *Kernel) GetCapabilities(ctx context.Context, m Meta) (Envelope, Capabilities, error) {
@@ -39,8 +43,9 @@ func (k *Kernel) GetCapabilities(ctx context.Context, m Meta) (Envelope, Capabil
 	var name, currency, locale string
 	err := k.Pool().QueryRow(ctx, `SELECT display_name, currency, locale FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&name, &currency, &locale)
 	if err != nil {
-		name, currency, locale = "Quickmart", "INR", "en-IN"
+		name, locale = "Quickmart reference merchant (Test Mode)", "en-IN"
 	}
+	status, capID := k.paymentCapabilityStatus(ctx)
 	return env, Capabilities{
 		ContractFamily:         "atlas.merchant.v1",
 		ContractVersion:        ContractVersion,
@@ -51,10 +56,54 @@ func (k *Kernel) GetCapabilities(ctx context.Context, m Meta) (Envelope, Capabil
 		MaxPageSize:            25,
 		OfferTTLSeconds:        int32(k.Cfg.OfferTTL.Seconds()),
 		ProposalHoldTTLSeconds: int32(k.Cfg.ProposalHoldTTL.Seconds()),
+		PaymentStatus:          status,
+		PaymentCapabilityID:    capID,
 	}, nil
 }
 
-func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceability, locale, requestedLocation, evaluationArm string) (CartMutation, error) {
+func (k *Kernel) paymentCapabilityStatus(ctx context.Context) (status, capID string) {
+	capID = "pcap_razorpay_test"
+	if _, err := k.CurrentFixture(ctx); err != nil {
+		return "CONFIGURATION_MISSING", capID
+	}
+	if k.Cfg.Environment == "test" {
+		return "TEST_MODE_ONLY", capID
+	}
+	if strings.TrimSpace(k.Cfg.RazorpayKeyID) == "" || strings.TrimSpace(k.Cfg.RazorpayKeySecret) == "" {
+		return "CONFIGURATION_MISSING", capID
+	}
+	if strings.TrimSpace(k.Cfg.RazorpayWebhookSecret) == "" {
+		return "WEBHOOK_UNAVAILABLE", capID
+	}
+	if strings.TrimSpace(os.Getenv("ATLAS_RUNNER_EXECUTOR_CREDENTIAL")) == "" {
+		return "RUNNER_UNAVAILABLE", capID
+	}
+	return "AVAILABLE", capID
+}
+
+func (k *Kernel) paymentPathRunnable(ctx context.Context) error {
+	st, _ := k.paymentCapabilityStatus(ctx)
+	if st == "AVAILABLE" || st == "TEST_MODE_ONLY" {
+		return nil
+	}
+	return apperr.New(apperr.PaymentPathUnavail, "payment path is not runnable: "+st)
+}
+
+func (k *Kernel) requireBuyerCurrency(canonical, requested string) (string, error) {
+	requested = strings.ToUpper(strings.TrimSpace(requested))
+	if requested == "" {
+		return "", apperr.New(apperr.InvalidArgument, "currency is required")
+	}
+	if len(requested) != 3 {
+		return "", apperr.New(apperr.InvalidArgument, "unsupported currency")
+	}
+	if requested != canonical {
+		return "", apperr.New(apperr.InvalidArgument, "currency does not match merchant currency")
+	}
+	return canonical, nil
+}
+
+func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceability, locale, requestedLocation, evaluationArm string, strategyAllowlist []string) (CartMutation, error) {
 	if err := requireHost(m); err != nil {
 		return CartMutation{}, err
 	}
@@ -62,7 +111,7 @@ func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceabil
 	m.Tool = "create_session"
 	if m.Arguments == nil {
 		m.Arguments = map[string]any{
-			"subject_reference": subject, "delivery_serviceability_reference": serviceability, "locale": locale, "requested_location_id": requestedLocation, "evaluation_arm": evaluationArm,
+			"subject_reference": subject, "delivery_serviceability_reference": serviceability, "locale": locale, "requested_location_id": requestedLocation, "evaluation_arm": evaluationArm, "strategy_allowlist": strategyAllowlist,
 		}
 	}
 	input := m.Arguments
@@ -94,12 +143,24 @@ func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceabil
 	if arm != "" {
 		armArg = arm
 	}
+	allow := strategyAllowlist
+	if allow == nil {
+		allow = []string{}
+	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO shopping_sessions (session_id, approved_host_id, subject_reference, location_id, serviceability_reference, locale, session_context_version, status, expires_at, evaluation_arm)
-		VALUES ($1,$2,$3,$4,$5,$6,0,'ACTIVE',$7,$8)`, sessionID, m.ApprovedHostID, subject, locID, serviceability, locale, exp, armArg); err != nil {
+		INSERT INTO shopping_sessions (session_id, approved_host_id, subject_reference, location_id, serviceability_reference, locale, session_context_version, status, expires_at, evaluation_arm, strategy_allowlist)
+		VALUES ($1,$2,$3,$4,$5,$6,0,'ACTIVE',$7,$8,$9)`, sessionID, m.ApprovedHostID, subject, locID, serviceability, locale, exp, armArg, []string{}); err != nil {
 		return CartMutation{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO carts (cart_id, session_id, cart_version, currency) VALUES ($1,$2,0,'INR')`, cartID, sessionID); err != nil {
+	cur, err := k.merchantCurrency(ctx, tx)
+	if err != nil {
+		return CartMutation{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO carts (cart_id, session_id, cart_version, currency) VALUES ($1,$2,0,$3)`, cartID, sessionID, cur); err != nil {
+		return CartMutation{}, err
+	}
+	policy, err := k.resolveAndStampPolicy(ctx, tx, sessionID, arm, allow)
+	if err != nil {
 		return CartMutation{}, err
 	}
 	session, err := k.loadSession(ctx, tx, sessionID, m.ApprovedHostID)
@@ -110,7 +171,12 @@ func (k *Kernel) CreateSession(ctx context.Context, m Meta, subject, serviceabil
 	if err != nil {
 		return CartMutation{}, err
 	}
-	aid, err := auditMutation(ctx, tx, m, op, "create_session", "session", sessionID, 0, map[string]any{"location_id": locID}, "Approved Host created a shopping session.")
+	session.Treatment = &policy
+	session.TreatmentPolicyID = policy.PolicyID
+	session.StrategyAllowlist = policy.StrategyAllowlist
+	aid, err := auditMutation(ctx, tx, m, op, "create_session", "session", sessionID, 0, map[string]any{
+		"location_id": locID, "treatment_policy": policy,
+	}, "Approved Host created a shopping session.")
 	if err != nil {
 		return CartMutation{}, err
 	}
@@ -154,7 +220,7 @@ func (k *Kernel) SetIntent(ctx context.Context, m Meta, sessionID string, expect
 	m.RequireIdempotency = true
 	m.Tool = "set_intent"
 	if m.Arguments == nil {
-		m.Arguments = map[string]any{"session_id": sessionID, "expected_session_context_version": expected, "mission": mission, "planning_budget_minor": budgetMinor, "currency": currency}
+		m.Arguments = map[string]any{"session_id": sessionID, "expected_session_context_version": expected, "mission": mission, "planning_budget_minor": budgetMinor, "currency": currency, "constraints": constraints}
 	}
 	tx, replay, op, err := k.beginMutation(ctx, m, "set_intent", m.Arguments)
 	if err != nil {
@@ -184,9 +250,13 @@ func (k *Kernel) SetIntent(ctx context.Context, m Meta, sessionID string, expect
 	if err != nil {
 		return CartMutation{}, err
 	}
-	cur := currency
-	if cur == "" {
-		cur = "INR"
+	merchantCur, err := k.merchantCurrency(ctx, tx)
+	if err != nil {
+		return CartMutation{}, err
+	}
+	cur, err := k.requireBuyerCurrency(merchantCur, currency)
+	if err != nil {
+		return CartMutation{}, err
 	}
 	cj, _ := json.Marshal(constraints)
 	if err := tx.QueryRow(ctx, `
@@ -265,10 +335,13 @@ func (k *Kernel) GetCart(ctx context.Context, m Meta, sessionID string) (CartMut
 		return CartMutation{}, err
 	}
 	_, _ = audit.Append(ctx, tx, audit.Event{
-		Kind: "COMMERCIAL_REPRESENTATION_ISSUED", RequestID: m.RequestID, PrincipalType: "APPROVED_HOST", PrincipalID: m.ApprovedHostID,
-		Channel: "mcp", Action: "get_cart", ResourceType: "cart", ResourceID: c.CartID, ResourceVer: c.Version,
+		Kind: "COMMERCIAL_REPRESENTATION_ISSUED", RequestID: m.RequestID, PrincipalType: audit.PrincipalApprovedHost, PrincipalID: m.ApprovedHostID,
+		Channel: audit.ChannelMCP, Action: "get_cart", ResourceType: "cart", ResourceID: c.CartID, ResourceVer: c.Version,
 		Body: map[string]any{"session_id": sessionID}, RetentionClass: "representations_90d",
 		Summary: "Approved Host read the authoritative cart.",
+		Correlation: audit.Merge(m.Correlation, map[string]string{
+			"request_id": m.RequestID, "host_id": m.ApprovedHostID, "session_id": sessionID, "cart_id": c.CartID,
+		}),
 	})
 	if err := tx.Commit(ctx); err != nil {
 		return CartMutation{}, err
@@ -277,6 +350,9 @@ func (k *Kernel) GetCart(ctx context.Context, m Meta, sessionID string) (CartMut
 }
 
 func (k *Kernel) AddItem(ctx context.Context, m Meta, sessionID, cartID string, expected int64, skuID string, qty int32) (CartMutation, error) {
+	if err := rejectBuyerEconomics(m.Arguments); err != nil {
+		return CartMutation{}, err
+	}
 	return k.mutateCart(ctx, m, "add_cart_item", sessionID, cartID, expected, func(ctx context.Context, tx pgx.Tx, s *SessionSummary) error {
 		if qty <= 0 {
 			return apperr.New(apperr.InvalidArgument, "quantity must be positive")
@@ -437,13 +513,14 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 	rows, err := tx.Query(ctx, `
 		SELECT s.sku_id, s.product_id, s.name, s.brand, s.variant, s.pack_size, s.unit_of_measure, s.barcode,
 		       s.canonical_description, s.lifecycle, p.selling_price_minor,
-		       GREATEST(i.on_hand_quantity - i.reserved_quantity - i.safety_buffer, 0), i.stock_status, i.assorted,
+		       GREATEST(i.on_hand_quantity - i.reserved_quantity - i.safety_buffer, 0), i.assorted,
 		       pr.category
 		FROM skus s
 		JOIN products pr ON pr.product_id = s.product_id
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$1
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$1
-		WHERE s.lifecycle IN ('sellable','active') AND i.assorted=TRUE
+		JOIN locations loc ON loc.location_id=$1
+		WHERE s.lifecycle IN ('sellable','active') AND `+inventory.DiscoverableSQL+` AND `+inventory.PriceEffectiveSQL+` AND `+inventory.LocationActiveSQL+`
 		  AND ($2 = '' OR s.name ILIKE '%'||$2||'%' OR pr.name ILIKE '%'||$2||'%' OR s.brand ILIKE '%'||$2||'%' OR pr.canonical_description ILIKE '%'||$2||'%' OR s.name % $2 OR pr.name % $2)
 		  AND ($3 = '' OR pr.category = $3)
 		  AND ($4 = '' OR s.brand = $4)
@@ -457,10 +534,11 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 	for rows.Next() {
 		var v SKUView
 		var cat string
-		if err := rows.Scan(&v.SKUID, &v.ProductID, &v.Name, &v.Brand, &v.Variant, &v.PackSize, &v.UOM, &v.Barcode, &v.Description, &v.Lifecycle, &v.SellingMinor, &v.Sellable, &v.StockStatus, &v.Assorted, &cat); err != nil {
+		if err := rows.Scan(&v.SKUID, &v.ProductID, &v.Name, &v.Brand, &v.Variant, &v.PackSize, &v.UOM, &v.Barcode, &v.Description, &v.Lifecycle, &v.SellingMinor, &v.Sellable, &v.Assorted, &cat); err != nil {
 			rows.Close()
 			return Envelope{}, nil, "", nil, err
 		}
+		v.StockStatus = inventory.Status(v.Assorted, int(v.Sellable))
 		v.Category = cat
 		items = append(items, v)
 	}
@@ -479,7 +557,7 @@ func (k *Kernel) SearchCatalog(ctx context.Context, m Meta, sessionID, query, ca
 		return Envelope{}, nil, "", nil, err
 	}
 	cctx.Query = q
-	if cctx.Enabled["SEARCH_RANKING"] || cctx.Enabled["PAST_PURCHASE"] {
+	if cctx.EvaluationArm != "CONTROL" && (cctx.Enabled["SEARCH_RANKING"] || cctx.Enabled["PAST_PURCHASE"]) {
 		hits := make([]commerce.RankedHit, len(items))
 		for i, it := range items {
 			sku := in.SKUs[it.SKUID]
@@ -577,20 +655,22 @@ func (k *Kernel) GetProduct(ctx context.Context, m Meta, sessionID, productID, l
 	rows, err := tx.Query(ctx, `
 		SELECT s.sku_id, s.product_id, s.name, s.brand, s.variant, s.pack_size, s.unit_of_measure, s.barcode,
 		       s.canonical_description, s.lifecycle, p.selling_price_minor,
-		       GREATEST(i.on_hand_quantity - i.reserved_quantity - i.safety_buffer, 0), i.stock_status, i.assorted
+		       GREATEST(i.on_hand_quantity - i.reserved_quantity - i.safety_buffer, 0), i.assorted
 		FROM skus s
 		JOIN prices p ON p.sku_id=s.sku_id AND p.location_id=$2
 		JOIN inventory i ON i.sku_id=s.sku_id AND i.location_id=$2
-		WHERE s.product_id=$1 AND i.assorted=TRUE`, productID, loc)
+		JOIN locations loc ON loc.location_id=$2
+		WHERE s.product_id=$1 AND s.lifecycle IN ('sellable','active') AND `+inventory.DiscoverableSQL+` AND `+inventory.PriceEffectiveSQL+` AND `+inventory.LocationActiveSQL, productID, loc)
 	if err != nil {
 		return Envelope{}, ProductView{}, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var v SKUView
-		if err := rows.Scan(&v.SKUID, &v.ProductID, &v.Name, &v.Brand, &v.Variant, &v.PackSize, &v.UOM, &v.Barcode, &v.Description, &v.Lifecycle, &v.SellingMinor, &v.Sellable, &v.StockStatus, &v.Assorted); err != nil {
+		if err := rows.Scan(&v.SKUID, &v.ProductID, &v.Name, &v.Brand, &v.Variant, &v.PackSize, &v.UOM, &v.Barcode, &v.Description, &v.Lifecycle, &v.SellingMinor, &v.Sellable, &v.Assorted); err != nil {
 			return Envelope{}, ProductView{}, err
 		}
+		v.StockStatus = inventory.Status(v.Assorted, int(v.Sellable))
 		p.SKUs = append(p.SKUs, v)
 	}
 	_ = tx.Commit(ctx)
@@ -598,14 +678,21 @@ func (k *Kernel) GetProduct(ctx context.Context, m Meta, sessionID, productID, l
 }
 
 func (k *Kernel) GetProfile(ctx context.Context, m Meta) (Envelope, map[string]any, []map[string]any, error) {
+	if m.OperatorID != "" {
+		if err := k.requireScope(m, "merchant:read"); err != nil {
+			return Envelope{}, nil, nil, err
+		}
+	} else if err := requireHost(m); err != nil {
+		return Envelope{}, nil, nil, err
+	}
 	var display, legal, desc, currency, locale, country, city, tz, email, cap string
 	var ver int64
-	err := k.Pool().QueryRow(ctx, `SELECT display_name, legal_name, description, currency, locale, country, city, timezone_display, support_email, capability_summary, profile_version FROM merchant_profile WHERE singleton_key='singleton'`).
+	err := k.Pool().QueryRow(ctx, `SELECT display_name, legal_name, COALESCE(description,''), currency, locale, COALESCE(country,''), COALESCE(city,''), COALESCE(timezone_display,''), COALESCE(support_email,''), COALESCE(capability_summary,''), profile_version FROM merchant_profile WHERE singleton_key='singleton'`).
 		Scan(&display, &legal, &desc, &currency, &locale, &country, &city, &tz, &email, &cap, &ver)
 	if err != nil {
 		return Envelope{}, nil, nil, err
 	}
-	rows, err := k.Pool().Query(ctx, `SELECT location_id, name, neighbourhood, city, delivery_fee_minor, minimum_order_value_minor, free_delivery_threshold_minor, eta_min_minutes, eta_max_minutes, active, serviceability_reference FROM locations ORDER BY location_id`)
+	rows, err := k.Pool().Query(ctx, `SELECT location_id, name, COALESCE(neighbourhood,''), COALESCE(city,''), COALESCE(delivery_fee_minor,0), COALESCE(minimum_order_value_minor,0), COALESCE(free_delivery_threshold_minor,0), COALESCE(eta_min_minutes,0), COALESCE(eta_max_minutes,0), COALESCE(active,TRUE), COALESCE(serviceability_reference,'') FROM locations ORDER BY location_id`)
 	if err != nil {
 		return Envelope{}, nil, nil, err
 	}
@@ -622,8 +709,11 @@ func (k *Kernel) GetProfile(ctx context.Context, m Meta) (Envelope, map[string]a
 		locs = append(locs, map[string]any{
 			"location_id": id, "name": name, "neighbourhood": nhood, "city": city2,
 			"delivery_fee_minor": fee, "minimum_order_value_minor": mov, "free_delivery_threshold_minor": free,
-			"eta_min_minutes": emin, "eta_max_minutes": emax, "active": active, "serviceability_reference": svc, "currency": "INR",
+			"eta_min_minutes": emin, "eta_max_minutes": emax, "active": active, "serviceability_reference": svc, "currency": currency,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return Envelope{}, nil, nil, err
 	}
 	profile := map[string]any{
 		"display_name": display, "legal_name": legal, "description": desc, "currency": currency, "locale": locale,

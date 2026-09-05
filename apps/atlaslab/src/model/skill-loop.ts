@@ -9,6 +9,7 @@ import {
   type PublicState,
   type RunRecord,
   type ScenarioDefinition,
+  type SessionPolicy,
 } from "../types.js";
 import { applyResultToState, enrichPublicToolArgs, persistProjection } from "../driver/projector.js";
 import { progressAssertionsHold, type AssertionEvidence } from "../evaluator/evaluate.js";
@@ -24,7 +25,7 @@ import {
   SYSTEM_PROMPT,
   type LastActionSummary,
 } from "./skills.js";
-import { modelVisiblePaymentCapabilities, modelVisibleToolResult } from "./visible.js";
+import { modelVisiblePaymentCapabilities, modelVisibleToolResult, isPaidPaymentStatus, isFailedPaymentStatus } from "./visible.js";
 
 export interface SkillLoopResult {
   publicState: PublicState;
@@ -72,6 +73,8 @@ export class SkillLoop {
     extraSecrets: string[];
     deadlineMs: number;
     scenario?: ScenarioDefinition;
+    sessionPolicy?: SessionPolicy;
+    abort?: AbortSignal;
   }): Promise<SkillLoopResult> {
     let state: PublicState = {};
     let tokens = 0;
@@ -85,6 +88,7 @@ export class SkillLoop {
     const history: ModelHistoryItem[] = [];
     const maxTurns = Math.min(opts.model.max_turns, 24);
     const maxTools = Math.min(opts.model.max_tool_calls, 40);
+    const turnBase = await this.store.maxAgentTurnNumber(opts.run.run_id);
 
     const evidence = async (): Promise<AssertionEvidence> => ({
       state,
@@ -97,6 +101,12 @@ export class SkillLoop {
       progressAssertionsHold(opts.scenario?.required_terminal_assertions, await evidence());
 
     for (let turn = 1; turn <= maxTurns; turn += 1) {
+      if (opts.abort?.aborted) {
+        return { publicState: state, terminalCode: "CANCELLED", failed: "CANCELLED", returnedModelId };
+      }
+      if (state.outcome_unknown || state.payment_status === "OUTCOME_UNKNOWN") {
+        return { publicState: state, terminalCode: "OUTCOME_UNKNOWN", failed: "OUTCOME_UNKNOWN", returnedModelId };
+      }
       if (Date.now() > opts.deadlineMs) {
         return { publicState: state, terminalCode: "RUN_BUDGET_EXHAUSTED", failed: "wall", returnedModelId };
       }
@@ -107,7 +117,6 @@ export class SkillLoop {
         runId: opts.run.run_id,
         runType: opts.run.run_type,
         scenarioId: opts.run.scenario_id,
-        arm: opts.run.arm,
         turn,
         skill,
         mission: opts.mission,
@@ -135,6 +144,7 @@ export class SkillLoop {
           maxTokens: opts.model.max_tokens_per_turn,
           allowedTools: allowed,
           history,
+          abort: opts.abort,
         });
       } catch (err) {
         const code = err instanceof LabError ? err.code : "MODEL_ERROR";
@@ -184,7 +194,7 @@ export class SkillLoop {
       await this.store.insertAgentTurn({
         agent_turn_id: newPrefixedId("trn"),
         run_id: opts.run.run_id,
-        turn_number: turn,
+        turn_number: turnBase + turn,
         snapshot_digest: digest,
         selected_skill: skill,
         invocation_id: invId,
@@ -193,8 +203,8 @@ export class SkillLoop {
       });
 
       if (!response.toolCall) {
-        if (state.payment_status === "CAPTURED_RECONCILED" || state.payment_status === "FAILED_VERIFIED") {
-          return { publicState: state, terminalCode: state.payment_status, returnedModelId };
+        if (isPaidPaymentStatus(state.payment_status) || isFailedPaymentStatus(state.payment_status)) {
+          return { publicState: state, terminalCode: state.payment_status ?? "FAILED", returnedModelId };
         }
         if (await missionComplete()) {
           return { publicState: state, terminalCode: state.last_result_code ?? "OK", returnedModelId };
@@ -240,12 +250,23 @@ export class SkillLoop {
         });
         continue;
       }
+      if (state.effectful_payment_frozen && response.toolCall.tool === "complete_checkout") {
+        await this.store.appendEvent({
+          run_id: opts.run.run_id,
+          source: "ATLASLAB_ORCHESTRATOR",
+          kind: "PAYMENT_FROZEN",
+          payload: { tool: "complete_checkout" },
+        });
+        return { publicState: state, terminalCode: "OUTCOME_UNKNOWN", failed: "OUTCOME_UNKNOWN", returnedModelId };
+      }
       const argumentsEnriched = enrichPublicToolArgs({
         tool: response.toolCall.tool,
         args: response.toolCall.arguments,
         state,
         runId: opts.run.run_id,
         mission: opts.mission,
+        subjectReference: opts.sessionPolicy?.subjectReference,
+        constraints: opts.sessionPolicy?.constraints,
       });
       const before = commerceFingerprint(state);
       const result = await this.host.invoke({
@@ -257,6 +278,8 @@ export class SkillLoop {
         consent: opts.consent,
         publicState: state,
         extraSecrets: opts.extraSecrets,
+        sessionPolicy: opts.sessionPolicy,
+        abort: opts.abort,
       });
       state = applyResultToState(state, result);
       await persistProjection(this.store, opts.run.run_id, state);
@@ -299,8 +322,8 @@ export class SkillLoop {
         });
         return { publicState: state, terminalCode: "NO_PROGRESS", failed: "NO_PROGRESS", returnedModelId };
       }
-      if (state.payment_status === "CAPTURED_RECONCILED" || state.payment_status === "FAILED_VERIFIED") {
-        return { publicState: state, terminalCode: state.payment_status, returnedModelId };
+      if (isPaidPaymentStatus(state.payment_status) || isFailedPaymentStatus(state.payment_status) || state.outcome_unknown) {
+        return { publicState: state, terminalCode: state.payment_status ?? "FAILED", returnedModelId };
       }
       if (await missionComplete()) {
         return { publicState: state, terminalCode: state.last_result_code ?? "OK", returnedModelId };

@@ -2,6 +2,7 @@
 
 JOIN_E2E := tests/e2e
 JOIN_COMPOSE := docker-compose.yml
+JOIN_ENV := set -a; [ ! -f .env ] || . ./.env; set +a;
 
 .PHONY: join-e2e join-permission join-up join-lint
 
@@ -17,21 +18,22 @@ join-up:
 	docker compose -f $(JOIN_COMPOSE) up --build
 
 join-e2e: join-permission
-	node tests/e2e/mcp.live.test.mjs
-	node tests/e2e/payment.test.mjs
-	node tests/e2e/unknown-outcome.test.mjs
-	node tests/e2e/sellability-report.test.mjs
+	$(JOIN_ENV) node tests/e2e/mcp.live.test.mjs
+	$(JOIN_ENV) node tests/e2e/payment.test.mjs
+	$(JOIN_ENV) node tests/e2e/unknown-outcome.test.mjs
+	$(JOIN_ENV) node tests/e2e/sellability-report.test.mjs
+	$(JOIN_ENV) cd apps/frontend && ATLAS_FRONTEND_ENABLE_MOCKS=1 npm run test:e2e
 	@if curl -sf http://127.0.0.1:8080/health/live >/dev/null 2>&1; then \
-	  cd apps/frontend && ATLAS_FRONTEND_ENABLE_MOCKS=0 npm run test:e2e; \
+	  $(JOIN_ENV) cd apps/frontend && ATLAS_FRONTEND_ENABLE_MOCKS=0 npm run test:e2e; \
 	else \
-	  echo "live browser gate skipped (gateway not up); frontend mock journeys still run via make/frontend.mk"; \
+	  echo "live browser proof skipped (gateway not up); use make release-verify for submission gates"; \
 	fi
 
 join-permission:
-	node tests/e2e/permission.test.mjs
+	$(JOIN_ENV) node tests/e2e/permission.test.mjs
 
 join-permission-soft:
-	@node tests/e2e/permission.test.mjs || echo "permission test skipped (stack not running)"
+	@$(JOIN_ENV) node tests/e2e/permission.test.mjs || echo "permission test skipped (stack not running)"
 
 join-lint:
 	cd services/core && go vet ./...

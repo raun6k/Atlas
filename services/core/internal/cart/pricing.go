@@ -2,6 +2,7 @@ package cart
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,7 @@ type LocationFees struct {
 	SmallOrderThresholdMinor         int64
 	SmallOrderFeeMinor               int64
 	FeeAfterSmallOrderThresholdMinor int64
+	Currency                         string
 }
 
 // PriceCart is the canonical repricer for cart, offer simulation, apply, and checkout.
@@ -137,6 +139,7 @@ func PriceCart(lines []Line, loc LocationFees, promotions []Promotion, bundles [
 	}
 	allIn := net + delivery + loc.HandlingFeeMinor + small
 	minMet := loc.MinimumOrderValueMinor <= 0 || net >= loc.MinimumOrderValueMinor
+	cur := strings.TrimSpace(loc.Currency)
 	return Totals{
 		MerchandiseMinor:    merch,
 		DiscountsMinor:      discounts,
@@ -144,7 +147,7 @@ func PriceCart(lines []Line, loc LocationFees, promotions []Promotion, bundles [
 		HandlingFeeMinor:    loc.HandlingFeeMinor + small,
 		TaxMinor:            0,
 		AllInMinor:          allIn,
-		Currency:            "INR",
+		Currency:            cur,
 		MinimumOrderMet:     minMet,
 		AppliedBundleIDs:    bundleIDs,
 		AppliedPromotionIDs: promoIDs,

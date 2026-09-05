@@ -9,6 +9,11 @@
     "expected_session_context_version": { "type": "integer", "minimum": 0 },
     "mission": { "type": "string" },
     "planning_budget_minor": { "type": "integer", "minimum": 0 },
-    "currency": { "type": "string" }
+    "currency": { "type": "string", "const": "INR" },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Buyer constraints such as exclude_brand, exclude_category, and dietary."
+    }
   }
 }

@@ -3,10 +3,12 @@ package grpcapi
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"atlas.dev/core/internal/app"
 	"atlas.dev/core/internal/apperr"
+	"atlas.dev/core/internal/commerce"
 	v1 "atlas.dev/core/internal/gen/atlas/merchant/v1"
 	"atlas.dev/core/internal/payment"
 
@@ -45,22 +47,28 @@ func Register(g *grpc.Server, k *app.Kernel, pay *payment.Service) {
 	v1.RegisterWorkerServiceServer(g, s)
 }
 
-func meta(m *v1.RequestMeta) app.Meta {
-	if m == nil {
-		return app.Meta{}
+func meta(ctx context.Context, m *v1.RequestMeta) app.Meta {
+	var out app.Meta
+	if m != nil {
+		out = app.Meta{
+			RequestID:        m.RequestId,
+			IdempotencyKey:   m.IdempotencyKey,
+			HostRequestProof: m.HostRequestProof,
+			Correlation:      m.Correlation,
+		}
 	}
-	return app.Meta{
-		RequestID:        m.RequestId,
-		IdempotencyKey:   m.IdempotencyKey,
-		HostRequestProof: m.HostRequestProof,
-		ApprovedHostID:   m.ApprovedHostId,
-		OperatorID:       m.OperatorId,
-		OperatorScopes:   m.OperatorScopes,
+	if id := IdentityFrom(ctx); id != nil {
+		if id.HostID != "" {
+			out.ApprovedHostID = id.HostID
+		}
+		out.OperatorID = id.OperatorID
+		out.OperatorScopes = append([]string(nil), id.OperatorScopes...)
 	}
+	return out
 }
 
 func (s *Server) GetCapabilities(ctx context.Context, in *v1.GetCapabilitiesRequest) (*v1.GetCapabilitiesResponse, error) {
-	env, cap, err := s.K.GetCapabilities(ctx, meta(in.Meta))
+	env, cap, err := s.K.GetCapabilities(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -69,9 +77,10 @@ func (s *Server) GetCapabilities(ctx context.Context, in *v1.GetCapabilitiesRequ
 		Currency: cap.Currency, Locale: cap.Locale, Tools: cap.Tools, MaxPageSize: cap.MaxPageSize,
 		OfferTtlSeconds: cap.OfferTTLSeconds, ProposalHoldTtlSeconds: cap.ProposalHoldTTLSeconds,
 		Payment: &v1.PaymentCapability{
-			CapabilityId: "pcap_razorpay_test", Provider: "razorpay", Environment: "test", MoneyMovement: "simulated",
+			CapabilityId: cap.PaymentCapabilityID, Provider: "razorpay", Environment: "test", MoneyMovement: "simulated",
 			CompletionMode: "asynchronous", RequiresCheckoutProposal: true, RequiresCheckoutAuthority: true,
 			SupportsBuyerAgentRawInstrumentAccess: false, TerminalSuccessState: "CAPTURED_RECONCILED",
+			Status: cap.PaymentStatus,
 		},
 	}}, nil
 }
@@ -81,68 +90,81 @@ func (s *Server) GetProfile(ctx context.Context, in *v1.GetProfileRequest) (*v1.
 }
 
 func (s *Server) SearchCatalog(ctx context.Context, in *v1.SearchCatalogRequest) (*v1.SearchCatalogResponse, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	env, items, cursor, offers, err := s.K.SearchCatalog(ctx, m, in.SessionId, in.Query, in.Category, in.Brand, in.Cursor, in.PageSize)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	out := &v1.SearchCatalogResponse{Envelope: toEnv(env), NextCursor: cursor, Offers: toOffers(offers)}
+	cur := s.displayCurrency(ctx)
+	out := &v1.SearchCatalogResponse{Envelope: toEnv(env), NextCursor: cursor, Offers: toOffers(offers, cur)}
 	for _, it := range items {
-		out.Items = append(out.Items, toSKU(it))
+		out.Items = append(out.Items, toSKU(it, cur))
 	}
 	return out, nil
 }
 
 func (s *Server) GetProduct(ctx context.Context, in *v1.GetProductRequest) (*v1.GetProductResponse, error) {
-	env, p, err := s.K.GetProduct(ctx, meta(in.Meta), in.SessionId, in.ProductId, in.LocationId)
+	env, p, err := s.K.GetProduct(ctx, meta(ctx, in.Meta), in.SessionId, in.ProductId, in.LocationId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	prod := &v1.Product{ProductId: p.ProductID, Name: p.Name, Brand: p.Brand, Category: p.Category, Subcategory: p.Subcategory, CanonicalDescription: p.Description, Dietary: p.Dietary, Lifecycle: p.Lifecycle}
+	cur := s.displayCurrency(ctx)
 	for _, sku := range p.SKUs {
-		prod.Skus = append(prod.Skus, toSKU(sku))
+		prod.Skus = append(prod.Skus, toSKU(sku, cur))
 	}
 	return &v1.GetProductResponse{Envelope: toEnv(env), Product: prod}, nil
 }
 
 func (s *Server) CreateSession(ctx context.Context, in *v1.CreateSessionRequest) (*v1.CreateSessionResponse, error) {
-	m := meta(in.Meta)
-	m.Arguments = map[string]any{"subject_reference": in.SubjectReference, "delivery_serviceability_reference": in.DeliveryServiceabilityReference, "locale": in.Locale, "requested_location_id": in.RequestedLocationId, "evaluation_arm": in.EvaluationArm}
-	out, err := s.K.CreateSession(ctx, m, in.SubjectReference, in.DeliveryServiceabilityReference, in.Locale, in.RequestedLocationId, in.EvaluationArm)
+	m := meta(ctx, in.Meta)
+	allowlist := in.GetStrategyAllowlist()
+	if allowlist == nil {
+		allowlist = []string{}
+	}
+	m.Arguments = map[string]any{"subject_reference": in.SubjectReference, "delivery_serviceability_reference": in.DeliveryServiceabilityReference, "locale": in.Locale, "requested_location_id": in.RequestedLocationId, "strategy_allowlist": allowlist}
+	if in.EvaluationArm != "" {
+		m.Arguments["evaluation_arm"] = in.EvaluationArm
+	}
+	out, err := s.K.CreateSession(ctx, m, in.SubjectReference, in.DeliveryServiceabilityReference, in.Locale, in.RequestedLocationId, in.EvaluationArm, allowlist)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.CreateSessionResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers)}, nil
+	return &v1.CreateSessionResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers, out.Session.Currency), TreatmentPolicy: toPolicy(out.Session.Treatment)}, nil
 }
 
 func (s *Server) SetIntent(ctx context.Context, in *v1.SetIntentRequest) (*v1.SetIntentResponse, error) {
-	m := meta(in.Meta)
-	m.Arguments = map[string]any{"session_id": in.SessionId, "expected_session_context_version": in.ExpectedSessionContextVersion, "mission": in.Mission, "planning_budget_minor": in.PlanningBudgetMinor, "currency": in.Currency}
-	out, err := s.K.SetIntent(ctx, m, in.SessionId, in.ExpectedSessionContextVersion, in.Mission, in.PlanningBudgetMinor, in.Currency, in.Constraints)
+	m := meta(ctx, in.Meta)
+	constraints := in.Constraints
+	if constraints == nil {
+		constraints = map[string]string{}
+	}
+	m.Arguments = map[string]any{"session_id": in.SessionId, "expected_session_context_version": in.ExpectedSessionContextVersion, "mission": in.Mission, "planning_budget_minor": in.PlanningBudgetMinor, "currency": in.Currency, "constraints": constraints}
+	out, err := s.K.SetIntent(ctx, m, in.SessionId, in.ExpectedSessionContextVersion, in.Mission, in.PlanningBudgetMinor, in.Currency, constraints)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.SetIntentResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers), InvalidatedOfferIds: out.InvalidatedOfferIDs}, nil
+	return &v1.SetIntentResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers, out.Session.Currency), InvalidatedOfferIds: out.InvalidatedOfferIDs, TreatmentPolicy: toPolicy(out.Session.Treatment)}, nil
 }
 
 func (s *Server) GetSession(ctx context.Context, in *v1.GetSessionRequest) (*v1.GetSessionResponse, error) {
-	env, sess, cart, err := s.K.GetSession(ctx, meta(in.Meta), in.SessionId)
+	env, sess, cart, err := s.K.GetSession(ctx, meta(ctx, in.Meta), in.SessionId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.GetSessionResponse{Envelope: toEnv(env), SessionSummary: toSession(sess), Cart: toCart(cart), SubjectReference: sess.SubjectReference, HostId: sess.HostID}, nil
+	return &v1.GetSessionResponse{Envelope: toEnv(env), SessionSummary: toSession(sess), Cart: toCart(cart), SubjectReference: sess.SubjectReference, HostId: sess.HostID, TreatmentPolicy: toPolicy(sess.Treatment)}, nil
 }
 
 func (s *Server) GetCart(ctx context.Context, in *v1.GetCartRequest) (*v1.GetCartResponse, error) {
-	out, err := s.K.GetCart(ctx, meta(in.Meta), in.SessionId)
+	out, err := s.K.GetCart(ctx, meta(ctx, in.Meta), in.SessionId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.GetCartResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers)}, nil
+	return &v1.GetCartResponse{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers, out.Session.Currency), TreatmentPolicy: toPolicy(out.Session.Treatment)}, nil
 }
 
 func (s *Server) AddItem(ctx context.Context, in *v1.AddItemRequest) (*v1.CartMutationResult, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "cart_id": in.CartId, "expected_cart_version": in.ExpectedCartVersion, "sku_id": in.SkuId, "quantity": in.Quantity}
 	out, err := s.K.AddItem(ctx, m, in.SessionId, in.CartId, in.ExpectedCartVersion, in.SkuId, in.Quantity)
 	if err != nil {
@@ -152,7 +174,7 @@ func (s *Server) AddItem(ctx context.Context, in *v1.AddItemRequest) (*v1.CartMu
 }
 
 func (s *Server) UpdateItem(ctx context.Context, in *v1.UpdateItemRequest) (*v1.CartMutationResult, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "cart_id": in.CartId, "expected_cart_version": in.ExpectedCartVersion, "cart_line_id": in.CartLineId, "quantity": in.Quantity}
 	out, err := s.K.UpdateItem(ctx, m, in.SessionId, in.CartId, in.ExpectedCartVersion, in.CartLineId, in.Quantity)
 	if err != nil {
@@ -162,7 +184,7 @@ func (s *Server) UpdateItem(ctx context.Context, in *v1.UpdateItemRequest) (*v1.
 }
 
 func (s *Server) RemoveItem(ctx context.Context, in *v1.RemoveItemRequest) (*v1.CartMutationResult, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "cart_id": in.CartId, "expected_cart_version": in.ExpectedCartVersion, "cart_line_id": in.CartLineId}
 	out, err := s.K.RemoveItem(ctx, m, in.SessionId, in.CartId, in.ExpectedCartVersion, in.CartLineId)
 	if err != nil {
@@ -172,7 +194,7 @@ func (s *Server) RemoveItem(ctx context.Context, in *v1.RemoveItemRequest) (*v1.
 }
 
 func (s *Server) ApplyOffer(ctx context.Context, in *v1.ApplyOfferRequest) (*v1.CartMutationResult, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "offer_id": in.OfferId, "expected_session_context_version": in.ExpectedSessionContextVersion, "expected_cart_version": in.ExpectedCartVersion}
 	out, err := s.K.ApplyOffer(ctx, m, in.SessionId, in.OfferId, in.ExpectedSessionContextVersion, in.ExpectedCartVersion)
 	if err != nil {
@@ -182,7 +204,7 @@ func (s *Server) ApplyOffer(ctx context.Context, in *v1.ApplyOfferRequest) (*v1.
 }
 
 func (s *Server) PrepareCheckout(ctx context.Context, in *v1.PrepareCheckoutRequest) (*v1.PrepareCheckoutResponse, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "cart_id": in.CartId, "expected_session_context_version": in.ExpectedSessionContextVersion, "expected_cart_version": in.ExpectedCartVersion}
 	env, sess, cart, prop, err := s.K.PrepareCheckout(ctx, m, in.SessionId, in.CartId, in.ExpectedSessionContextVersion, in.ExpectedCartVersion)
 	if err != nil {
@@ -192,7 +214,7 @@ func (s *Server) PrepareCheckout(ctx context.Context, in *v1.PrepareCheckoutRequ
 }
 
 func (s *Server) CompleteCheckout(ctx context.Context, in *v1.CompleteCheckoutRequest) (*v1.CompleteCheckoutResponse, error) {
-	m := meta(in.Meta)
+	m := meta(ctx, in.Meta)
 	m.Arguments = map[string]any{"session_id": in.SessionId, "checkout_proposal_id": in.CheckoutProposalId}
 	env, ord, err := s.K.CompleteCheckout(ctx, m, in.SessionId, in.CheckoutProposalId, in.CheckoutAuthority)
 	if err != nil {
@@ -202,7 +224,7 @@ func (s *Server) CompleteCheckout(ctx context.Context, in *v1.CompleteCheckoutRe
 }
 
 func (s *Server) GetOrder(ctx context.Context, in *v1.GetOrderRequest) (*v1.GetOrderResponse, error) {
-	env, ord, err := s.K.GetOrder(ctx, meta(in.Meta), in.SessionId, in.MerchantOrderId)
+	env, ord, err := s.K.GetOrder(ctx, meta(ctx, in.Meta), in.SessionId, in.MerchantOrderId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -258,7 +280,11 @@ func (s *Server) ClaimRunnerJob(ctx context.Context, in *v1.ClaimRunnerJobReques
 	if s.Pay == nil {
 		return &v1.ClaimRunnerJobResponse{}, nil
 	}
-	job, err := s.Pay.ClaimRunnerJob(ctx, in.ExecutorCredential)
+	cred := strings.TrimSpace(bearerFromMD(ctx))
+	if cred == "" {
+		cred = in.GetExecutorCredential()
+	}
+	job, err := s.Pay.ClaimRunnerJob(ctx, cred)
 	if err != nil {
 		if payment.Is(err, "RUNNER_JOB_NOT_FOUND") {
 			return &v1.ClaimRunnerJobResponse{}, nil
@@ -288,16 +314,22 @@ func (s *Server) ReportRunnerObservation(ctx context.Context, in *v1.ReportRunne
 	if s.Pay == nil {
 		return &v1.ReportRunnerObservationResponse{Accepted: false}, nil
 	}
+	if !json.Valid([]byte(in.ObservationJson)) {
+		return &v1.ReportRunnerObservationResponse{Accepted: false}, nil
+	}
 	var obs struct {
 		ExecutorToken     string `json:"executor_token"`
 		ObservedScreen    string `json:"observed_screen"`
 		RazorpayOrderID   string `json:"razorpay_order_id"`
 		RazorpayPaymentID string `json:"razorpay_payment_id"`
 	}
-	_ = json.Unmarshal([]byte(in.ObservationJson), &obs)
+	if err := json.Unmarshal([]byte(in.ObservationJson), &obs); err != nil {
+		return &v1.ReportRunnerObservationResponse{Accepted: false}, nil
+	}
 	err := s.Pay.RecordRunnerObservation(ctx, payment.RunnerObservation{
-		JobID: in.JobId, ExecutorToken: obs.ExecutorToken, ObservedScreen: obs.ObservedScreen,
-		RazorpayOrderID: obs.RazorpayOrderID, RazorpayPaymentID: obs.RazorpayPaymentID,
+		JobID: in.JobId, ExecutorToken: obs.ExecutorToken, ExecutorCredential: in.ExecutorCredential,
+		ObservedScreen: obs.ObservedScreen, RazorpayOrderID: obs.RazorpayOrderID, RazorpayPaymentID: obs.RazorpayPaymentID,
+		ObservationConfidence: "browser_non_authoritative",
 	})
 	if err != nil {
 		return &v1.ReportRunnerObservationResponse{Accepted: false}, nil
@@ -306,7 +338,7 @@ func (s *Server) ReportRunnerObservation(ctx context.Context, in *v1.ReportRunne
 }
 
 func (s *Server) GetMerchantProfile(ctx context.Context, in *v1.GetProfileRequest) (*v1.GetProfileResponse, error) {
-	env, p, locs, err := s.K.GetProfile(ctx, meta(in.Meta))
+	env, p, locs, err := s.K.GetProfile(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -320,7 +352,7 @@ func (s *Server) GetMerchantProfile(ctx context.Context, in *v1.GetProfileReques
 			LocationId: str(l["location_id"]), Name: str(l["name"]), Neighbourhood: str(l["neighbourhood"]), City: str(l["city"]),
 			DeliveryFeeMinor: asI64(l["delivery_fee_minor"]), MinimumOrderValueMinor: asI64(l["minimum_order_value_minor"]),
 			FreeDeliveryThresholdMinor: asI64(l["free_delivery_threshold_minor"]), EtaMinMinutes: int32(asI64(l["eta_min_minutes"])),
-			EtaMaxMinutes: int32(asI64(l["eta_max_minutes"])), Active: asBool(l["active"]), ServiceabilityReference: str(l["serviceability_reference"]), Currency: "INR",
+			EtaMaxMinutes: int32(asI64(l["eta_max_minutes"])), Active: asBool(l["active"]), ServiceabilityReference: str(l["serviceability_reference"]), Currency: str(p["currency"]),
 		})
 	}
 	return resp, nil
@@ -335,17 +367,30 @@ func (s *Server) ListLocations(ctx context.Context, in *v1.GetProfileRequest) (*
 }
 
 func (s *Server) GetAttention(ctx context.Context, in *v1.GetProfileRequest) (*v1.GetAttentionResponse, error) {
-	env, a, err := s.K.Attention(ctx, meta(in.Meta))
+	env, a, err := s.K.Attention(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return &v1.GetAttentionResponse{Envelope: toEnv(env), Summary: &v1.AttentionSummary{
-		Completeness: str(a["completeness"]), UnresolvedMoney: int32(asI64(a["unresolved_money"])), Headline: str(a["headline"]),
-	}}, nil
+	resp := &v1.GetAttentionResponse{Envelope: toEnv(env), Summary: &v1.AttentionSummary{
+		Completeness: a.Completeness, Headline: a.Headline,
+		UnresolvedMoney: int32(a.Counts["UNRESOLVED_MONEY"]), EvidenceRejected: int32(a.Counts["EVIDENCE_REJECTED"]),
+		AuthorizationSecurity: int32(a.Counts["AUTHORIZATION_SECURITY"]), CommerceReplan: int32(a.Counts["STALE_STRATEGY"]),
+		RecoveryDelayed: int32(a.Counts["DELAYED_RECOVERY"]), CapturedUnbound: int32(a.Counts["CAPTURED_UNBOUND"]),
+		FailedJob: int32(a.Counts["FAILED_JOB"]), InventoryHoldLeak: int32(a.Counts["INVENTORY_HOLD_LEAK"]),
+		StaleStrategy: int32(a.Counts["STALE_STRATEGY"]), IncompleteMerchantData: int32(a.Counts["INCOMPLETE_MERCHANT_DATA"]),
+		MissingEvaluationEvidence: int32(a.Counts["MISSING_EVALUATION_EVIDENCE"]),
+	}}
+	for _, item := range a.Items {
+		resp.Items = append(resp.Items, &v1.AttentionItem{
+			Category: item.Category, Severity: item.Severity, State: item.State, Owner: item.Owner,
+			ResourceIds: item.ResourceIDs, Explanation: item.Explanation, NextSafeAction: item.NextSafeAction, RetryAllowed: item.RetryAllowed,
+		})
+	}
+	return resp, nil
 }
 
 func (s *Server) SearchResources(ctx context.Context, in *v1.ResourceSearchRequest) (*v1.ResourceSearchResponse, error) {
-	env, hits, err := s.K.SearchResources(ctx, meta(in.Meta), in.Query)
+	env, hits, err := s.K.SearchResources(ctx, meta(ctx, in.Meta), in.Query)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -357,7 +402,7 @@ func (s *Server) SearchResources(ctx context.Context, in *v1.ResourceSearchReque
 }
 
 func (s *Server) CreateRefund(ctx context.Context, in *v1.CreateRefundRequest) (*v1.CreateRefundResponse, error) {
-	env, code, msg, err := s.K.CreateRefund(ctx, meta(in.Meta), in.MerchantOrderId, in.AmountMinor, in.Currency, in.Reason)
+	env, code, msg, err := s.K.CreateRefund(ctx, meta(ctx, in.Meta), in.MerchantOrderId, in.AmountMinor, in.Currency, in.Reason)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -365,25 +410,23 @@ func (s *Server) CreateRefund(ctx context.Context, in *v1.CreateRefundRequest) (
 }
 
 func (s *Server) AdjustInventory(ctx context.Context, in *v1.AdjustInventoryRequest) (*v1.ListInventoryResponse, error) {
-	if err := s.K.AdjustInventory(ctx, meta(in.Meta), in.LocationId, in.SkuId, in.OnHandDelta, in.Reason); err != nil {
+	if err := s.K.AdjustInventory(ctx, meta(ctx, in.Meta), in.LocationId, in.SkuId, in.OnHandDelta, in.Reason); err != nil {
 		return nil, toStatus(err)
 	}
 	return s.ListInventory(ctx, &v1.ListInventoryRequest{Meta: in.Meta, LocationId: in.LocationId})
 }
 
 func (s *Server) ListInventory(ctx context.Context, in *v1.ListInventoryRequest) (*v1.ListInventoryResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT location_id, sku_id, on_hand_quantity, reserved_quantity, safety_buffer, GREATEST(on_hand_quantity-reserved_quantity-safety_buffer,0), stock_status FROM inventory WHERE ($1='' OR location_id=$1) ORDER BY sku_id LIMIT 500`, in.LocationId)
+	env, rows, err := s.K.ListInventory(ctx, meta(ctx, in.Meta), in.LocationId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListInventoryResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		var r v1.InventoryRow
-		if err := rows.Scan(&r.LocationId, &r.SkuId, &r.OnHandQuantity, &r.ReservedQuantity, &r.SafetyBuffer, &r.SellableQuantity, &r.StockStatus); err != nil {
-			return nil, err
-		}
-		resp.Rows = append(resp.Rows, &r)
+	resp := &v1.ListInventoryResponse{Envelope: toEnv(env)}
+	for _, r := range rows {
+		resp.Rows = append(resp.Rows, &v1.InventoryRow{
+			LocationId: r.LocationID, SkuId: r.SKUID, OnHandQuantity: r.OnHand, ReservedQuantity: r.Reserved,
+			SafetyBuffer: r.SafetyBuffer, SellableQuantity: r.SellableQuantity, StockStatus: r.StockStatus,
+		})
 	}
 	return resp, nil
 }
@@ -393,7 +436,7 @@ func (s *Server) ListAuditEvents(ctx context.Context, in *v1.ListAuditEventsRequ
 	if len(in.EventKind) > 0 {
 		kind = in.EventKind[0]
 	}
-	env, events, cursor, err := s.K.ListAuditEvents(ctx, meta(in.Meta), kind, in.ResourceType, in.ResourceId, in.RequestIdFilter, in.OperationId, in.PageSize)
+	env, events, cursor, err := s.K.ListAuditEvents(ctx, meta(ctx, in.Meta), kind, in.ResourceType, in.ResourceId, in.RequestIdFilter, in.OperationId, in.PageSize)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -405,7 +448,7 @@ func (s *Server) ListAuditEvents(ctx context.Context, in *v1.ListAuditEventsRequ
 }
 
 func (s *Server) GetAuditEvent(ctx context.Context, in *v1.GetAuditEventRequest) (*v1.GetAuditEventResponse, error) {
-	env, e, err := s.K.GetAuditEvent(ctx, meta(in.Meta), in.AuditEventId)
+	env, e, err := s.K.GetAuditEvent(ctx, meta(ctx, in.Meta), in.AuditEventId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -413,7 +456,7 @@ func (s *Server) GetAuditEvent(ctx context.Context, in *v1.GetAuditEventRequest)
 }
 
 func (s *Server) GetOperationTimeline(ctx context.Context, in *v1.GetOperationTimelineRequest) (*v1.GetOperationTimelineResponse, error) {
-	env, events, stages, err := s.K.GetOperationTimeline(ctx, meta(in.Meta), in.OperationId)
+	env, events, stages, err := s.K.GetOperationTimeline(ctx, meta(ctx, in.Meta), in.OperationId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -422,13 +465,13 @@ func (s *Server) GetOperationTimeline(ctx context.Context, in *v1.GetOperationTi
 		resp.Events = append(resp.Events, toAuditEvent(e))
 	}
 	for _, st := range stages {
-		resp.Stages = append(resp.Stages, &v1.AssuranceStage{Stage: st, Reached: true})
+		resp.Stages = append(resp.Stages, &v1.AssuranceStage{Stage: st.Stage, Reached: st.Reached, Authoritative: st.Authoritative, Note: st.Note})
 	}
 	return resp, nil
 }
 
 func (s *Server) GetResourceTimeline(ctx context.Context, in *v1.GetResourceTimelineRequest) (*v1.GetResourceTimelineResponse, error) {
-	env, events, err := s.K.GetResourceTimeline(ctx, meta(in.Meta), in.ResourceType, in.ResourceId)
+	env, events, err := s.K.GetResourceTimeline(ctx, meta(ctx, in.Meta), in.ResourceType, in.ResourceId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -440,7 +483,7 @@ func (s *Server) GetResourceTimeline(ctx context.Context, in *v1.GetResourceTime
 }
 
 func (s *Server) CreateAuditExport(ctx context.Context, in *v1.CreateAuditExportRequest) (*v1.CreateAuditExportResponse, error) {
-	env, id, st, err := s.K.CreateAuditExport(ctx, meta(in.Meta), in.Format, in.FilterJson)
+	env, id, st, err := s.K.CreateAuditExport(ctx, meta(ctx, in.Meta), in.Format, in.FilterJson)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -448,7 +491,7 @@ func (s *Server) CreateAuditExport(ctx context.Context, in *v1.CreateAuditExport
 }
 
 func (s *Server) GetAuditExport(ctx context.Context, in *v1.GetAuditExportRequest) (*v1.GetAuditExportResponse, error) {
-	env, id, st, path, err := s.K.GetAuditExport(ctx, meta(in.Meta), in.ExportId)
+	env, id, st, path, err := s.K.GetAuditExport(ctx, meta(ctx, in.Meta), in.ExportId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -460,33 +503,50 @@ func (s *Server) GetSystemCapabilities(ctx context.Context, in *v1.GetCapabiliti
 }
 
 func (s *Server) GetSystemHealth(ctx context.Context, in *v1.GetProfileRequest) (*v1.SystemHealthResponse, error) {
-	err := s.K.DB.Ready(ctx, s.K.Cfg.RequiredMigration)
-	ok := err == nil
-	st := "ready"
-	if !ok {
-		st = "not_ready"
-	}
-	return &v1.SystemHealthResponse{Envelope: toEnv(s.KEnv(in.Meta)), Status: st, Database: ok, Migrations: ok}, nil
-}
-
-func (s *Server) ListProducts(ctx context.Context, in *v1.ListProductsRequest) (*v1.ListProductsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT product_id, name, brand, category, subcategory, canonical_description, lifecycle FROM products ORDER BY name LIMIT 200`)
+	env, h, err := s.K.SystemHealth(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListProductsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		p := &v1.Product{}
-		if err := rows.Scan(&p.ProductId, &p.Name, &p.Brand, &p.Category, &p.Subcategory, &p.CanonicalDescription, &p.Lifecycle); err != nil {
-			return nil, err
-		}
-		resp.Products = append(resp.Products, p)
+	resp := &v1.SystemHealthResponse{Envelope: toEnv(env), Status: h.Status, Database: h.Database, Migrations: h.Migrations}
+	for _, c := range h.Components {
+		resp.Components = append(resp.Components, &v1.HealthComponent{
+			Name: c.Name, Status: c.Status, Detail: c.Detail, EvidenceStatus: healthEvidence(c.Status),
+		})
+	}
+	return resp, nil
+}
+
+func (s *Server) GetMerchantOutcomes(ctx context.Context, in *v1.GetMerchantOutcomesRequest) (*v1.GetMerchantOutcomesResponse, error) {
+	env, metrics, err := s.K.MerchantOutcomes(ctx, meta(ctx, in.Meta))
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	resp := &v1.GetMerchantOutcomesResponse{Envelope: toEnv(env)}
+	for _, m := range metrics {
+		resp.Metrics = append(resp.Metrics, &v1.OutcomeMetric{
+			Name: m.Name, Eligible: m.Eligible, EvidenceStatus: m.Evidence, Value: m.Value, ValuePresent: m.ValuePresent,
+			Numerator: m.Numerator, Denominator: m.Denominator, RatioPresent: m.RatioPresent,
+		})
+	}
+	return resp, nil
+}
+
+func (s *Server) ListProducts(ctx context.Context, in *v1.ListProductsRequest) (*v1.ListProductsResponse, error) {
+	env, products, err := s.K.ListProductsAdmin(ctx, meta(ctx, in.Meta))
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	resp := &v1.ListProductsResponse{Envelope: toEnv(env)}
+	for _, p := range products {
+		resp.Products = append(resp.Products, &v1.Product{ProductId: p.ProductID, Name: p.Name, Brand: p.Brand, Category: p.Category, Subcategory: p.Subcategory, CanonicalDescription: p.Description, Lifecycle: p.Lifecycle})
 	}
 	return resp, nil
 }
 
 func (s *Server) GetProductAdmin(ctx context.Context, in *v1.GetProductRequest) (*v1.GetProductResponse, error) {
+	if err := s.K.RequireScope(meta(ctx, in.Meta), "merchant:read"); err != nil {
+		return nil, toStatus(err)
+	}
 	row := s.K.Pool().QueryRow(ctx, `SELECT product_id, name, brand, category, subcategory, canonical_description, lifecycle FROM products WHERE product_id=$1`, in.ProductId)
 	p := &v1.Product{}
 	if err := row.Scan(&p.ProductId, &p.Name, &p.Brand, &p.Category, &p.Subcategory, &p.CanonicalDescription, &p.Lifecycle); err != nil {
@@ -499,60 +559,57 @@ func (s *Server) GetProductAdmin(ctx context.Context, in *v1.GetProductRequest) 
 		return nil, toStatus(err)
 	}
 	defer skuRows.Close()
+	cur := s.displayCurrency(ctx)
 	for skuRows.Next() {
 		sku := &v1.Sku{}
 		var price int64
 		if err := skuRows.Scan(&sku.SkuId, &sku.ProductId, &sku.Name, &sku.Brand, &sku.Variant, &sku.Lifecycle, &price); err != nil {
 			return nil, err
 		}
-		sku.SellingPrice = money(price, "INR")
+		sku.SellingPrice = money(price, cur)
 		p.Skus = append(p.Skus, sku)
+	}
+	if err := skuRows.Err(); err != nil {
+		return nil, err
 	}
 	return &v1.GetProductResponse{Envelope: toEnv(s.KEnv(in.Meta)), Product: p}, nil
 }
 
 func (s *Server) ListRelationships(ctx context.Context, in *v1.GetProfileRequest) (*v1.ListRelationshipsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT source_id, target_id, relationship_type FROM product_relationships LIMIT 500`)
+	env, rels, err := s.K.ListRelationshipsAdmin(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListRelationshipsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		r := &v1.Relationship{}
-		if err := rows.Scan(&r.Source, &r.Target, &r.Type); err != nil {
-			return nil, err
-		}
-		resp.Relationships = append(resp.Relationships, r)
+	resp := &v1.ListRelationshipsResponse{Envelope: toEnv(env)}
+	for _, r := range rels {
+		resp.Relationships = append(resp.Relationships, &v1.Relationship{Source: r.Source, Target: r.Target, Type: r.Type})
 	}
 	return resp, nil
 }
 
 func (s *Server) ListPromotions(ctx context.Context, in *v1.GetProfileRequest) (*v1.ListPromotionsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT promotion_id, name, type FROM promotions ORDER BY name LIMIT 200`)
+	env, promos, err := s.K.ListPromotions(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListPromotionsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		p := &v1.Promotion{}
-		if err := rows.Scan(&p.PromotionId, &p.Name, &p.Type); err != nil {
-			return nil, err
-		}
-		resp.Promotions = append(resp.Promotions, p)
+	resp := &v1.ListPromotionsResponse{Envelope: toEnv(env)}
+	for _, p := range promos {
+		resp.Promotions = append(resp.Promotions, toPromotion(p))
 	}
 	return resp, nil
 }
 
 func (s *Server) ListStrategies(ctx context.Context, in *v1.GetProfileRequest) (*v1.ListStrategiesResponse, error) {
+	if err := s.K.RequireScope(meta(ctx, in.Meta), "merchant:read"); err != nil {
+		return nil, toStatus(err)
+	}
 	rows, err := s.K.ListStrategyConfigs(ctx)
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	resp := &v1.ListStrategiesResponse{Envelope: toEnv(s.KEnv(in.Meta))}
 	for _, r := range rows {
-		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces})
+		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces, Visibility: r.Visibility})
 	}
 	return resp, nil
 }
@@ -560,21 +617,21 @@ func (s *Server) ListStrategies(ctx context.Context, in *v1.GetProfileRequest) (
 func (s *Server) UpdateStrategies(ctx context.Context, in *v1.UpdateStrategiesRequest) (*v1.ListStrategiesResponse, error) {
 	var rows []app.StrategyRow
 	for _, st := range in.Strategies {
-		rows = append(rows, app.StrategyRow{Type: st.StrategyType, Enabled: st.Enabled, Revision: st.Revision, Surfaces: st.Surfaces})
+		rows = append(rows, app.StrategyRow{Type: st.StrategyType, Enabled: st.Enabled, Revision: st.Revision, ExpectedRevision: st.ExpectedRevision, Surfaces: st.Surfaces, Visibility: st.Visibility})
 	}
-	got, err := s.K.UpdateStrategyConfigs(ctx, meta(in.Meta), rows)
+	got, err := s.K.UpdateStrategyConfigs(ctx, meta(ctx, in.Meta), rows)
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	resp := &v1.ListStrategiesResponse{Envelope: toEnv(s.KEnv(in.Meta))}
 	for _, r := range got {
-		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces})
+		resp.Strategies = append(resp.Strategies, &v1.StrategyConfig{StrategyType: r.Type, Enabled: r.Enabled, Revision: r.Revision, Surfaces: r.Surfaces, Visibility: r.Visibility})
 	}
 	return resp, nil
 }
 
 func (s *Server) PreviewRules(ctx context.Context, in *v1.PreviewRulesRequest) (*v1.PreviewRulesResponse, error) {
-	tot, offers, err := s.K.PreviewRuleEconomics(ctx, meta(in.Meta))
+	tot, offers, err := s.K.PreviewRuleEconomics(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -588,34 +645,25 @@ func (s *Server) PreviewRules(ctx context.Context, in *v1.PreviewRulesRequest) (
 			Tax:         money(tot.TaxMinor, tot.Currency),
 			AllInTotal:  money(tot.AllInMinor, tot.Currency),
 		},
-		Offers: toOffers(offers),
+		Offers: toOffers(offers, tot.Currency),
 	}, nil
 }
 
 func (s *Server) UpdatePromotion(ctx context.Context, in *v1.UpdatePromotionRequest) (*v1.ListPromotionsResponse, error) {
-	if err := s.K.UpdatePromotionEnabled(ctx, meta(in.Meta), in.PromotionId, in.Enabled); err != nil {
+	if _, err := s.K.UpdatePromotionEnabled(ctx, meta(ctx, in.Meta), in.PromotionId, in.Enabled, in.ExpectedVersion); err != nil {
 		return nil, toStatus(err)
 	}
 	return s.ListPromotions(ctx, &v1.GetProfileRequest{Meta: in.Meta})
 }
 
 func (s *Server) ListSessions(ctx context.Context, in *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT s.session_id, s.session_context_version, s.location_id, s.status, c.cart_id, c.cart_version, COALESCE(s.planning_budget_minor,0), COALESCE(s.mission,''), COALESCE(c.currency,'INR'), COALESCE(c.all_in_total_minor,0)
-		FROM shopping_sessions s LEFT JOIN carts c ON c.session_id=s.session_id
-		ORDER BY s.updated_at DESC LIMIT 100`)
+	env, sessions, err := s.K.ListSessionsAdmin(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListSessionsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		ss := &v1.SessionSummary{}
-		var budget, total int64
-		if err := rows.Scan(&ss.SessionId, &ss.SessionContextVersion, &ss.LocationId, &ss.Status, &ss.CartId, &ss.CartVersion, &budget, &ss.Mission, &ss.Currency, &total); err != nil {
-			return nil, err
-		}
-		ss.PlanningBudget = money(budget, ss.Currency)
-		resp.Sessions = append(resp.Sessions, ss)
+	resp := &v1.ListSessionsResponse{Envelope: toEnv(env)}
+	for _, ss := range sessions {
+		resp.Sessions = append(resp.Sessions, toSession(ss))
 	}
 	return resp, nil
 }
@@ -634,11 +682,15 @@ func (s *Server) GetSessionAdmin(ctx context.Context, in *v1.GetSessionRequest) 
 }
 
 func (s *Server) ListOffers(ctx context.Context, in *v1.ListOffersRequest) (*v1.ListOffersResponse, error) {
+	if err := s.K.RequireScope(meta(ctx, in.Meta), "merchant:read"); err != nil {
+		return nil, toStatus(err)
+	}
 	rows, err := s.K.Pool().Query(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, created_at, buyer_impact_minor FROM offers WHERE ($1='' OR session_id=$1) ORDER BY created_at DESC LIMIT 200`, in.SessionId)
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	defer rows.Close()
+	cur := s.displayCurrency(ctx)
 	resp := &v1.ListOffersResponse{Envelope: toEnv(s.KEnv(in.Meta))}
 	for rows.Next() {
 		o := &v1.Offer{}
@@ -648,41 +700,34 @@ func (s *Server) ListOffers(ctx context.Context, in *v1.ListOffersRequest) (*v1.
 			return nil, err
 		}
 		o.ExpiresAt = timestamppb.New(exp)
-		o.BuyerImpact = money(impact, "INR")
+		o.BuyerImpact = money(impact, cur)
 		resp.Offers = append(resp.Offers, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return resp, nil
 }
 
 func (s *Server) GetOffer(ctx context.Context, in *v1.GetOfferRequest) (*v1.GetOfferResponse, error) {
-	o := &v1.Offer{}
-	var exp time.Time
-	var impact int64
-	var patch []byte
-	err := s.K.Pool().QueryRow(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor FROM offers WHERE offer_id=$1`, in.OfferId).
-		Scan(&o.OfferId, &o.StrategyType, &o.SessionContextVersion, &o.CartVersion, &exp, &o.Status, &o.GroundedReason, &o.Terms, &patch, &impact)
+	if err := s.K.RequireScope(meta(ctx, in.Meta), "merchant:read"); err != nil {
+		return nil, toStatus(err)
+	}
+	var view app.OfferView
+	err := s.K.Pool().QueryRow(ctx, `SELECT offer_id, strategy_type, session_context_version, cart_version, expires_at, status, grounded_reason, terms, cart_patch, buyer_impact_minor, discount_amount_minor, quote_delta_minor, public_explanation FROM offers WHERE offer_id=$1`, in.OfferId).
+		Scan(&view.OfferID, &view.StrategyType, &view.SessionContextVersion, &view.CartVersion, &view.ExpiresAt, &view.Status, &view.GroundedReason, &view.Terms, &view.PatchJSON, &view.BuyerImpactMinor, &view.DiscountAmountMinor, &view.QuoteDeltaMinor, &view.ExplanationJSON)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "offer not found")
 	}
-	o.ExpiresAt = timestamppb.New(exp)
-	o.BuyerImpact = money(impact, "INR")
-	var p appPatch
-	_ = json.Unmarshal(patch, &p)
-	o.CartPatch = &v1.CartPatch{PatchType: p.Type, SourceCartLineId: p.SourceLineID, SourceSkuId: p.SourceSKUID, PromotionId: p.PromotionID, BundleId: p.BundleID}
-	for _, l := range p.Lines {
-		o.CartPatch.Lines = append(o.CartPatch.Lines, &v1.CartPatchLine{SkuId: l.SKUID, Quantity: int32(l.Quantity), Op: l.Op})
-	}
-	if p.Economics != nil && (p.Economics.ItemCostMinor != 0 || p.Economics.ThresholdGapMinor != 0 || p.Economics.FeeSavingMinor != 0) {
-		o.Economics = &v1.OfferEconomics{
-			ItemCostMinor:     p.Economics.ItemCostMinor,
-			ThresholdGapMinor: p.Economics.ThresholdGapMinor,
-			FeeSavingMinor:    p.Economics.FeeSavingMinor,
-		}
-	}
-	return &v1.GetOfferResponse{Envelope: toEnv(s.KEnv(in.Meta)), Offer: o, CandidateJson: string(patch)}, nil
+	cur := s.displayCurrency(ctx)
+	o := toOffer(view, cur)
+	return &v1.GetOfferResponse{Envelope: toEnv(s.KEnv(in.Meta)), Offer: o, CandidateJson: string(view.PatchJSON)}, nil
 }
 
 func (s *Server) ListOrders(ctx context.Context, in *v1.ListOrdersRequest) (*v1.ListOrdersResponse, error) {
+	if err := s.K.RequireScope(meta(ctx, in.Meta), "merchant:read"); err != nil {
+		return nil, toStatus(err)
+	}
 	rows, err := s.K.Pool().Query(ctx, `SELECT order_id, session_id, COALESCE(checkout_proposal_id,''), status, total_amount_minor, currency, COALESCE(payment_attempt_id,''), COALESCE(payment_public_status,''), location_id, created_at FROM orders ORDER BY created_at DESC LIMIT 100`)
 	if err != nil {
 		return nil, toStatus(err)
@@ -701,6 +746,9 @@ func (s *Server) ListOrders(ctx context.Context, in *v1.ListOrdersRequest) (*v1.
 		o.CreatedAt = timestamppb.New(created)
 		resp.Orders = append(resp.Orders, o)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return resp, nil
 }
 
@@ -711,55 +759,84 @@ func (s *Server) GetOrderAdmin(ctx context.Context, in *v1.GetOrderAdminRequest)
 	}
 	for _, o := range list.Orders {
 		if o.MerchantOrderId == in.MerchantOrderId {
-			return &v1.GetOrderResponse{Envelope: list.Envelope, Order: o}, nil
+			env, card, aerr := s.K.PaymentAssuranceForOrder(ctx, meta(ctx, in.Meta), in.MerchantOrderId, o.PaymentAttemptId)
+			respEnv := list.Envelope
+			if aerr == nil {
+				respEnv = toEnv(env)
+				if respEnv.Correlation == nil {
+					respEnv.Correlation = map[string]string{}
+				}
+				respEnv.Correlation["payment_attempt_id"] = card.PaymentAttemptID
+				respEnv.Correlation["provider_order_id"] = card.ProviderOrderID
+				respEnv.Correlation["provider_payment_id"] = card.ProviderPaymentID
+				respEnv.Correlation["webhook_bound"] = boolText(card.WebhookBound)
+				respEnv.Correlation["callback_bound"] = boolText(card.CallbackBound)
+				respEnv.Correlation["event_binding_status"] = map[bool]string{true: "BOUND", false: "UNBOUND"}[card.WebhookBound || card.CallbackBound]
+				respEnv.Correlation["authenticated_provider_event_ref"] = card.AuthenticatedEventRef
+				respEnv.Correlation["provider_fetch_ref"] = card.ProviderFetchRef
+				respEnv.Correlation["fetch_at"] = card.FetchAt
+				respEnv.Correlation["amount_match"] = card.AmountMatch
+				respEnv.Correlation["final_state"] = card.FinalState
+				respEnv.Correlation["capture_state"] = card.FinalState
+				respEnv.Correlation["reconciliation_state"] = card.EvidenceStatus
+				respEnv.Correlation["hold_disposition"] = card.HoldDisposition
+				respEnv.Correlation["evidence_status"] = card.EvidenceStatus
+				respEnv.Correlation["assurance_message"] = card.Message
+				respEnv.Correlation["runner_screen_is_not_truth"] = "true"
+				respEnv.Correlation["merchant_order_id"] = card.MerchantOrderID
+				respEnv.Correlation["order_confirmed"] = boolText(card.OrderConfirmed)
+				respEnv.Correlation["retry_allowed"] = boolText(card.FinalState != "OUTCOME_UNKNOWN")
+				respEnv.Correlation["settlement_status"] = "NOT_IMPLEMENTED"
+				respEnv.Correlation["assurance_projection_version"] = "payment_assurance_v1"
+			}
+			return &v1.GetOrderResponse{Envelope: respEnv, Order: o}, nil
 		}
 	}
 	return nil, status.Error(codes.NotFound, "order not found")
 }
 
 func (s *Server) ListHosts(ctx context.Context, in *v1.GetProfileRequest) (*v1.ListHostsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT host_id, display_name, status, scopes FROM approved_hosts ORDER BY host_id`)
+	env, hosts, err := s.K.ListHostsAdmin(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListHostsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		h := &v1.HostRecord{}
-		var scopes []string
-		if err := rows.Scan(&h.HostId, &h.DisplayName, &h.Status, &scopes); err != nil {
-			return nil, err
-		}
-		h.Scopes = scopes
-		resp.Hosts = append(resp.Hosts, h)
+	resp := &v1.ListHostsResponse{Envelope: toEnv(env)}
+	for _, h := range hosts {
+		resp.Hosts = append(resp.Hosts, &v1.HostRecord{HostId: h.HostID, DisplayName: h.DisplayName, Status: h.Status, Scopes: h.Scopes})
 	}
 	return resp, nil
 }
 
 func (s *Server) ListOperations(ctx context.Context, in *v1.ListOperationsRequest) (*v1.ListOperationsResponse, error) {
-	rows, err := s.K.Pool().Query(ctx, `SELECT job_id, job_type, status, COALESCE(operation_id,'') FROM jobs ORDER BY created_at DESC LIMIT 100`)
+	env, jobs, err := s.K.ListJobs(ctx, meta(ctx, in.Meta))
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	defer rows.Close()
-	resp := &v1.ListOperationsResponse{Envelope: toEnv(s.KEnv(in.Meta))}
-	for rows.Next() {
-		j := &v1.JobRow{}
-		if err := rows.Scan(&j.JobId, &j.JobType, &j.Status, &j.OperationId); err != nil {
-			return nil, err
-		}
-		resp.Jobs = append(resp.Jobs, j)
+	resp := &v1.ListOperationsResponse{Envelope: toEnv(env)}
+	for _, j := range jobs {
+		resp.Jobs = append(resp.Jobs, &v1.JobRow{
+			JobId: j.JobID, JobType: j.JobType, Status: j.Status, OperationId: j.OperationID,
+			AttemptCount: j.AttemptCount, LastErrorClass: j.LastErrorClass, NextRetryAt: j.NextRetryAt,
+			LeaseOwner: j.LeaseOwner, LeaseExpiresAt: j.LeaseExpiresAt, Retryable: j.Retryable,
+			DeadLetterReason: j.DeadLetterReason, OperatorAction: j.OperatorAction, LastError: j.LastError,
+		})
 	}
 	return resp, nil
 }
 
 func (s *Server) ReconcileOperation(ctx context.Context, in *v1.ReconcileOperationRequest) (*v1.ReconcileOperationResponse, error) {
-	return &v1.ReconcileOperationResponse{Envelope: toEnv(s.KEnv(in.Meta)), Scheduled: true}, nil
+	env, r, err := s.K.ReconcileOperation(ctx, meta(ctx, in.Meta), in.OperationId)
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	if s.Pay != nil && in.GetOperationId() != "" {
+		_ = s.Pay.OperatorReconcile(ctx, in.GetOperationId())
+	}
+	return &v1.ReconcileOperationResponse{Envelope: toEnv(env), Scheduled: r.Scheduled, Status: r.Status, JobId: r.JobID, Code: r.Code}, nil
 }
 
 func (s *Server) UpdateMerchantProfile(ctx context.Context, in *v1.UpdateProfileRequest) (*v1.GetProfileResponse, error) {
-	_, err := s.K.Pool().Exec(ctx, `UPDATE merchant_profile SET display_name=COALESCE(NULLIF($1,''), display_name), profile_version=profile_version+1, updated_at=now() WHERE singleton_key='singleton'`, in.DisplayName)
-	if err != nil {
+	if err := s.K.UpdateMerchantProfile(ctx, meta(ctx, in.Meta), in.DisplayName, in.Description, in.SupportEmail, in.ExpectedVersion); err != nil {
 		return nil, toStatus(err)
 	}
 	return s.GetMerchantProfile(ctx, &v1.GetProfileRequest{Meta: in.Meta})
@@ -773,12 +850,22 @@ func (s *Server) KEnv(m *v1.RequestMeta) app.Envelope {
 	return e
 }
 
+func toPromotion(p app.PromotionView) *v1.Promotion {
+	return &v1.Promotion{
+		PromotionId: p.ID, Type: p.Type, Name: p.Name, EligibleSkuIds: p.EligibleSKUs, MinimumQuantity: p.MinQty,
+		DiscountAmountMinor: p.DiscountMinor, Enabled: p.Enabled, Revision: p.Revision, EligibleLocationIds: p.EligibleLocations,
+		MinimumBasketValueMinor: p.MinBasketMinor, BenefitType: p.BenefitType, FundingSplit: p.FundingSplit,
+		BudgetCapMinor: p.BudgetCapMinor, CurrentUsageMinor: p.CurrentUsageMinor, StartsAt: p.StartsAt, EndsAt: p.EndsAt,
+		AttributionStatus: p.AttributionStatus,
+	}
+}
+
 func toMut(out app.CartMutation) *v1.CartMutationResult {
-	return &v1.CartMutationResult{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers), InvalidatedOfferIds: out.InvalidatedOfferIDs}
+	return &v1.CartMutationResult{Envelope: toEnv(out.Envelope), SessionSummary: toSession(out.Session), Cart: toCart(out.Cart), Offers: toOffers(out.Offers, out.Session.Currency), InvalidatedOfferIds: out.InvalidatedOfferIDs, TreatmentPolicy: toPolicy(out.Session.Treatment)}
 }
 
 func toEnv(e app.Envelope) *v1.Envelope {
-	return &v1.Envelope{ContractVersion: e.ContractVersion, RequestId: e.RequestID, OccurredAt: timestamppb.New(e.OccurredAt), OperationId: e.OperationID}
+	return &v1.Envelope{ContractVersion: e.ContractVersion, RequestId: e.RequestID, OccurredAt: timestamppb.New(e.OccurredAt), OperationId: e.OperationID, Correlation: e.Correlation}
 }
 
 func toAuditEvent(e app.AuditEventView) *v1.AuditEvent {
@@ -786,6 +873,7 @@ func toAuditEvent(e app.AuditEventView) *v1.AuditEvent {
 		AuditEventId: e.ID, RecordSequence: e.Sequence, EventKind: e.Kind, OccurredAt: e.OccurredAt, RequestId: e.RequestID,
 		OperationId: e.OperationID, Action: e.Action, PrimaryResourceType: e.ResourceType, PrimaryResourceId: e.ResourceID,
 		SummarySentence: e.Summary, AttentionCode: e.Attention, EventBodyJson: string(e.BodyJSON),
+		Correlation: e.Correlation, NonAuthoritative: e.NonAuthoritative,
 	}
 }
 
@@ -795,6 +883,17 @@ func toSession(s app.SessionSummary) *v1.SessionSummary {
 		ss.PlanningBudget = &v1.Money{AmountMinor: s.PlanningBudgetMinor, Currency: s.Currency}
 	}
 	return ss
+}
+
+func toPolicy(p *commerce.TreatmentPolicy) *v1.TreatmentPolicy {
+	if p == nil {
+		return nil
+	}
+	return &v1.TreatmentPolicy{
+		PolicyId: p.PolicyID, StrategyAllowlist: p.StrategyAllowlist, StrategyRevisions: p.StrategyRevisions,
+		CampaignRevisions: p.CampaignRevisions, RankingVersion: p.RankingVersion, EconomicObjectiveVersion: p.EconomicObjectiveVersion,
+		PolicyDigest: p.PolicyDigest, Arm: p.Arm, EffectiveAt: timestamppb.New(p.EffectiveAt),
+	}
 }
 
 func toCart(c app.CartView) *v1.Cart {
@@ -809,30 +908,55 @@ func toCart(c app.CartView) *v1.Cart {
 	return out
 }
 
-func toOffers(os []app.OfferView) []*v1.Offer {
+func toOffers(os []app.OfferView, currency string) []*v1.Offer {
 	var out []*v1.Offer
 	for _, o := range os {
-		out = append(out, toOffer(o))
+		out = append(out, toOffer(o, currency))
 	}
 	return out
 }
 
-func toOffer(o app.OfferView) *v1.Offer {
+func toOffer(o app.OfferView, currency string) *v1.Offer {
 	var patch appPatch
 	_ = json.Unmarshal(o.PatchJSON, &patch)
 	p := &v1.CartPatch{PatchType: patch.Type, SourceCartLineId: patch.SourceLineID, SourceSkuId: patch.SourceSKUID, PromotionId: patch.PromotionID, BundleId: patch.BundleID}
 	for _, l := range patch.Lines {
 		p.Lines = append(p.Lines, &v1.CartPatchLine{SkuId: l.SKUID, Quantity: int32(l.Quantity), Op: l.Op})
 	}
-	out := &v1.Offer{OfferId: o.OfferID, StrategyType: o.StrategyType, SessionContextVersion: o.SessionContextVersion, CartVersion: o.CartVersion, ExpiresAt: timestamppb.New(o.ExpiresAt), Status: o.Status, GroundedReason: o.GroundedReason, Terms: o.Terms, CartPatch: p, BuyerImpact: money(o.BuyerImpactMinor, "INR"), BaseAllInTotal: money(o.BaseAllInMinor, "INR"), ProjectedAllInTotal: money(o.PatchedAllInMinor, "INR")}
-	if patch.Economics != nil && (patch.Economics.ItemCostMinor != 0 || patch.Economics.ThresholdGapMinor != 0 || patch.Economics.FeeSavingMinor != 0) {
-		out.Economics = &v1.OfferEconomics{
-			ItemCostMinor:     patch.Economics.ItemCostMinor,
-			ThresholdGapMinor: patch.Economics.ThresholdGapMinor,
-			FeeSavingMinor:    patch.Economics.FeeSavingMinor,
+	out := &v1.Offer{OfferId: o.OfferID, StrategyType: o.StrategyType, SessionContextVersion: o.SessionContextVersion, CartVersion: o.CartVersion, ExpiresAt: timestamppb.New(o.ExpiresAt), Status: o.Status, GroundedReason: o.GroundedReason, Terms: o.Terms, CartPatch: p, BuyerImpact: money(o.BuyerImpactMinor, currency), BaseAllInTotal: money(o.BaseAllInMinor, currency), ProjectedAllInTotal: money(o.PatchedAllInMinor, currency)}
+	attachPublicEconomics(out, o, patch)
+	return out
+}
+
+func attachPublicEconomics(out *v1.Offer, o app.OfferView, patch appPatch) {
+	econ := &v1.OfferEconomics{
+		DiscountAmountMinor: o.DiscountAmountMinor,
+		QuoteDeltaMinor:     o.QuoteDeltaMinor,
+	}
+	if patch.Economics != nil {
+		econ.ItemCostMinor = patch.Economics.ItemCostMinor
+		econ.ThresholdGapMinor = patch.Economics.ThresholdGapMinor
+		econ.FeeSavingMinor = patch.Economics.FeeSavingMinor
+	}
+	var expl commerce.PublicExplanation
+	if len(o.ExplanationJSON) > 0 {
+		_ = json.Unmarshal(o.ExplanationJSON, &expl)
+	}
+	if expl.WhatChanged != "" || expl.WhyEligible != "" || expl.FundedBy != "" || expl.DeliveryChange != "" {
+		econ.Explanation = &v1.OfferExplanation{
+			WhatChanged:         expl.WhatChanged,
+			WhyEligible:         expl.WhyEligible,
+			BuyerCostDeltaMinor: expl.BuyerCostDeltaMinor,
+			BuyerSaveMinor:      expl.BuyerSaveMinor,
+			DeliveryChange:      expl.DeliveryChange,
+			QuantityChange:      expl.QuantityChange,
+			FundedBy:            expl.FundedBy,
 		}
 	}
-	return out
+	if econ.ItemCostMinor == 0 && econ.ThresholdGapMinor == 0 && econ.FeeSavingMinor == 0 && econ.DiscountAmountMinor == 0 && econ.QuoteDeltaMinor == 0 && econ.Explanation == nil {
+		return
+	}
+	out.Economics = econ
 }
 
 type appPatch struct {
@@ -853,8 +977,8 @@ type appPatch struct {
 	} `json:"economics"`
 }
 
-func toSKU(s app.SKUView) *v1.Sku {
-	return &v1.Sku{SkuId: s.SKUID, ProductId: s.ProductID, Name: s.Name, Brand: s.Brand, Variant: s.Variant, PackSize: s.PackSize, UnitOfMeasure: s.UOM, Barcode: s.Barcode, CanonicalDescription: s.Description, Lifecycle: s.Lifecycle, SellingPrice: money(s.SellingMinor, "INR"), SellableQuantity: s.Sellable, StockStatus: s.StockStatus, Assorted: s.Assorted}
+func toSKU(s app.SKUView, currency string) *v1.Sku {
+	return &v1.Sku{SkuId: s.SKUID, ProductId: s.ProductID, Name: s.Name, Brand: s.Brand, Variant: s.Variant, PackSize: s.PackSize, UnitOfMeasure: s.UOM, Barcode: s.Barcode, CanonicalDescription: s.Description, Lifecycle: s.Lifecycle, SellingPrice: money(s.SellingMinor, currency), SellableQuantity: s.Sellable, StockStatus: s.StockStatus, Assorted: s.Assorted}
 }
 
 func toProposal(p app.ProposalView) *v1.CheckoutProposal {
@@ -886,7 +1010,7 @@ func money(minor int64, cur string) *v1.Money {
 func toStatus(err error) error {
 	e := apperr.As(err)
 	if e == nil {
-		return status.Error(codes.Internal, err.Error())
+		return status.Error(codes.Internal, apperr.TemporarilyUnavailable)
 	}
 	code := codes.FailedPrecondition
 	switch e.Code {
@@ -898,11 +1022,15 @@ func toStatus(err error) error {
 		code = codes.NotFound
 	case apperr.InvalidArgument:
 		code = codes.InvalidArgument
+	case apperr.VersionConflict:
+		code = codes.Aborted
+	case apperr.NotReconcilable:
+		code = codes.FailedPrecondition
 	case apperr.RateLimited:
 		code = codes.ResourceExhausted
 	}
-	st := status.New(code, e.Message)
-	d := &v1.ErrorDetail{Code: e.Code, Message: e.Message, Retryable: e.Retryable, RetryAfterMs: e.RetryAfter, OperationId: e.Operation, Details: e.Details}
+	st := status.New(code, e.Code)
+	d := &v1.ErrorDetail{Code: e.Code, Message: publicMessage(e), Retryable: e.Retryable, RetryAfterMs: e.RetryAfter, OperationId: e.Operation, Details: e.Details}
 	if s, ok := e.Session.(app.SessionSummary); ok {
 		d.CurrentSessionSummary = toSession(s)
 	}
@@ -913,9 +1041,30 @@ func toStatus(err error) error {
 	return st.Err()
 }
 
+func publicMessage(e *apperr.E) string {
+	if e == nil {
+		return apperr.TemporarilyUnavailable
+	}
+	msg := e.Message
+	lower := strings.ToLower(msg)
+	if strings.Contains(lower, "sql") || strings.Contains(lower, "postgres") || strings.Contains(lower, "/") && strings.Contains(lower, ".go") {
+		return e.Code
+	}
+	return msg
+}
+
 func str(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+func (s *Server) displayCurrency(ctx context.Context) string {
+	if s.K == nil {
+		return ""
+	}
+	var c string
+	_ = s.K.Pool().QueryRow(ctx, `SELECT currency FROM merchant_profile WHERE singleton_key='singleton'`).Scan(&c)
+	return c
 }
 
 func asI64(v any) int64 {
@@ -936,4 +1085,26 @@ func asI64(v any) int64 {
 func asBool(v any) bool {
 	b, _ := v.(bool)
 	return b
+}
+
+func boolText(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}
+
+func healthEvidence(status string) string {
+	switch status {
+	case "READY", "CONFIGURED":
+		return "CONFIRMED"
+	case "DEGRADED":
+		return "PARTIAL"
+	case "UNKNOWN":
+		return "UNAVAILABLE"
+	case "NOT_READY":
+		return "UNAVAILABLE"
+	default:
+		return "MEASURED"
+	}
 }

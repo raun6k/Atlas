@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"atlas.dev/core/internal/apperr"
+	"atlas.dev/core/internal/audit"
+	"atlas.dev/core/internal/commerce"
 	"atlas.dev/core/internal/ids"
 	"atlas.dev/core/internal/platform"
 	"atlas.dev/core/internal/store"
@@ -40,6 +42,7 @@ type Meta struct {
 	Arguments          map[string]any
 	SkipProof          bool
 	RequireIdempotency bool
+	Correlation        map[string]string
 }
 
 type Envelope struct {
@@ -47,6 +50,7 @@ type Envelope struct {
 	RequestID       string
 	OccurredAt      time.Time
 	OperationID     string
+	Correlation     map[string]string
 }
 
 type SessionSummary struct {
@@ -63,6 +67,9 @@ type SessionSummary struct {
 	HostID                string
 	SubjectReference      string
 	EvaluationArm         string
+	StrategyAllowlist     []string
+	TreatmentPolicyID     string
+	Treatment             *commerce.TreatmentPolicy
 	Constraints           map[string]string
 }
 
@@ -108,6 +115,13 @@ type OfferView struct {
 	BuyerImpactMinor      int64
 	BaseAllInMinor        int64
 	PatchedAllInMinor     int64
+	StrategyRevision      string
+	DiscountAmountMinor   int64
+	MerchantFundedMinor   int64
+	PartnerFundedMinor    int64
+	ExpectedMarginMinor   int64
+	QuoteDeltaMinor       int64
+	ExplanationJSON       []byte
 }
 
 type CartMutation struct {
@@ -137,6 +151,17 @@ func (k *Kernel) env() Envelope {
 func (k *Kernel) withRequest(env Envelope, requestID, operationID string) Envelope {
 	env.RequestID = requestID
 	env.OperationID = operationID
+	env.Correlation = audit.Merge(env.Correlation, map[string]string{
+		"request_id":   requestID,
+		"operation_id": operationID,
+	})
+	return env
+}
+
+func (k *Kernel) withMeta(env Envelope, m Meta, operationID string) Envelope {
+	env = k.withRequest(env, m.RequestID, operationID)
+	env.Correlation = audit.Merge(env.Correlation, m.Correlation)
+	env.Correlation = audit.Merge(env.Correlation, map[string]string{"host_id": m.ApprovedHostID})
 	return env
 }
 
@@ -176,7 +201,14 @@ func hasScope(scopes []string, want string) bool {
 	return false
 }
 
+func (k *Kernel) RequireScope(m Meta, scope string) error {
+	return k.requireScope(m, scope)
+}
+
 func (k *Kernel) requireScope(m Meta, scope string) error {
+	if strings.TrimSpace(m.OperatorID) == "" {
+		return apperr.New(apperr.Unauthenticated, "operator identity is required")
+	}
 	if !hasScope(m.OperatorScopes, scope) {
 		return apperr.New(apperr.Forbidden, "missing operator scope "+scope)
 	}

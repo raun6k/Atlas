@@ -9,6 +9,8 @@ export interface McpCallRequest {
   hostRequestProof?: string;
   checkoutAuthority?: string;
   hostBearer: string;
+  correlation?: Record<string, string>;
+  abort?: AbortSignal;
 }
 
 export interface McpCallResult {
@@ -54,7 +56,36 @@ export function metadataFor(req: McpCallRequest): Record<string, unknown> {
   };
   if (req.idempotencyKey) meta.idempotency_key = req.idempotencyKey;
   if (req.hostRequestProof) meta.host_request_proof = "[REDACTED]";
+  if (req.correlation) meta.correlation = req.correlation;
   return { "com.atlas/request": meta };
+}
+
+export function resultCodeFromMcpError(message: string, data?: unknown): string {
+  if (data && typeof data === "object") {
+    const code = (data as { code?: unknown }).code;
+    if (typeof code === "string" && /^[A-Z][A-Z0-9_]{2,}$/.test(code)) return code;
+  }
+  const named = message.match(/\b[A-Z][A-Z0-9_]{2,}\b/)?.[0];
+  if (named && named !== "MCP") return named;
+  const lower = message.toLowerCase();
+  if (lower.includes("stale cart version")) return "CART_VERSION_CONFLICT";
+  if (lower.includes("proposal is not active") || lower.includes("proposal expired")) return "REQUOTE_REQUIRED";
+  return "MCP_ERROR";
+}
+
+function publicStateFromErrorData(data: unknown): PublicState {
+  if (!data || typeof data !== "object") return {};
+  const rec = data as Record<string, unknown>;
+  const cart = (rec.current_cart ?? rec.currentCart) as Record<string, unknown> | undefined;
+  const session = (rec.current_session_summary ?? rec.currentSessionSummary) as Record<string, unknown> | undefined;
+  const patch: PublicState = {};
+  const cartVersion = cart?.cart_version ?? cart?.cartVersion ?? rec.cart_version;
+  if (cartVersion != null && cartVersion !== "") patch.cart_version = Number(cartVersion);
+  const sessionId = session?.session_id ?? session?.sessionId;
+  if (typeof sessionId === "string") patch.session_id = sessionId;
+  const cartId = cart?.cart_id ?? cart?.cartId ?? session?.cart_id;
+  if (typeof cartId === "string") patch.cart_id = cartId;
+  return patch;
 }
 
 export class HttpMcpClient implements McpClient {
@@ -85,6 +116,7 @@ export class HttpMcpClient implements McpClient {
             request_id: req.requestId,
             ...(req.idempotencyKey ? { idempotency_key: req.idempotencyKey } : {}),
             ...(req.hostRequestProof ? { host_request_proof: req.hostRequestProof } : {}),
+            ...(req.correlation ? { correlation: req.correlation } : {}),
           },
         },
       },
@@ -96,20 +128,20 @@ export class HttpMcpClient implements McpClient {
         authorization: `Bearer ${req.hostBearer}`,
       },
       body: JSON.stringify(body),
+      signal: req.abort,
     });
     const json = (await response.json()) as Record<string, unknown>;
     const safe = redactUnknown(json, this.extraSecrets) as Record<string, unknown>;
     const rpcError = safe.error as { code?: number | string; message?: string; data?: unknown } | undefined;
     if (rpcError) {
       const message = String(rpcError.message ?? "MCP tool call failed");
-      const named = message.match(/\b[A-Z][A-Z0-9_]{2,}\b/)?.[0];
-      const resultCode = named ?? "MCP_ERROR";
+      const resultCode = resultCodeFromMcpError(message, rpcError.data);
       return {
         ok: false,
         resultCode,
         retryable: false,
         payload: { error: { code: rpcError.code ?? -32000, message, data: rpcError.data } },
-        publicStatePatch: {},
+        publicStatePatch: publicStateFromErrorData(rpcError.data),
         requestId: String(safe.id ?? req.requestId),
       };
     }

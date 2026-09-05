@@ -13,5 +13,5 @@ test("permission probe treats missing Atlas database as fail-closed isolation", 
   const { MemoryStore } = await import("./memory-store.js");
   const store = new MemoryStore();
   assert.equal(await store.ping(), true);
-  assert.equal(await store.migrationVersion(), "0002_proof");
+  assert.equal(await store.migrationVersion(), "0006_release_repair");
 });

@@ -29,6 +29,7 @@ type Event struct {
 	RetentionClass string
 	Attention      string
 	Summary        string
+	Correlation    map[string]string
 }
 
 func Append(ctx context.Context, tx pgx.Tx, ev Event) (string, error) {
@@ -44,8 +45,25 @@ func Append(ctx context.Context, tx pgx.Tx, ev Event) (string, error) {
 			ev.RetentionClass = "representations_90d"
 		}
 	}
+	ev.Channel = CanonicalChannel(ev.Channel)
+	ev.PrincipalType = CanonicalPrincipal(ev.PrincipalType)
 	if ev.PrincipalType == "" {
-		ev.PrincipalType = "ATLAS_SYSTEM"
+		ev.PrincipalType = PrincipalSystem
+	}
+	if ev.Body == nil {
+		ev.Body = map[string]any{}
+	}
+	corr := Merge(map[string]string{
+		"request_id":   ev.RequestID,
+		"operation_id": ev.OperationID,
+		"host_id":      hostFrom(ev),
+	}, ev.Correlation)
+	if len(corr) > 0 {
+		ev.Body["correlation"] = corr
+	}
+	corrJSON, err := json.Marshal(corr)
+	if err != nil {
+		return "", err
 	}
 	body, err := json.Marshal(ev.Body)
 	if err != nil {
@@ -59,11 +77,21 @@ func Append(ctx context.Context, tx pgx.Tx, ev Event) (string, error) {
 			initiating_principal_type, initiating_principal_id, executing_component,
 			source_channel, contract_version, action, primary_resource_type, primary_resource_id,
 			primary_resource_version, event_body, event_body_digest, retention_class,
-			attention_code, summary_sentence
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,'core',$8,'atlas.merchant.v1',$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+			attention_code, summary_sentence, correlation
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,'core',$8,'atlas.merchant.v1',$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb)`,
 		ev.ID, ev.Kind, ev.OccurredAt, ev.RequestID, ev.OperationID,
 		ev.PrincipalType, ev.PrincipalID, ev.Channel, ev.Action, ev.ResourceType, ev.ResourceID,
-		ev.ResourceVer, body, digest, ev.RetentionClass, ev.Attention, ev.Summary,
+		ev.ResourceVer, body, digest, ev.RetentionClass, ev.Attention, ev.Summary, corrJSON,
 	)
 	return ev.ID, err
+}
+
+func hostFrom(ev Event) string {
+	if ev.PrincipalType == PrincipalApprovedHost {
+		return ev.PrincipalID
+	}
+	if ev.Correlation != nil {
+		return ev.Correlation["host_id"]
+	}
+	return ""
 }

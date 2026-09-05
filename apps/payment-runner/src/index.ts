@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.js";
-import { startHealthServer } from "./health.js";
+import { startHealthServer, probeReadiness } from "./health.js";
 import { RunnerClient } from "./client.js";
 import { playwrightExecutor, type BrowserExecutor } from "./checkout.js";
 
@@ -21,11 +21,15 @@ export async function runOnce(executor: BrowserExecutor = playwrightExecutor): P
 
 export async function main(): Promise<void> {
   const cfg = loadConfig();
-  startHealthServer(cfg.httpAddr);
+  const state = { activeJob: false };
+  startHealthServer(cfg.httpAddr, () => probeReadiness(cfg, state));
   for (;;) {
     try {
+      state.activeJob = true;
       await runOnce();
+      state.activeJob = false;
     } catch (err) {
+      state.activeJob = false;
       console.error("runner loop error", err instanceof Error ? err.message : err);
     }
     await new Promise((r) => setTimeout(r, 1000));

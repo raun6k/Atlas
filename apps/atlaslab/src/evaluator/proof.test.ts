@@ -26,13 +26,14 @@ const ex = (tool: string): ToolExchangeRecord => ({
   returned_to_driver: null,
 });
 
-test("eight stages; offer is N/A when unused", () => {
+test("nine stages; offer is N/A when unused", () => {
   const state: PublicState = { lines: [{ sku_id: "sku_a", quantity: 1 }], payment_status: "CAPTURED_RECONCILED", order: { order_id: "ord_1" } };
   const stages = evaluateStages(
     ["get_capabilities", "search_catalog", "add_cart_item", "prepare_checkout", "complete_checkout", "get_order"].map(ex),
     state,
   );
-  assert.equal(stages.length, 8);
+  assert.equal(stages.length, 9);
+  assert.equal(stages.find((s) => s.stage === "REVENUE_ELIGIBLE")?.result, "NOT_REACHED");
   assert.equal(stages.find((s) => s.stage === "OFFER_DECISION")?.result, "NOT_APPLICABLE");
   assert.equal(stages.find((s) => s.stage === "PAYMENT_RECONCILED")?.result, "PASS");
 });
@@ -63,7 +64,7 @@ test("missing events stay UNAVAILABLE_SOURCE_EVIDENCE", () => {
 
 test("missing revenue is undefined, never zero-filled", () => {
   assert.equal(extractRevenueMinor({}), undefined);
-  assert.equal(extractRevenueMinor({ payment_status: "CAPTURED_RECONCILED", totals: { merchandise_minor: 1, delivery_minor: 0, total_minor: 0, currency: "INR" } }), 0);
+  assert.equal(extractRevenueMinor({ payment_status: "CAPTURED_RECONCILED", totals: { merchandise_minor: 1, delivery_minor: 0, total_minor: 0, currency: "INR" } }), undefined);
   assert.equal(extractRevenueMinor({ outcome_unknown: true, totals: { merchandise_minor: 1, delivery_minor: 0, total_minor: 16700, currency: "INR" } }), undefined);
 });
 

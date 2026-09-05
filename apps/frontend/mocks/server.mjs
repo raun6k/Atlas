@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Isolation-only neighbor stand-in. Join does not start the frontend-mocks profile.
- * The console is a process stub; this server only answers health checks.
+ * Health-only process for frontend unit isolation; the merchant console talks to Gateway/AtlasLab.
  */
 import http from "node:http";
 
@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(501, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify({ error: "frontend_stub", path }));
+  res.end(JSON.stringify({ error: "frontend_isolation_mock", path }));
 });
 
 server.listen(port, host, () => {

@@ -251,6 +251,11 @@ func TestRankingStrategiesEmitNoPatch(t *testing.T) {
 	if ranked[0].SKUID != "sku_c" {
 		t.Fatalf("expected history boost for sku_c, got %s", ranked[0].SKUID)
 	}
+	ctx.EvaluationArm = "CONTROL"
+	controlRanked := RankCatalog(ctx, in, hits)
+	if controlRanked[0].SKUID != hits[0].SKUID {
+		t.Fatalf("CONTROL must not rerank search, got %s", controlRanked[0].SKUID)
+	}
 }
 
 func TestDisabledFormulaStrategy(t *testing.T) {
@@ -295,5 +300,32 @@ func TestRenderTemplate(t *testing.T) {
 	c := BuyerCopyFromConfig(raw)
 	if c.Headline != "Hi" || c.Reason != "Because {{sku_name}}" {
 		t.Fatalf("%+v", c)
+	}
+}
+
+func TestValidateAllowlistRejectsUnknownAndExploratory(t *testing.T) {
+	if err := ValidateAllowlist([]string{"FREE_DELIVERY", "FBT"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateAllowlist([]string{"NOT_A_STRATEGY"}); err == nil {
+		t.Fatal("unknown must fail")
+	}
+	if err := ValidateAllowlist([]string{"REORDER"}); err == nil {
+		t.Fatal("exploratory must fail")
+	}
+}
+
+func TestSelectAttachesPublicExplanation(t *testing.T) {
+	ctx, in := withSignals(fixtureInputs())
+	ctx.Enabled = map[string]bool{"FBT": true}
+	got := Select(ctx, in)
+	if len(got) == 0 {
+		t.Fatal("expected FBT")
+	}
+	if got[0].Explanation.WhatChanged == "" || got[0].Explanation.FundedBy == "" {
+		t.Fatalf("missing buyer explanation %+v", got[0].Explanation)
+	}
+	if got[0].Economics.QuoteDeltaMinor == 0 && got[0].BuyerImpact == 0 {
+		t.Fatalf("quote delta should be persisted on candidate %+v", got[0].Economics)
 	}
 }

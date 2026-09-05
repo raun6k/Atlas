@@ -32,6 +32,10 @@ const (
 	InvalidArgument          = "INVALID_ARGUMENT"
 	Unauthenticated          = "UNAUTHENTICATED"
 	Forbidden                = "FORBIDDEN"
+	VersionConflict          = "VERSION_CONFLICT"
+	NotReconcilable          = "NOT_RECONCILABLE"
+	PaymentPathUnavail       = "PAYMENT_PATH_UNAVAILABLE"
+	PayloadTooLarge          = "PAYLOAD_TOO_LARGE"
 )
 
 type E struct {

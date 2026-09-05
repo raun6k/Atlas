@@ -146,3 +146,25 @@ test("create_session keeps buyer-supplied delivery refs", () => {
   assert.equal(args.delivery_serviceability_reference, "blr_bellandur");
   assert.equal(args.requested_location_id, "loc_qm_bellandur");
 });
+
+test("create_session can stamp a fixture buyer id", () => {
+  const args = enrichPublicToolArgs({
+    tool: "create_session",
+    args: { delivery_serviceability_reference: "blr_koramangala_5th_block" },
+    state: {},
+    runId: "run_1",
+    subjectReference: "buyer_qm_01",
+  });
+  assert.equal(args.subject_reference, "buyer_qm_01");
+});
+
+test("set_intent Host constraints overwrite model constraints", () => {
+  const args = enrichPublicToolArgs({
+    tool: "set_intent",
+    args: { mission: "veg snacks", planning_budget_minor: 40000, constraints: { dietary: "model" } },
+    state: { session_id: "ses_1", session_context_version: 1 },
+    runId: "run_1",
+    constraints: { dietary: "veg" },
+  });
+  assert.deepEqual(args.constraints, { dietary: "veg" });
+});

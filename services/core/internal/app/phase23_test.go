@@ -28,7 +28,7 @@ func TestHostSecurityNegatives(t *testing.T) {
 	priv := mustKey(t)
 
 	createArgs := map[string]any{"subject_reference": "sec-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "sec-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "sec-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,11 +111,11 @@ func TestIdempotencyReplayAndConflict(t *testing.T) {
 	priv := mustKey(t)
 	args := map[string]any{"subject_reference": "idem-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
 	m := signed(t, priv, host, "create_session", args)
-	first, err := k.CreateSession(ctx, m, "idem-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	first, err := k.CreateSession(ctx, m, "idem-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := k.CreateSession(ctx, m, "idem-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	second, err := k.CreateSession(ctx, m, "idem-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestIdempotencyReplayAndConflict(t *testing.T) {
 	other := map[string]any{"subject_reference": "idem-other", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
 	m2 := signed(t, priv, host, "create_session", other)
 	m2.IdempotencyKey = m.IdempotencyKey
-	_, err = k.CreateSession(ctx, m2, "idem-other", "blr_koramangala_5th_block", "en-IN", "", "")
+	_, err = k.CreateSession(ctx, m2, "idem-other", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if !apperr.Is(err, apperr.IdempotencyConflict) {
 		t.Fatalf("want IDEMPOTENCY_CONFLICT got %v", err)
 	}
@@ -141,7 +141,7 @@ func TestAuditAppendOnlyAndExportAuth(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	args := map[string]any{"subject_reference": "aud-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", args), "aud-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", args), "aud-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	if cur.SnapshotID != "fix_quickmart_v1" {
 		t.Fatalf("snapshot %s", cur.SnapshotID)
 	}
-	if cur.Digest != "sha256:9abfd067da964de9d8b9f6fa211963133e56047e54793016535e5b30983be9d0" {
+	if cur.Digest != "sha256:c66995f2dd1502e037c97c2a75f3f3ce2d8e4c782eaef11c55f3c0a222f66b04" {
 		t.Fatalf("digest %s", cur.Digest)
 	}
 	again, err := k.ResetFixtures(ctx)
@@ -203,7 +203,7 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "hold-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "hold-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "hold-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,8 +217,8 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	}
 	prepArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
 	_, _, _, _, err = k.PrepareCheckout(ctx, signed(t, priv, host, "prepare_checkout", prepArgs), created.Session.SessionID, created.Session.CartID, cart.Session.SessionContextVersion, cart.Cart.Version)
-	if !apperr.Is(err, apperr.InventoryChanged) {
-		t.Fatalf("want INVENTORY_CHANGED hold failure got %v", err)
+	if !apperr.Is(err, apperr.InventoryChanged) && !apperr.Is(err, apperr.ItemUnavailable) {
+		t.Fatalf("want inventory fail-closed on unsellable cart got %v", err)
 	}
 	var reserved int
 	if err := k.Pool().QueryRow(ctx, `SELECT reserved_quantity FROM inventory WHERE sku_id='QM-SNK-0001-A' AND location_id=$1`, created.Session.LocationID).Scan(&reserved); err != nil {
@@ -226,6 +226,92 @@ func TestFixtureDigestAndHoldFailure(t *testing.T) {
 	}
 	if reserved != 0 {
 		t.Fatalf("failed hold must not leave partial reservation, reserved=%d", reserved)
+	}
+}
+
+func TestPrepareCheckoutReservesInventory(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+	createArgs := map[string]any{"subject_reference": "hold-ok", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "hold-ok", "blr_koramangala_5th_block", "en-IN", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var before int
+	if err := k.Pool().QueryRow(ctx, `SELECT reserved_quantity FROM inventory WHERE sku_id='QM-FPR-0061-A' AND location_id=$1`, created.Session.LocationID).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-FPR-0061-A", "quantity": int32(1)}
+	cart, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "QM-FPR-0061-A", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
+	_, _, _, prop, err := k.PrepareCheckout(ctx, signed(t, priv, host, "prepare_checkout", prepArgs), created.Session.SessionID, created.Session.CartID, cart.Session.SessionContextVersion, cart.Cart.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var during int
+	var rstatus string
+	if err := k.Pool().QueryRow(ctx, `SELECT reserved_quantity FROM inventory WHERE sku_id='QM-FPR-0061-A' AND location_id=$1`, created.Session.LocationID).Scan(&during); err != nil {
+		t.Fatal(err)
+	}
+	if during != before+1 {
+		t.Fatalf("hold must reserve, before=%d during=%d", before, during)
+	}
+	if err := k.Pool().QueryRow(ctx, `SELECT status FROM reservations WHERE checkout_proposal_id=$1`, prop.ProposalID).Scan(&rstatus); err != nil {
+		t.Fatal(err)
+	}
+	if rstatus != "ACTIVE" {
+		t.Fatalf("reservation %s", rstatus)
+	}
+}
+
+func TestInvalidateInventorySupersedesProposal(t *testing.T) {
+	ctx := context.Background()
+	k, cleanup, err := testdb.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	host := "host_atlaslab_quickmart"
+	priv := mustKey(t)
+	createArgs := map[string]any{"subject_reference": "inv-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "inv-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_cart_version": int64(0), "sku_id": "QM-FPR-0061-A", "quantity": int32(1)}
+	cart, err := k.AddItem(ctx, signed(t, priv, host, "add_cart_item", addArgs), created.Session.SessionID, created.Session.CartID, 0, "QM-FPR-0061-A", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepArgs := map[string]any{"session_id": created.Session.SessionID, "cart_id": created.Session.CartID, "expected_session_context_version": cart.Session.SessionContextVersion, "expected_cart_version": cart.Cart.Version}
+	_, _, _, prop, err := k.PrepareCheckout(ctx, signed(t, priv, host, "prepare_checkout", prepArgs), created.Session.SessionID, created.Session.CartID, cart.Session.SessionContextVersion, cart.Cart.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := k.InvalidateInventory(ctx, created.Session.LocationID, "QM-FPR-0061-A"); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := k.Pool().QueryRow(ctx, `SELECT status FROM checkout_proposals WHERE checkout_proposal_id=$1`, prop.ProposalID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "INVALIDATED" {
+		t.Fatalf("want INVALIDATED got %s", status)
+	}
+	auth := mustAuthority(t, priv, host, prop)
+	ccArgs := map[string]any{"session_id": created.Session.SessionID, "checkout_proposal_id": prop.ProposalID}
+	_, _, err = k.CompleteCheckout(ctx, signed(t, priv, host, "complete_checkout", ccArgs), created.Session.SessionID, prop.ProposalID, auth)
+	if !apperr.Is(err, apperr.RequoteRequired) {
+		t.Fatalf("want REQUOTE_REQUIRED got %v", err)
 	}
 }
 
@@ -243,7 +329,7 @@ func TestAuthorityAmountMismatchAndPromptSafety(t *testing.T) {
 		t.Fatal(err)
 	}
 	createArgs := map[string]any{"subject_reference": "safe-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "safe-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "safe-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +390,7 @@ func TestPublicPrivacyNoPrivateEconomics(t *testing.T) {
 	host := "host_atlaslab_quickmart"
 	priv := mustKey(t)
 	createArgs := map[string]any{"subject_reference": "priv-1", "delivery_serviceability_reference": "blr_koramangala_5th_block", "locale": "en-IN", "requested_location_id": ""}
-	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "priv-1", "blr_koramangala_5th_block", "en-IN", "", "")
+	created, err := k.CreateSession(ctx, signed(t, priv, host, "create_session", createArgs), "priv-1", "blr_koramangala_5th_block", "en-IN", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

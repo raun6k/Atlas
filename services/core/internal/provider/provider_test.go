@@ -73,6 +73,34 @@ func TestCreateOrderExactAmount(t *testing.T) {
 	}
 }
 
+func TestCreateOrderIdempotencyAndEmptyBody(t *testing.T) {
+	fake := NewFakeRazorpay()
+	defer fake.Close()
+	client, err := NewClient(fake.ClientConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.DropNextCreate = true
+	_, err = client.CreateOrder(context.Background(), CreateOrderRequest{
+		AmountMinor: 100, Currency: "INR", Receipt: "cpo_idem", PaymentCapture: 1, IdempotencyKey: "idem-create-1",
+	})
+	if !IsAmbiguous(err) {
+		t.Fatalf("expected ambiguous empty body, got %v", err)
+	}
+	if fake.AcceptedCreates() != 1 {
+		t.Fatalf("accepted %d", fake.AcceptedCreates())
+	}
+	order, err := client.CreateOrder(context.Background(), CreateOrderRequest{
+		AmountMinor: 100, Currency: "INR", Receipt: "cpo_idem", PaymentCapture: 1, IdempotencyKey: "idem-create-1",
+	})
+	if err != nil || order.ID == "" {
+		t.Fatalf("retry %v %+v", err, order)
+	}
+	if fake.AcceptedCreates() != 1 {
+		t.Fatalf("must not create a second order, accepted=%d", fake.AcceptedCreates())
+	}
+}
+
 func TestLiveModeRejectedBeforeCall(t *testing.T) {
 	_, err := NewClient(Config{KeyID: "rzp_live_nope", KeySecret: "x", APIBaseURL: "http://127.0.0.1:1"})
 	if err == nil {

@@ -47,13 +47,15 @@ type CreateOrderRequest struct {
 	Receipt        string
 	PaymentCapture int
 	Notes          map[string]string
+	IdempotencyKey string
 }
 
 // CaptureRequest captures an authorized payment for the exact amount.
 type CaptureRequest struct {
-	PaymentID   string
-	AmountMinor int64
-	Currency    string
+	PaymentID      string
+	AmountMinor    int64
+	Currency       string
+	IdempotencyKey string
 }
 
 // CreateRefundRequest refunds part or all of a captured payment.

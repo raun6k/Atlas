@@ -10,7 +10,14 @@ import (
 	"atlas.dev/core/internal/apperr"
 )
 
-func (k *Kernel) GetOperationTimeline(ctx context.Context, m Meta, operationID string) (Envelope, []AuditEventView, []string, error) {
+type TimelineStage struct {
+	Stage          string
+	Reached        bool
+	Authoritative  bool
+	Note           string
+}
+
+func (k *Kernel) GetOperationTimeline(ctx context.Context, m Meta, operationID string) (Envelope, []AuditEventView, []TimelineStage, error) {
 	if err := k.requireScope(m, "audit:read"); err != nil {
 		return Envelope{}, nil, nil, err
 	}
@@ -24,7 +31,8 @@ func (k *Kernel) GetOperationTimeline(ctx context.Context, m Meta, operationID s
 	events = append(events, k.timelineFromPolicy(ctx, `operation_id=$1`, operationID)...)
 	events = append(events, k.timelineFromJobs(ctx, `operation_id=$1`, operationID)...)
 	sortTimeline(events)
-	return k.withRequest(k.env(), m.RequestID, operationID), events, timelineStages(events), nil
+	markNonAuthoritative(events)
+	return k.withMeta(k.env(), m, operationID), events, paymentAssuranceTimeline(events), nil
 }
 
 func (k *Kernel) GetResourceTimeline(ctx context.Context, m Meta, resourceType, resourceID string) (Envelope, []AuditEventView, error) {
@@ -49,7 +57,8 @@ func (k *Kernel) GetResourceTimeline(ctx context.Context, m Meta, resourceType, 
 		events = append(events, k.timelineFromPolicy(ctx, `session_id=$1`, resourceID)...)
 	}
 	sortTimeline(events)
-	return k.withRequest(k.env(), m.RequestID, ""), events, nil
+	markNonAuthoritative(events)
+	return k.withMeta(k.env(), m, ""), events, nil
 }
 
 func (k *Kernel) timelineFromAudit(ctx context.Context, where string, args ...any) []AuditEventView {
@@ -91,8 +100,14 @@ func (k *Kernel) timelineFromJobs(ctx context.Context, where string, args ...any
 	q := `
 		SELECT job_id, 0, 'JOB_STATUS', created_at::text, '', COALESCE(operation_id,''), job_type,
 		       'job', job_id, COALESCE(last_error,''),
-		       CASE WHEN status='FAILED' THEN 'JOB_FAILED' ELSE '' END,
-		       jsonb_build_object('status', status, 'job_type', job_type, 'last_error', COALESCE(last_error,''))
+		       CASE WHEN status IN ('FAILED','NOT_RETRYABLE') THEN 'JOB_FAILED' ELSE '' END,
+		       jsonb_build_object(
+		         'status', status, 'job_type', job_type, 'last_error', COALESCE(last_error,''),
+		         'attempt_count', attempt_count, 'last_error_class', COALESCE(last_error_class,''),
+		         'retryable', COALESCE(retryable, TRUE), 'dead_letter_reason', COALESCE(dead_letter_reason,''),
+		         'operator_action', COALESCE(operator_action,''), 'lease_owner', COALESCE(lease_owner,''),
+		         'lease_expires_at', lease_expires_at, 'next_retry_at', available_at
+		       )
 		FROM jobs WHERE ` + where + ` ORDER BY created_at`
 	return k.scanTimeline(ctx, q, args...)
 }
@@ -109,10 +124,40 @@ func (k *Kernel) scanTimeline(ctx context.Context, q string, args ...any) []Audi
 		if err := rows.Scan(&e.ID, &e.Sequence, &e.Kind, &e.OccurredAt, &e.RequestID, &e.OperationID, &e.Action, &e.ResourceType, &e.ResourceID, &e.Summary, &e.Attention, &e.BodyJSON); err != nil {
 			continue
 		}
+		e.Correlation = correlationFromBody(e.BodyJSON)
 		e.BodyJSON = redactPrivateJSON(e.BodyJSON)
 		out = append(out, e)
 	}
 	return out
+}
+
+func correlationFromBody(raw []byte) map[string]string {
+	var v map[string]any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil
+	}
+	c, _ := v["correlation"].(map[string]any)
+	if c == nil {
+		return nil
+	}
+	out := map[string]string{}
+	for k, val := range c {
+		if s, ok := val.(string); ok && s != "" {
+			out[k] = s
+		}
+	}
+	return out
+}
+
+func markNonAuthoritative(events []AuditEventView) {
+	for i := range events {
+		if events[i].Kind == "RUNNER_OBSERVATION" {
+			events[i].NonAuthoritative = true
+			if events[i].Summary == "" {
+				events[i].Summary = "Runner/browser observation is not capture evidence."
+			}
+		}
+	}
 }
 
 func sortTimeline(events []AuditEventView) {
@@ -132,32 +177,57 @@ func sortTimeline(events []AuditEventView) {
 	})
 }
 
-func timelineStages(events []AuditEventView) []string {
-	order := []string{"GATE", "COMMAND", "COMMERCIAL", "PAYMENT", "EVIDENCE", "ASYNC"}
-	reached := map[string]bool{}
-	for _, e := range events {
-		switch {
-		case e.Kind == "POLICY_DECISION" || e.Attention == "AUTHORIZATION_DENIED":
-			reached["GATE"] = true
-		case e.Kind == "BOUNDARY_COMMAND_EVALUATED":
-			reached["COMMAND"] = true
-		case e.Kind == "COMMERCIAL_DECISION_RECORDED" || e.Kind == "OFFER_SHOWN" || e.Kind == "COMMERCIAL_REPRESENTATION_ISSUED":
-			reached["COMMERCIAL"] = true
-		case strings.Contains(e.Kind, "PAYMENT") || e.ResourceType == "payment_attempt":
-			reached["PAYMENT"] = true
-		case e.Kind == "PROVIDER_EVIDENCE_EVALUATED":
-			reached["EVIDENCE"] = true
-		case e.Kind == "ASYNC_DECISION_APPLIED" || e.Kind == "JOB_STATUS":
-			reached["ASYNC"] = true
-		}
+type paymentStageSpec struct {
+	Name          string
+	Authoritative bool
+	Note          string
+	Match         func(AuditEventView) bool
+}
+
+func paymentAssuranceTimeline(events []AuditEventView) []TimelineStage {
+	specs := []paymentStageSpec{
+		{"AUTHORITY_CREATED", true, "", func(e AuditEventView) bool {
+			return e.Action == "complete_checkout" || strings.Contains(strings.ToLower(e.Summary), "authority")
+		}},
+		{"PAYMENT_ATTEMPT_CREATED", true, "", kindIs("PAYMENT_ATTEMPT_CREATED")},
+		{"PROVIDER_ORDER_REQUEST", true, "", func(e AuditEventView) bool {
+			return e.Kind == "PROVIDER_ORDER_CREATED" || (e.Kind == "JOB_STATUS" && e.Action == "CREATE_PROVIDER_ORDER")
+		}},
+		{"PROVIDER_ORDER_RESPONSE", true, "", kindIs("PROVIDER_ORDER_CREATED")},
+		{"RUNNER_OBSERVATION", false, "non-authoritative; never treated as capture", kindIs("RUNNER_OBSERVATION")},
+		{"WEBHOOK_RECEIVED", true, "", kindIs("PROVIDER_WEBHOOK_BOUND")},
+		{"PROVIDER_ORDER_FETCHED", true, "", kindIs("PROVIDER_EVIDENCE_EVALUATED")},
+		{"PROVIDER_PAYMENT_FETCHED", true, "", kindIs("PROVIDER_EVIDENCE_EVALUATED")},
+		{"AMOUNT_CURRENCY_VERIFIED", true, "", func(e AuditEventView) bool {
+			return e.Kind == "PROVIDER_EVIDENCE_EVALUATED" && !strings.Contains(string(e.BodyJSON), `"decision":"REJECT"`)
+		}},
+		{"EVENT_BINDING_VERIFIED", true, "", kindIs("PROVIDER_WEBHOOK_BOUND", "PROVIDER_CALLBACK_BOUND")},
+		{"PAYMENT_RECONCILED", true, "", kindIs("ASYNC_DECISION_APPLIED")},
+		{"HOLD_CONVERTED_OR_RELEASED", true, "", func(e AuditEventView) bool {
+			return e.Kind == "ORDER_CONFIRMED" || e.Kind == "ASYNC_DECISION_APPLIED"
+		}},
+		{"MERCHANT_ORDER_CONFIRMED", true, "", kindIs("ORDER_CONFIRMED")},
 	}
-	var out []string
-	for _, s := range order {
-		if reached[s] {
-			out = append(out, s)
+	var out []TimelineStage
+	for _, spec := range specs {
+		st := TimelineStage{Stage: spec.Name, Authoritative: spec.Authoritative, Note: spec.Note}
+		for _, e := range events {
+			if spec.Match(e) {
+				st.Reached = true
+				break
+			}
 		}
+		out = append(out, st)
 	}
 	return out
+}
+
+func kindIs(kinds ...string) func(AuditEventView) bool {
+	set := map[string]bool{}
+	for _, k := range kinds {
+		set[k] = true
+	}
+	return func(e AuditEventView) bool { return set[e.Kind] }
 }
 
 var privateJSONKeys = map[string]bool{

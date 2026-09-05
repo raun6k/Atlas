@@ -4,7 +4,7 @@ import { argumentDigest, redactedProofPreview, signCheckoutAuthority, signHostRe
 import type { LabStore } from "../db/store.js";
 import type { McpCallResult, McpClient } from "../mcp/client.js";
 import { assertPublicTool } from "../mcp/client.js";
-import { LabError, MUTATING_TOOLS, type ConsentPolicy, type PublicMcpTool, type PublicState, type RunRecord } from "../types.js";
+import { LabError, MUTATING_TOOLS, type ConsentPolicy, type PublicMcpTool, type PublicState, type RunRecord, type SessionPolicy } from "../types.js";
 
 export interface HostBoundaryInput {
   run: RunRecord;
@@ -16,6 +16,8 @@ export interface HostBoundaryInput {
   consent: ConsentPolicy;
   publicState: PublicState;
   extraSecrets: string[];
+  sessionPolicy?: SessionPolicy;
+  abort?: AbortSignal;
 }
 
 export class HostBoundary {
@@ -36,7 +38,14 @@ export class HostBoundary {
     return this.retainedKeys.get(scope);
   }
 
+  clearRetainedKeys(): void {
+    this.retainedKeys.clear();
+  }
+
   async invoke(input: HostBoundaryInput): Promise<McpCallResult> {
+    if (input.abort?.aborted) {
+      throw new LabError("CANCELLED", "host invoke aborted", 409);
+    }
     assertPublicTool(input.tool);
     if (!input.permittedActions.includes(input.tool)) {
       const rejection = { tool: input.tool, reason: "action not permitted for this run" };
@@ -73,16 +82,39 @@ export class HostBoundary {
     const args = { ...input.arguments };
     if (input.tool === "create_session") {
       delete args.evaluation_arm;
+      delete args.strategy_allowlist;
       if (input.run.arm === "CONTROL" || input.run.arm === "TREATMENT") {
         args.evaluation_arm = input.run.arm;
       }
+      args.strategy_allowlist = input.sessionPolicy?.strategyAllowlist ?? [];
+      if (input.sessionPolicy?.subjectReference) {
+        args.subject_reference = input.sessionPolicy.subjectReference;
+      }
+    }
+    if (input.tool === "set_intent") {
+      if (input.sessionPolicy?.planningBudgetMinor != null) {
+        args.planning_budget_minor = input.sessionPolicy.planningBudgetMinor;
+      }
+      args.currency = input.consent.currency;
+      const existing =
+        args.constraints && typeof args.constraints === "object" && !Array.isArray(args.constraints)
+          ? (args.constraints as Record<string, string>)
+          : {};
+      args.constraints = { ...existing, ...(input.sessionPolicy?.constraints ?? {}) };
+    }
+    if (input.tool === "complete_checkout") {
+      if (!args.session_id && input.publicState.session_id) args.session_id = input.publicState.session_id;
+      const proposal = (args.checkout_proposal as Record<string, unknown> | undefined) ??
+        (input.publicState.checkout_proposal as Record<string, unknown> | undefined);
+      const proposalId = args.checkout_proposal_id ?? proposal?.checkout_proposal_id;
+      if (proposalId) args.checkout_proposal_id = proposalId;
     }
     if (mutating) {
       proof = await signHostRequestProof({
         signer: this.signer,
         requestId,
         tool: input.tool,
-        args,
+        args: hostProofArguments(input.tool, args),
         idempotencyKey: idempotencyKey!,
         sessionContextVersion: input.publicState.session_context_version,
         cartVersion: input.publicState.cart_version,
@@ -135,6 +167,12 @@ export class HostBoundary {
       hostRequestProof: proof,
       checkoutAuthority: authority,
       hostBearer: this.hostBearer,
+      correlation: {
+        evaluation_id: input.run.configuration_id,
+        run_id: input.run.run_id,
+        request_id: requestId,
+      },
+      abort: input.abort,
     });
     const safeResponse = redactUnknown(result.payload, input.extraSecrets) as Record<string, unknown>;
     await this.store.appendEvent({
@@ -158,10 +196,16 @@ export class HostBoundary {
       result_status: result.resultCode,
       latency_ms: Date.now() - started,
       atlas_ids: {
+        evaluation_id: input.run.configuration_id,
+        run_id: input.run.run_id,
+        child_session_id: result.publicStatePatch.session_id,
+        host_id: this.signer.hostId,
         request_id: result.requestId,
         session_id: result.publicStatePatch.session_id,
         cart_id: result.publicStatePatch.cart_id,
-        order_id: (result.publicStatePatch.order as { order_id?: string } | undefined)?.order_id,
+        checkout_proposal_id: (result.publicStatePatch.checkout_proposal as { checkout_proposal_id?: string } | undefined)
+          ?.checkout_proposal_id,
+        merchant_order_id: result.publicStatePatch.merchant_order_id,
       },
       proposed_arguments: proposed,
       host_enriched_request: {
@@ -174,4 +218,15 @@ export class HostBoundary {
     });
     return result;
   }
+}
+
+/** Core hashes a tool-specific argument map, not the full MCP JSON. */
+export function hostProofArguments(tool: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (tool === "complete_checkout") {
+    return {
+      session_id: args.session_id,
+      checkout_proposal_id: args.checkout_proposal_id,
+    };
+  }
+  return args;
 }

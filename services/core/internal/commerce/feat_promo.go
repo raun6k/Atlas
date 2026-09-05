@@ -17,6 +17,8 @@ type PromoTerms struct {
 	MinimumSpend    int64
 	BrandFundPct    int
 	MerchantFundPct int
+	MaxPerBuyer     int
+	MaxPerSession   int
 }
 
 func TotalDiscount(rate float64, eligibleSpend, cap int64) int64 {
@@ -47,8 +49,4 @@ func OfferValue(discount, spend int64) float64 {
 		return 0
 	}
 	return Clamp01(float64(discount) / float64(spend))
-}
-
-func IncrementalContribution(during, without int64) int64 {
-	return during - without
 }

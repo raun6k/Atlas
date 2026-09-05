@@ -7,7 +7,7 @@ CORE_MOD := services/core
 GATEWAY_DIR := apps/gateway
 KERNEL_COMPOSE := -f compose/atlas-postgres.yml -f compose/core.yml -f compose/gateway.yml -f compose/worker.yml
 
-.PHONY: kernel-generate kernel-migrate kernel-test kernel-test-contract kernel-lint kernel-typecheck kernel-up
+.PHONY: kernel-generate kernel-migrate kernel-test kernel-test-contract kernel-lint kernel-typecheck kernel-up kernel-fixtures-validate
 
 generate:: kernel-generate
 migrate:: kernel-migrate
@@ -36,6 +36,11 @@ kernel-up:
 kernel-test:
 	cd $(CORE_MOD) && go test ./...
 	cd $(GATEWAY_DIR) && npm test --if-present
+
+kernel-fixtures-validate:
+	cd $(CORE_MOD) && go test ./internal/fixtures -count=1 -run 'TestValidateQuickmartPack|TestDigestFailsOnHashMismatch'
+
+test:: kernel-fixtures-validate
 
 kernel-test-contract:
 	cd $(CORE_MOD) && go test ./internal/app ./internal/platform ./internal/grpcapi ./internal/money ./internal/cart ./internal/commerce ./internal/audit -count=1

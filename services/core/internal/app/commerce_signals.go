@@ -181,6 +181,8 @@ func loadPromoTerms(ctx context.Context, tx pgx.Tx) (map[string]commerce.PromoTe
 			MinimumSpend:    jsonInt(cond["minimum_cart_value_minor"]),
 			BrandFundPct:    int(jsonInt(fund["brand_funding_pct"])),
 			MerchantFundPct: int(jsonInt(fund["merchant_funding_pct"])),
+			MaxPerBuyer:     int(jsonInt(cond["max_redemptions_per_buyer"])),
+			MaxPerSession:   1,
 		}
 		out[id] = t
 	}

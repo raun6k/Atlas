@@ -7,6 +7,7 @@ COPY db/atlaslab/scenarios ./db/atlaslab/scenarios
 COPY db/atlaslab/migrations ./db/atlaslab/migrations
 COPY schemas/mcp ./schemas/mcp
 COPY testdata/hostkeys ./testdata/hostkeys
+COPY db/atlas/fixtures/quickmart-v1 ./db/atlas/fixtures/quickmart-v1
 WORKDIR /workspace/apps/atlaslab
 RUN npm install
 ENV ATLASLAB_HTTP_ADDR=0.0.0.0:8090

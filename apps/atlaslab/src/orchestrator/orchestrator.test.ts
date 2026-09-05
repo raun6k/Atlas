@@ -156,6 +156,25 @@ test("lost mutation response reuses idempotency key", async () => {
   assert.ok(keys.every((k) => k === "idem_lost_cart"));
 });
 
+test("overlapping suite evals are rejected while fixtures are in use", async () => {
+  const { orchestrator } = lab();
+  const first = orchestrator.startDeterministicSuite().then(
+    () => {
+      throw new Error("mock MCP should reject the live deterministic suite");
+    },
+    (err: unknown) => err,
+  );
+  const second = orchestrator.startDeterministicSuite().then(
+    () => {
+      throw new Error("second suite should not start while the first holds the fixture lock");
+    },
+    (err: unknown) => err,
+  );
+  const [a, b] = await Promise.all([first, second]);
+  assert.ok(a instanceof LabError && a.code === "ATLAS_REQUIRED", String(a));
+  assert.ok(b instanceof LabError && b.code === "CONFLICT" && b.status === 409, String(b));
+});
+
 test("cancel retains events", async () => {
   const { orchestrator, store } = lab();
   const run = await orchestrator.startRun({ run_type: "DETERMINISTIC_SCENARIO", scenario_id: "scn_qm_discovery_v1", execute: false });

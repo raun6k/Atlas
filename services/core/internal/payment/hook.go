@@ -75,7 +75,7 @@ func (s *Service) AfterPendingOrder(ctx context.Context, in PendingOrder) error 
 		in.IdempotencyKey = in.OperationID
 	}
 	if in.Currency == "" {
-		in.Currency = "INR"
+		return Err("INVALID_ARGUMENT", "currency is required")
 	}
 	if in.Scenario == "" {
 		in.Scenario = "success"
@@ -125,7 +125,7 @@ func (s *Service) AfterPendingOrder(ctx context.Context, in PendingOrder) error 
 			SafeBody: map[string]any{
 				"amount_minor": AmountString(in.AmountMinor), "currency": in.Currency,
 				"capability_id": CapabilityRazorpayTest, "proposal_id": in.ProposalID,
-				"not_capture": true,
+				"not_capture": true, "not_settlement": true,
 			},
 			OccurredAt: now,
 		})

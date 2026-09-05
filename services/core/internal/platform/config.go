@@ -48,7 +48,7 @@ func Load() (Config, error) {
 		JobLease:               durationSeconds("ATLAS_JOB_LEASE_SECONDS", 30),
 		OfferTTL:               durationSeconds("ATLAS_OFFER_TTL_SECONDS", 90),
 		SubstitutionDeadline:   durationSeconds("ATLAS_SUBSTITUTION_DEADLINE_SECONDS", 900),
-		RequiredMigration:      getenv("ATLAS_REQUIRED_MIGRATION", "0190_observability_trail.sql"),
+		RequiredMigration:      getenv("ATLAS_REQUIRED_MIGRATION", "0210_observability_ops.sql"),
 		HostAudience:           getenv("ATLAS_HOST_AUDIENCE", "atlas.merchant.v1"),
 	}
 	if err := cfg.Validate(); err != nil {

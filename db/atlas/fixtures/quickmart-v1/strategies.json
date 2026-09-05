@@ -76,6 +76,7 @@
     "priority": 71,
     "objective_metric": "complement_attach_rate",
     "surfaces": ["search_catalog", "get_cart", "add_cart_item"],
+    "visibility": "DEMO",
     "buyer": {
       "headline": "Frequently bought together",
       "reason": "Shoppers who buy {{anchor_name}} often add {{sku_name}}.",
@@ -132,6 +133,7 @@
     "priority": 88,
     "objective_metric": "fee_avoidance",
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
+    "visibility": "DEMO",
     "buyer": {
       "headline": "Unlock free delivery",
       "reason": "Adding this item unlocks free delivery.",
@@ -146,6 +148,7 @@
     "priority": 87,
     "objective_metric": "fee_avoidance",
     "surfaces": ["get_cart", "add_cart_item", "update_cart_item", "remove_cart_item"],
+    "visibility": "DEMO",
     "buyer": {
       "headline": "Avoid the small-order fee",
       "reason": "Adding this item avoids the small-order fee.",
@@ -160,6 +163,7 @@
     "priority": 82,
     "objective_metric": "brand_funded_contribution",
     "surfaces": ["set_intent", "search_catalog", "get_cart", "add_cart_item"],
+    "visibility": "DEMO",
     "buyer": {
       "headline": "{{promo_name}}",
       "reason": "Buy {{quantity}} and receive {{discount}} off.",

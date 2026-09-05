@@ -44,10 +44,14 @@ func (c *Client) CreateOrder(ctx context.Context, req CreateOrderRequest) (Order
 		body["notes"] = req.Notes
 	}
 	var out rzpOrder
-	if err := c.do(ctx, http.MethodPost, "/v1/orders", body, "", &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/orders", body, req.IdempotencyKey, &out); err != nil {
 		return Order{}, err
 	}
-	return out.toOrder(), nil
+	order := out.toOrder()
+	if order.ID == "" {
+		return Order{}, &AmbiguousResponse{Op: "CreateOrder", Detail: "missing provider order id"}
+	}
+	return order, nil
 }
 
 func (c *Client) FetchOrder(ctx context.Context, orderID string) (Order, error) {
@@ -87,10 +91,14 @@ func (c *Client) CapturePayment(ctx context.Context, req CaptureRequest) (Paymen
 		"currency": req.Currency,
 	}
 	var out rzpPayment
-	if err := c.do(ctx, http.MethodPost, "/v1/payments/"+req.PaymentID+"/capture", body, "", &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/payments/"+req.PaymentID+"/capture", body, req.IdempotencyKey, &out); err != nil {
 		return Payment{}, err
 	}
-	return out.toPayment(), nil
+	p := out.toPayment()
+	if p.ID == "" {
+		return Payment{}, &AmbiguousResponse{Op: "CapturePayment", Detail: "missing provider payment id"}
+	}
+	return p, nil
 }
 
 func (c *Client) CreateRefund(ctx context.Context, req CreateRefundRequest) (Refund, error) {
@@ -150,10 +158,16 @@ func (c *Client) do(ctx context.Context, method, path string, body any, idempote
 	if resp.StatusCode >= 400 {
 		return &APIError{Status: resp.StatusCode, Body: string(respBody)}
 	}
-	if dest == nil || len(respBody) == 0 {
+	if dest == nil {
 		return nil
 	}
-	return json.Unmarshal(respBody, dest)
+	if len(respBody) == 0 {
+		return &AmbiguousResponse{Op: method + " " + path, Detail: "empty successful body"}
+	}
+	if err := json.Unmarshal(respBody, dest); err != nil {
+		return &AmbiguousResponse{Op: method + " " + path, Detail: "malformed json: " + err.Error()}
+	}
+	return nil
 }
 
 // APIError is a Razorpay HTTP error. Callers must not treat it as capture.
@@ -164,6 +178,21 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("razorpay api status %d", e.Status)
+}
+
+// AmbiguousResponse is a 2xx with empty or unusable body. Possible provider submission.
+type AmbiguousResponse struct {
+	Op     string
+	Detail string
+}
+
+func (e *AmbiguousResponse) Error() string {
+	return fmt.Sprintf("provider response ambiguous %s: %s", e.Op, e.Detail)
+}
+
+func IsAmbiguous(err error) bool {
+	_, ok := err.(*AmbiguousResponse)
+	return ok
 }
 
 type rzpOrder struct {

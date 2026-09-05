@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const monorepoRoot = resolve(process.cwd(), "../..");
+const outputFileTracingRoot = existsSync(resolve(monorepoRoot, "package-lock.json"))
+  ? monorepoRoot
+  : process.cwd();
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingRoot,
+  allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
   serverExternalPackages: [],
   env: {

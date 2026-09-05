@@ -67,6 +67,8 @@ const HOST_INJECTED_ARG_FIELDS = new Set([
   "expected_cart_version",
   "expected_session_context_version",
   "merchant_order_id",
+  "evaluation_arm",
+  "strategy_allowlist",
 ]);
 
 export function modelVisibleToolSchema(tool: PublicMcpTool): Record<string, unknown> {

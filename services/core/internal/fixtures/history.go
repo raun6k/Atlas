@@ -61,14 +61,18 @@ func loadCampaigns(ctx context.Context, tx pgx.Tx, dir string) error {
 		if strings.TrimSpace(id) == "" {
 			continue
 		}
+		campRev := strField(c, "revision")
+		if campRev == "" {
+			campRev = "v1"
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO campaigns (
 				campaign_id, brand_id, brand, name, promotion_ids, budget_minor, budget_consumed_minor,
-				brand_funding_pct, merchant_funding_pct, start_at, end_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+				brand_funding_pct, merchant_funding_pct, start_at, end_at, revision)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 			id, nullIfEmpty(strField(c, "brand_id")), nullIfEmpty(strField(c, "brand")), strField(c, "name"),
 			jsonBytes(c["promotion_ids"]), asInt(c["budget_minor"]), asInt(c["budget_consumed_minor"]),
 			asInt(c["brand_funding_pct"]), asInt(c["merchant_funding_pct"]),
-			parseJSONTime(c["start_at"]), parseJSONTime(c["end_at"])); err != nil {
+			parseJSONTime(c["start_at"]), parseJSONTime(c["end_at"]), campRev); err != nil {
 			return err
 		}
 	}

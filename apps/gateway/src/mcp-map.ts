@@ -51,6 +51,8 @@ export function publicStateFrom(body: Record<string, unknown>): Record<string, u
     const pay = String(order.payment_public_status ?? order.status ?? "");
     if (pay === "CONFIRMED" || pay === "CAPTURED_RECONCILED") {
       state.payment_status = "CAPTURED_RECONCILED";
+    } else if (pay === "CAPTURED_AWAITING_BINDING") {
+      state.payment_status = "CAPTURED_AWAITING_BINDING";
     } else if (pay) {
       state.payment_status = pay;
     }

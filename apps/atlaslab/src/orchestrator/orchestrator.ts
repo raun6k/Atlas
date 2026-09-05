@@ -5,10 +5,13 @@ import { newPrefixedId, sha256Hex, utcNow } from "../ids.js";
 import { canonicalize } from "../canonical.js";
 import { REDACTION_REVISION, redactValue } from "../redaction.js";
 import type { LabStore } from "../db/store.js";
-import { newPairId, newRunId, TERMINAL_STATES } from "../db/store.js";
+import { newLeaseId, newPairId, newRunId, TERMINAL_STATES } from "../db/store.js";
+import type { HostSignerConfig } from "../host/signer.js";
+import { enqueueEvaluationSitting } from "../eval/sitting.js";
 import { DeterministicDriver } from "../driver/deterministic.js";
 import type { HostBoundary } from "../host/boundary.js";
 import type { FixtureResetClient } from "../fixtures/reset-client.js";
+import { requireMatchingDigest } from "../fixtures/reset-client.js";
 import { SkillLoop } from "../model/skill-loop.js";
 import type { ModelAdapter } from "../model/adapter.js";
 import type { MockGateway } from "../mcp/mock-gateway.js";
@@ -26,9 +29,14 @@ import {
 } from "../types.js";
 import { persistProof, extractRevenueMinor } from "../evaluator/proof.js";
 import { pairRuns, relativeUplift } from "../evaluator/framework2.js";
+import { runDeterministicSuite } from "../deterministic/suite.js";
+import { loadFixtureWorld } from "../deterministic/world.js";
+import { evaluateReadiness, allLiveGates } from "../readiness.js";
+import { runAgentCompatibilityEval, runCommercialUpliftEval } from "../model-eval/suite.js";
 
 export class Orchestrator {
   readonly scenarios: ScenarioDefinition[];
+  private suiteEvalBusy = false;
 
   constructor(
     private readonly cfg: AtlasLabConfig,
@@ -37,12 +45,54 @@ export class Orchestrator {
     private readonly fixtures: FixtureResetClient,
     private readonly modelAdapter: ModelAdapter | null,
     private readonly mockGateway?: MockGateway,
+    private readonly signer?: HostSignerConfig,
   ) {
     this.scenarios = builtinScenarios();
   }
 
+  fixturesClient(): FixtureResetClient {
+    return this.fixtures;
+  }
+
+  private async withSuiteEvalLock<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.suiteEvalBusy) {
+      throw new LabError("CONFLICT", "a suite eval is already running against Atlas fixtures", 409);
+    }
+    const lease = await this.store.tryAcquireFixtureLease({
+      lease_id: newLeaseId(),
+      snapshot_id: this.cfg.fixtureSnapshotId,
+      owner_evaluation_id: `legacy_${utcNow()}`,
+      acquired_at: utcNow(),
+      heartbeat_at: utcNow(),
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    if (!lease) {
+      throw new LabError("CONFLICT", "a suite eval is already running against Atlas fixtures", 409);
+    }
+    this.suiteEvalBusy = true;
+    try {
+      return await fn();
+    } finally {
+      this.suiteEvalBusy = false;
+      await this.store.releaseLease(lease.lease_id, "legacy_suite_complete");
+    }
+  }
+
+  async startEvaluationSitting(body: Record<string, unknown> = {}) {
+    return enqueueEvaluationSitting({
+      cfg: this.cfg,
+      store: this.store,
+      host: this.host,
+      fixtures: this.fixtures,
+      extraSecrets: this.extraSecrets(),
+      modelAdapter: this.modelAdapter,
+      signer: this.signer,
+      body,
+    });
+  }
+
   extraSecrets(): string[] {
-    return [this.cfg.hostBearer, this.cfg.hostSigningKey, this.cfg.openRouterApiKey, this.cfg.fixtureControlCredential, this.cfg.apiToken];
+    return [this.cfg.hostBearer, this.cfg.hostSigningKey, this.cfg.openRouterApiKey, this.cfg.fixtureControlCredential, this.cfg.apiToken, this.cfg.apiReadToken, this.cfg.apiWriteToken];
   }
 
   capabilities() {
@@ -51,11 +101,43 @@ export class Orchestrator {
       deterministic: {
         ready: true,
         reason: "Deterministic Scenario Runs do not use OpenRouter",
+        suite: {
+          ready: !this.cfg.mockMcp,
+          reason: this.cfg.mockMcp
+            ? "ATLAS_REQUIRED: set ATLASLAB_MOCK_MCP=0 for suite eval against Atlas MCP"
+            : "POST /lab/v1/deterministic-eval talks to public Atlas MCP",
+        },
       },
       model: {
         ready: modelRunsReady(this.cfg),
         health: this.cfg.openRouterApiKey ? "available" : "missing",
         reason: this.cfg.openRouterApiKey ? "OpenRouter configured" : "OPENROUTER_API_KEY unset; model runs unavailable",
+        live_eval: {
+          agent_compatibility: {
+            path: "POST /lab/v1/agent-compatibility-eval",
+            ready: modelRunsReady(this.cfg) && !this.cfg.mockMcp,
+            reason: this.cfg.mockMcp
+              ? "ATLAS_REQUIRED: set ATLASLAB_MOCK_MCP=0"
+              : modelRunsReady(this.cfg)
+                ? "Core Live: 4 CONTROL missions"
+                : "OPENROUTER_API_KEY unset",
+          },
+          commercial_uplift: {
+            path: "POST /lab/v1/commercial-uplift-eval",
+            ready: modelRunsReady(this.cfg) && !this.cfg.mockMcp,
+            reason: this.cfg.mockMcp
+              ? "ATLAS_REQUIRED: set ATLASLAB_MOCK_MCP=0"
+              : modelRunsReady(this.cfg)
+                ? "Core Live RPAS: 3 portfolio pairs + 3 isolate-one cells; CONTROL is a neutral interface"
+                : "OPENROUTER_API_KEY unset",
+          },
+          default_sitting: {
+            path: "POST /lab/v1/eval",
+            ready: modelRunsReady(this.cfg) && !this.cfg.mockMcp,
+            missions: ["breakfast_180", "adversarial_copy", "breakfast_180 control/treatment"],
+          },
+          retired_single_scenario_benchmark: "POST /lab/v1/runs BENCHMARK_MODEL catalog scenarios remain for tests and CUSTOM_MISSION exploration; they are not the live product.",
+        },
       },
       input_limits: {
         custom_input_max_chars: this.cfg.customInputMaxChars,
@@ -63,7 +145,7 @@ export class Orchestrator {
         max_tool_calls: this.cfg.maxToolCalls,
         max_wall_seconds: this.cfg.maxWallSeconds,
         max_tokens: this.cfg.maxTokens,
-        max_cost_usd: "1.50",
+        max_cost_usd: (this.cfg.maxCostUsdMicros / 1_000_000).toFixed(2),
         default_buyer_spend_minor: this.cfg.defaultBuyerSpendMinor,
         currency: "INR",
       },
@@ -94,7 +176,83 @@ export class Orchestrator {
     }));
   }
 
+  async startDeterministicSuite(): Promise<RunRecord> {
+    return this.withSuiteEvalLock(async () => {
+      const { run } = await runDeterministicSuite({
+        cfg: this.cfg,
+        store: this.store,
+        host: this.host,
+        fixtures: this.fixtures,
+        extraSecrets: this.extraSecrets(),
+      });
+      return run;
+    });
+  }
+
+  private async requireLiveReleaseReady(): Promise<void> {
+    if (this.cfg.mode !== "release") return;
+    const snapshot = await evaluateReadiness({
+      cfg: this.cfg,
+      store: this.store,
+      signer: this.signer,
+      fixtures: this.fixtures,
+      includeModel: true,
+    });
+    if (!allLiveGates(snapshot)) {
+      throw new LabError("NOT_READY", "live eval readiness gate failed", 503, { readiness: snapshot });
+    }
+  }
+
+  async startAgentCompatibilityEval(body: Record<string, unknown> = {}): Promise<RunRecord> {
+    const modelAdapter = this.modelAdapter;
+    if (!modelAdapter) throw new LabError("MODEL_UNAVAILABLE", "model adapter not initialized", 409);
+    if (!body.model_id) throw new LabError("INVALID_ARGUMENT", "model_id is required", 400);
+    await this.requireLiveReleaseReady();
+    return this.withSuiteEvalLock(async () => {
+      const { run } = await runAgentCompatibilityEval({
+        cfg: this.cfg,
+        store: this.store,
+        host: this.host,
+        fixtures: this.fixtures,
+        extraSecrets: this.extraSecrets(),
+        modelAdapter,
+        modelId: String(body.model_id),
+      });
+      return run;
+    });
+  }
+
+  async startCommercialUpliftEval(body: Record<string, unknown> = {}): Promise<RunRecord> {
+    const modelAdapter = this.modelAdapter;
+    if (!modelAdapter) throw new LabError("MODEL_UNAVAILABLE", "model adapter not initialized", 409);
+    if (!body.model_id) throw new LabError("INVALID_ARGUMENT", "model_id is required", 400);
+    await this.requireLiveReleaseReady();
+    return this.withSuiteEvalLock(async () => {
+      const { run } = await runCommercialUpliftEval({
+        cfg: this.cfg,
+        store: this.store,
+        host: this.host,
+        fixtures: this.fixtures,
+        extraSecrets: this.extraSecrets(),
+        modelAdapter,
+        modelId: String(body.model_id),
+        firstArm: body.first_arm === "TREATMENT" || body.first_arm === "CONTROL" ? body.first_arm : undefined,
+        sitting: body.sitting === true,
+      });
+      return run;
+    });
+  }
+
   async startRun(body: Record<string, unknown>): Promise<RunRecord> {
+    if (body.run_type === "DETERMINISTIC_SUITE" || body.scenario_id === "suite_qm_v1") {
+      return this.startDeterministicSuite();
+    }
+    if (body.scenario_id === "suite_agent_compat_v1") {
+      return this.startAgentCompatibilityEval(body);
+    }
+    if (body.scenario_id === "suite_commercial_uplift_v1") {
+      return this.startCommercialUpliftEval(body);
+    }
     const runType = body.run_type as IncomingRunRequest["run_type"];
     if (runType === "BENCHMARK_MODEL" || runType === "CUSTOM_MISSION") {
       if (!modelRunsReady(this.cfg)) {
@@ -208,6 +366,8 @@ export class Orchestrator {
       if (scn) this.mockGateway.paymentSimulation = scn.payment_simulation;
     }
     const reset = await this.fixtures.reset(run.fixture_snapshot_id);
+    const world = loadFixtureWorld();
+    requireMatchingDigest(world.digest, reset);
     run = await this.store.updateRun(runId, { fixture_digest: reset.digest, state: "READY" });
     await this.store.appendEvent({
       run_id: runId,
@@ -296,6 +456,16 @@ export class Orchestrator {
       kind: "CANCEL_REQUESTED",
       payload: { previous_state: run.state },
     });
+    const sittings = await this.store.listSittings();
+    for (const sitting of sittings) {
+      if (sitting.parent_run_id === runId || sitting.evaluation_id === run.parent_evaluation_id) {
+        await this.store.updateSitting(sitting.evaluation_id, { state: "CANCELLED", aborted_reason: "CANCEL_REQUESTED" });
+      }
+    }
+    const lease = await this.store.activeLease(this.cfg.fixtureSnapshotId);
+    if (lease?.owner_evaluation_id === runId) {
+      await this.store.releaseLease(lease.lease_id, "cancelled");
+    }
     return this.store.updateRun(runId, { state: "CANCELLED", terminal_reason: "CANCEL_REQUESTED", end_at: utcNow() });
   }
 

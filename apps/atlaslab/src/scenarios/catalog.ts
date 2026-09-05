@@ -540,7 +540,7 @@ function partySnacks(): ScenarioDefinition {
     framework: "COMMERCIAL_INCREMENTALITY",
     supported_run_types: ["BENCHMARK_MODEL"],
     title: "Party snacks incrementality",
-    purpose: "Benchmark-only pairing key pair_qm_party_snacks",
+    purpose: "Legacy pair-first scenario; live commercial eval is POST /lab/v1/commercial-uplift-eval",
     family: "Offers",
     difficulty: "medium",
     tags: ["incrementality"],

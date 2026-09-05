@@ -47,8 +47,11 @@ type Tx interface {
 
 	ConvertHold(proposalID string) error
 	FreezeHold(proposalID string) error
+	ReleaseHold(proposalID string) error
 	HoldConverted(proposalID string) bool
 	HoldFrozen(proposalID string) bool
+	SetOrderPaymentPublicStatus(orderID, status string) error
+	ReleaseSessionToActive(sessionID string) error
 
 	LockPaymentForRefund(attemptID string) (PaymentAttempt, error)
 
@@ -67,4 +70,5 @@ type Tx interface {
 type InventoryHooks struct {
 	ConvertHold func(ctx context.Context, proposalID string) error
 	FreezeHold  func(ctx context.Context, proposalID string) error
+	ReleaseHold func(ctx context.Context, proposalID string) error
 }

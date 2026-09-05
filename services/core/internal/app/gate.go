@@ -20,10 +20,23 @@ func (k *Kernel) loadHost(ctx context.Context, tx pgx.Tx, hostID string) (status
 }
 
 func hostToolPermitted(scopes []string, tool string) bool {
-	if tool == "" || len(scopes) == 0 {
+	if tool == "" || tool == "get_capabilities" {
 		return true
 	}
-	if hasScope(scopes, "mcp") || hasScope(scopes, "*") {
+	if len(scopes) == 0 {
+		return false
+	}
+	if hasScope(scopes, "*") || hasScope(scopes, "mcp") {
+		return true
+	}
+	switch {
+	case hasScope(scopes, "mcp:discover") && (tool == "search_catalog" || tool == "get_product" || tool == "get_cart"):
+		return true
+	case hasScope(scopes, "mcp:commerce") && (tool == "create_session" || tool == "set_intent" || tool == "add_cart_item" || tool == "update_cart_item" || tool == "remove_cart_item" || tool == "apply_offer" || tool == "prepare_checkout"):
+		return true
+	case hasScope(scopes, "mcp:payment") && (tool == "complete_checkout" || tool == "get_order"):
+		return true
+	case hasScope(scopes, "mcp:eval") && (tool == "create_session" || tool == "set_intent"):
 		return true
 	}
 	return hasScope(scopes, tool)
@@ -96,9 +109,12 @@ func (k *Kernel) recordGateDecision(ctx context.Context, m Meta, op, sessionID, 
 	body := map[string]any{"result": result, "reason_codes": reasons, "tool": m.Tool}
 	_, err = audit.Append(ctx, tx, audit.Event{
 		Kind: "BOUNDARY_COMMAND_EVALUATED", RequestID: m.RequestID, OperationID: op,
-		PrincipalType: "APPROVED_HOST", PrincipalID: m.ApprovedHostID, Channel: "mcp",
+		PrincipalType: audit.PrincipalApprovedHost, PrincipalID: m.ApprovedHostID, Channel: audit.ChannelMCP,
 		Action: m.Tool, ResourceType: "host", ResourceID: m.ApprovedHostID,
 		Body: body, Attention: attention, Summary: summary,
+		Correlation: audit.Merge(m.Correlation, map[string]string{
+			"request_id": m.RequestID, "operation_id": op, "host_id": m.ApprovedHostID, "session_id": sessionID,
+		}),
 	})
 	if err != nil {
 		return

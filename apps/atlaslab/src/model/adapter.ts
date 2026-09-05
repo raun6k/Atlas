@@ -18,6 +18,7 @@ export interface ModelTurnRequest {
   maxTokens: number;
   allowedTools?: PublicMcpTool[];
   history?: ModelHistoryItem[];
+  abort?: AbortSignal;
 }
 
 export interface ModelHistoryItem {
@@ -107,6 +108,7 @@ export class OpenRouterAdapter implements ModelAdapter {
         authorization: `Bearer ${this.apiKey}`,
         "content-type": "application/json",
       },
+      signal: req.abort,
       body: JSON.stringify({
         model: req.requestedModelId,
         temperature: req.temperature,
@@ -117,7 +119,7 @@ export class OpenRouterAdapter implements ModelAdapter {
         // reasoning-only messages from being mistaken for a buyer decision.
         tool_choice: tools.length > 0 ? "required" : "none",
         usage: { include: true },
-        provider: { allow_fallbacks: true },
+        provider: { allow_fallbacks: false },
         ...(isGlm ? { reasoning: { effort: "high", exclude: true } } : {}),
         ...(tools.length > 0 ? { tools } : {}),
         messages: [

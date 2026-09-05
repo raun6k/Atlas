@@ -1,24 +1,5 @@
 package commerce
 
-// Surface identifiers match buyer-agent tool names.
-const (
-	SurfaceSetIntent      = "set_intent"
-	SurfaceSearchCatalog  = "search_catalog"
-	SurfaceGetCart        = "get_cart"
-	SurfaceAddCartItem    = "add_cart_item"
-	SurfaceUpdateCartItem = "update_cart_item"
-	SurfaceRemoveCartItem = "remove_cart_item"
-)
-
-var DefaultSurfaces = []string{
-	SurfaceSetIntent,
-	SurfaceSearchCatalog,
-	SurfaceGetCart,
-	SurfaceAddCartItem,
-	SurfaceUpdateCartItem,
-	SurfaceRemoveCartItem,
-}
-
 type Strategy interface {
 	Type() string
 	Generate(ctx Context, in Inputs) []Candidate
@@ -41,6 +22,48 @@ func KnownTypes() map[string]bool {
 var EngineStrategyTypes = []string{
 	"REORDER", "REPLENISHMENT", "PAST_PURCHASE", "CART_COMPLETION", "BASKET_REC", "FBT",
 	"SEARCH_RANKING", "ROUTINE", "LARGER_PACK", "FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO",
+}
+
+// DemoStrategyTypes are the Buildathon live path: threshold completion, promotion, complementary add-on.
+var DemoStrategyTypes = []string{"FREE_DELIVERY", "SMALL_ORDER", "BRAND_PROMO", "FBT"}
+
+const (
+	VisibilityDemo        = "DEMO"
+	VisibilityExploratory = "EXPLORATORY"
+	RankingVersion        = "rank_conservative_v1"
+	EconomicObjective     = "incremental_confirmed_revenue_v1"
+)
+
+func IsKnownType(t string) bool {
+	return KnownTypes()[t]
+}
+
+func IsDemoType(t string) bool {
+	for _, v := range DemoStrategyTypes {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
+func ValidateStrategyType(t string) error {
+	if !IsKnownType(t) {
+		return errUnknownStrategy(t)
+	}
+	return nil
+}
+
+func ValidateAllowlist(types []string) error {
+	for _, t := range types {
+		if err := ValidateStrategyType(t); err != nil {
+			return err
+		}
+		if !IsDemoType(t) {
+			return errExploratoryStrategy(t)
+		}
+	}
+	return nil
 }
 
 func init() {

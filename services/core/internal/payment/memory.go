@@ -30,6 +30,9 @@ type MemoryStore struct {
 
 	holdsConverted map[string]bool
 	holdsFrozen    map[string]bool
+	holdsReleased  map[string]bool
+	orderPublic    map[string]string
+	sessionActive  map[string]bool
 
 	refunds      map[string]Refund
 	refundByIdem map[string]string
@@ -55,6 +58,9 @@ func NewMemoryStore() *MemoryStore {
 		jobs:             map[string]WorkerJob{},
 		holdsConverted:   map[string]bool{},
 		holdsFrozen:      map[string]bool{},
+		holdsReleased:    map[string]bool{},
+		orderPublic:      map[string]string{},
+		sessionActive:    map[string]bool{},
 		refunds:          map[string]Refund{},
 		refundByIdem:     map[string]string{},
 		reservations:     map[string]RefundReservation{},
@@ -349,6 +355,29 @@ func (t *memTx) FreezeHold(proposalID string) error {
 
 func (t *memTx) HoldConverted(proposalID string) bool { return t.store.holdsConverted[proposalID] }
 func (t *memTx) HoldFrozen(proposalID string) bool    { return t.store.holdsFrozen[proposalID] }
+
+func (t *memTx) ReleaseHold(proposalID string) error {
+	if t.store.Hooks.ReleaseHold != nil {
+		if err := t.store.Hooks.ReleaseHold(t.ctx, proposalID); err != nil {
+			return err
+		}
+	}
+	t.store.holdsReleased[proposalID] = true
+	t.store.holdsFrozen[proposalID] = false
+	return nil
+}
+
+func (t *memTx) SetOrderPaymentPublicStatus(orderID, status string) error {
+	t.store.orderPublic[orderID] = status
+	return nil
+}
+
+func (t *memTx) ReleaseSessionToActive(sessionID string) error {
+	if sessionID != "" {
+		t.store.sessionActive[sessionID] = true
+	}
+	return nil
+}
 
 func (t *memTx) LockPaymentForRefund(attemptID string) (PaymentAttempt, error) {
 	a, ok := t.store.attempts[attemptID]

@@ -14,6 +14,9 @@ import {
   modelVisibleSearchCatalog,
   modelVisibleSetIntent,
   modelVisibleToolResult,
+  modelVisiblePaymentStatus,
+  isFailedPaymentStatus,
+  isPaidPaymentStatus,
 } from "./visible.js";
 
 test("get_capabilities model view drops Host rail identity", () => {
@@ -723,7 +726,7 @@ test("get_product model view keeps a slim catalog card", () => {
         {
           sku_id: "QM-SNK-0001-A",
           variant: "standard pack",
-          pack_size: 100,
+          pack_quantity: 100,
           unit: "g",
           price_minor: 4900,
           sellable: 40,
@@ -731,7 +734,7 @@ test("get_product model view keeps a slim catalog card", () => {
         {
           sku_id: "QM-SNK-0001-B",
           variant: "family pack",
-          pack_size: 200,
+          pack_quantity: 200,
           unit: "g",
           price_minor: 8900,
           sellable: 22,
@@ -973,10 +976,18 @@ test("apply_offer model view is applied_offer_id plus slim cart", () => {
         all_in_total_minor: 11912,
       },
     },
+    offers: [
+      {
+        offer_id: "ofr_01HZA",
+        action: "ADD_ITEM",
+        item: { sku_id: "QM-SNK-0002-A", quantity: 1 },
+        all_in_delta_minor: 1900,
+      },
+    ],
   });
   assert.deepEqual(modelVisibleToolResult("apply_offer", "OK", payload, { offer_id: "ofr_01HZZ" }), visible);
   assert.equal("result_code" in visible, false);
-  assert.equal("offers" in visible, false);
+  assert.equal("strategy_type" in ((visible.offers as Array<Record<string, unknown>>)[0] ?? {}), false);
   assert.equal("invalidated_offer_ids" in visible, false);
   assert.equal("envelope" in visible, false);
   assert.equal("public_state" in visible, false);
@@ -1243,4 +1254,12 @@ test("model-visible offer card uses all_in_delta, exclusive item/items, sponsore
   });
   assert.equal("sponsored" in (fee ?? {}), false);
   assert.equal("items" in (fee ?? {}), false);
+});
+
+test("Core payment failure maps to FAILED for the buyer model", () => {
+  assert.equal(modelVisiblePaymentStatus("PAYMENT_FAILED_VERIFIED"), "FAILED");
+  assert.equal(modelVisiblePaymentStatus("FAILED_VERIFIED"), "FAILED");
+  assert.equal(modelVisiblePaymentStatus("CAPTURED_RECONCILED"), "PAID");
+  assert.equal(isFailedPaymentStatus("PAYMENT_FAILED_VERIFIED"), true);
+  assert.equal(isPaidPaymentStatus("PAID"), true);
 });

@@ -20,15 +20,13 @@ import {
   type TrajectoryStep,
 } from "../types.js";
 import { assertionHolds, type AssertionEvidence } from "./evaluate.js";
+import { capturedRevenueMinor, revenueEligible, type EvaluationEvidenceSnapshot } from "./evidence.js";
 
-export function extractRevenueMinor(state?: PublicState | null): number | undefined {
-  if (!state) return undefined;
-  if (state.outcome_unknown) return undefined;
-  if (state.payment_status !== "CAPTURED_RECONCILED") return undefined;
-  if (typeof state.totals?.total_minor === "number") return state.totals.total_minor;
-  const order = state.order as { total?: { amount_minor?: number }; total_minor?: number } | undefined;
-  if (typeof order?.total_minor === "number") return order.total_minor;
-  if (typeof order?.total?.amount_minor === "number") return order.total.amount_minor;
+export function extractRevenueMinor(state?: PublicState | null, evidence?: EvaluationEvidenceSnapshot | null): number | undefined {
+  if (evidence) {
+    const n = capturedRevenueMinor(evidence);
+    return n == null ? undefined : n;
+  }
   return undefined;
 }
 
@@ -55,7 +53,7 @@ function stageFromTools(stage: ProofStage, exchanges: ToolExchangeRecord[], stat
       return (state.lines?.length ?? 0) > 0 || toolOk(exchanges, "add_cart_item") ? "PASS" : "FAIL";
     case "OFFER_DECISION":
       if (!offerInPlay(state, scenario)) return "NOT_APPLICABLE";
-      if ((state.offers ?? []).some((o) => ["SHOWN", "ACCEPTED", "APPLIED"].includes(String(o.status ?? "")))) return "PASS";
+      if ((state.offers ?? []).some((o) => ["SHOWN", "SELECTED", "ACCEPTED", "APPLIED", "RETAINED", "ATTRIBUTED"].includes(String(o.status ?? "")))) return "PASS";
       if (toolOk(exchanges, "apply_offer")) return "PASS";
       return "FAIL";
     case "QUOTE_HELD":
@@ -69,6 +67,8 @@ function stageFromTools(stage: ProofStage, exchanges: ToolExchangeRecord[], stat
       return "FAIL";
     case "ORDER_CONFIRMED":
       return state.order || state.merchant_order_id ? "PASS" : "FAIL";
+    case "REVENUE_ELIGIBLE":
+      return "NOT_REACHED";
     default:
       return "NOT_REACHED";
   }
@@ -78,6 +78,7 @@ export function evaluateStages(
   exchanges: ToolExchangeRecord[],
   state: PublicState,
   scenario?: ScenarioDefinition,
+  evidence?: EvaluationEvidenceSnapshot | null,
 ): RunStageResult[] {
   const out: RunStageResult[] = [];
   let blocked = false;
@@ -91,7 +92,14 @@ export function evaluateStages(
       });
       continue;
     }
-    const result = stageFromTools(stage, exchanges, state, scenario);
+    const result =
+      stage === "REVENUE_ELIGIBLE"
+        ? evidence && revenueEligible(evidence)
+          ? "PASS"
+          : evidence
+            ? "FAIL"
+            : "NOT_REACHED"
+        : stageFromTools(stage, exchanges, state, scenario);
     const refs = exchanges.filter((e) => evidenceTool(stage).includes(e.tool_name)).map((e) => e.tool_exchange_id);
     out.push({
       stage,

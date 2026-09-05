@@ -1,5 +1,6 @@
 import { newPrefixedId } from "../ids.js";
 import type { LabStore } from "../db/store.js";
+import { cannotEnterDenominator } from "./framework2.js";
 import type {
   ConsentPolicy,
   EvaluationRecord,
@@ -191,7 +192,7 @@ async function framework1(
   toolCalls: number,
   evidence: AssertionEvidence,
 ): Promise<void> {
-  if (run.run_type !== "BENCHMARK_MODEL" || run.evidence_eligibility !== "BENCHMARK_ELIGIBLE") {
+  if (cannotEnterDenominator(run)) {
     await evalRow(store, run, "fw1_sellability", "NOT_APPLICABLE", "sellability admits BENCHMARK_ELIGIBLE model runs only");
     await grade(store, run, "task_completion", "NOT_APPLICABLE", false, { excluded: true });
     return;
@@ -209,7 +210,7 @@ async function framework1(
 }
 
 async function framework2placeholder(store: LabStore, run: RunRecord): Promise<void> {
-  if (run.run_type !== "BENCHMARK_MODEL" || !run.arm) {
+  if (cannotEnterDenominator(run) || !run.arm) {
     await evalRow(store, run, "fw2_incrementality", "NOT_APPLICABLE", "incrementality is pair-level for eligible benchmark runs");
   }
 }

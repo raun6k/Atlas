@@ -24,7 +24,7 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	store := NewMemoryStore()
-	svc := &Service{Store: store, Client: client, Cfg: fake.ClientConfig()}
+	svc := &Service{Store: store, Client: client, Cfg: fake.ClientConfig(), RunnerCredentialHash: HashToken("executor")}
 	return &harness{t: t, fake: fake, store: store, svc: svc}
 }
 
@@ -127,7 +127,7 @@ func TestBrowserSuccessIsNotCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := h.svc.RecordRunnerObservation(context.Background(), RunnerObservation{
-		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ObservedScreen: "success_screen",
+		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ExecutorCredential: "executor", ObservedScreen: "success_screen",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +335,7 @@ func TestOutcomeUnknownThenRecoverCaptured(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := h.svc.RecordRunnerObservation(context.Background(), RunnerObservation{
-		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ObservedScreen: "timeout",
+		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ExecutorCredential: "executor", ObservedScreen: "timeout",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -555,5 +555,248 @@ func TestRegisterHook(t *testing.T) {
 	mod := Register(h.svc)
 	if len(mod.JobTypes()) != 6 {
 		t.Fatalf("expected 6 job types, got %d", len(mod.JobTypes()))
+	}
+}
+
+func TestLostCreateOrderRecoversSameProviderOrder(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.fake.DropNextCreate = true
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	if a.State != StateOutcomeUnknown {
+		t.Fatalf("state %s", a.State)
+	}
+	if a.ReasonCode != ReasonMalformedResponse {
+		t.Fatalf("reason %s", a.ReasonCode)
+	}
+	if a.ProviderIdempotencyKey == "" || a.ProviderRequestDigest == "" {
+		t.Fatal("expected persisted provider idempotency key and digest")
+	}
+	if !a.DuplicateFrozen || !a.FulfillmentFrozen {
+		t.Fatal("expected freeze")
+	}
+	if h.fake.AcceptedCreates() != 1 {
+		t.Fatalf("accepted creates %d", h.fake.AcceptedCreates())
+	}
+	if err := h.svc.HandleCreateProviderOrder(context.Background(), WorkerJob{
+		PayloadJSON: mustJSON(map[string]string{"payment_attempt_id": res.PaymentAttemptID, "scenario": "success"}),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a = h.attempt(res.PaymentAttemptID)
+	if a.RazorpayOrderID == "" || a.State != StateRunnerQueued {
+		t.Fatalf("expected recovered order, state %s id %s", a.State, a.RazorpayOrderID)
+	}
+	if h.fake.AcceptedCreates() != 1 {
+		t.Fatalf("second create must reuse provider order, accepted=%d", h.fake.AcceptedCreates())
+	}
+}
+
+func TestClaimRunnerJobRejectsBadCredential(t *testing.T) {
+	h := newHarness(t)
+	h.complete("success")
+	h.drain()
+	if _, err := h.svc.ClaimRunnerJob(context.Background(), ""); err == nil || !Is(err, "RUNNER_FORBIDDEN") {
+		t.Fatalf("empty cred %v", err)
+	}
+	if _, err := h.svc.ClaimRunnerJob(context.Background(), "wrong"); err == nil || !Is(err, "RUNNER_FORBIDDEN") {
+		t.Fatalf("wrong cred %v", err)
+	}
+	job, err := h.svc.ClaimRunnerJob(context.Background(), "executor")
+	if err != nil || job.JobID == "" {
+		t.Fatalf("good cred %v %+v", err, job)
+	}
+}
+
+func TestRunnerObservationBoundToIssuedOrder(t *testing.T) {
+	h := newHarness(t)
+	h.complete("success")
+	h.drain()
+	job, err := h.svc.ClaimRunnerJob(context.Background(), "executor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.RecordRunnerObservation(context.Background(), RunnerObservation{
+		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ExecutorCredential: "executor",
+		ObservedScreen: "success_screen", RazorpayOrderID: "order_other",
+	}); err == nil || !Is(err, "RUNNER_OBSERVATION_MISMATCH") {
+		t.Fatalf("mismatch %v", err)
+	}
+	if err := h.svc.RecordRunnerObservation(context.Background(), RunnerObservation{
+		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ExecutorCredential: "executor",
+		ObservedScreen: "success_screen", RazorpayPaymentID: "not-a-pay",
+	}); err == nil || !Is(err, "RUNNER_OBSERVATION_INVALID") {
+		t.Fatalf("bad pay id %v", err)
+	}
+}
+
+func TestWaitingEventBindingPublicStatus(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	h.fake.SimulateCheckoutCaptured(a.RazorpayOrderID, "pay_wait")
+	if err := h.svc.ReconcilePayment(context.Background(), a.PaymentAttemptID); err != nil {
+		t.Fatal(err)
+	}
+	a = h.attempt(res.PaymentAttemptID)
+	if a.State == StateCapturedReconciled {
+		t.Fatal("must not confirm")
+	}
+	_, _, status, err := h.svc.GetOrder(context.Background(), res.MerchantOrderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != PublicCapturedAwaitingBinding {
+		t.Fatalf("public %s", status)
+	}
+}
+
+func TestWebhookAllowlistAndUnknownEvent(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	if err := h.webhook("refund.processed", a.RazorpayOrderID, "pay_x", "evt_ignore", "processed", 24900); err != nil {
+		t.Fatal(err)
+	}
+	a = h.attempt(res.PaymentAttemptID)
+	if a.HasWebhookBinding {
+		t.Fatal("unknown event must not bind")
+	}
+}
+
+func TestCaptureLostResponseThenIdempotentRetry(t *testing.T) {
+	h := newHarness(t)
+	h.svc.Cfg.CaptureMode = provider.CaptureModeManual
+	client, err := provider.NewClient(h.svc.Cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.svc.Client = client
+	res := h.complete("authorized")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	h.fake.SimulateCheckoutAuthorized(a.RazorpayOrderID, "pay_cap_loss")
+	if err := h.callback(a.RazorpayOrderID, "pay_cap_loss"); err != nil {
+		t.Fatal(err)
+	}
+	h.fake.DropNextCapture = true
+	if err := h.svc.CaptureAuthorizedPayment(context.Background(), a.PaymentAttemptID, "pay_cap_loss"); err != nil {
+		t.Fatal(err)
+	}
+	a = h.attempt(res.PaymentAttemptID)
+	if a.State != StateOutcomeUnknown {
+		t.Fatalf("state %s", a.State)
+	}
+	if a.ReasonCode != ReasonMalformedResponse && a.ReasonCode != ReasonCaptureResponseLoss {
+		t.Fatalf("reason %s", a.ReasonCode)
+	}
+	if err := h.svc.CaptureAuthorizedPayment(context.Background(), a.PaymentAttemptID, "pay_cap_loss"); err != nil {
+		t.Fatal(err)
+	}
+	h.drain()
+	if h.attempt(res.PaymentAttemptID).State != StateCapturedReconciled {
+		t.Fatalf("state %s", h.attempt(res.PaymentAttemptID).State)
+	}
+}
+
+func TestFetchFailureSchedulesRetry(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	h.fake.FailNextFetch = true
+	if err := h.svc.ReconcilePayment(context.Background(), a.PaymentAttemptID); err != nil {
+		t.Fatal(err)
+	}
+	a = h.attempt(res.PaymentAttemptID)
+	if a.ReasonCode != ReasonFetchFailure {
+		t.Fatalf("reason %s", a.ReasonCode)
+	}
+	if a.ReconcileAttemptCount < 1 {
+		t.Fatal("expected retry count")
+	}
+	var pending bool
+	_ = h.store.RunInTx(context.Background(), func(tx Tx) error {
+		for _, j := range tx.ListJobs() {
+			if j.Type == JobReconcilePayment && !j.Done {
+				pending = true
+			}
+		}
+		return nil
+	})
+	if !pending {
+		t.Fatal("expected delayed reconcile job")
+	}
+}
+
+func TestFailedVerifiedReleasesHold(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("failure")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	h.fake.SimulateCheckoutFailed(a.RazorpayOrderID, "pay_fail_hold")
+	if err := h.webhook("payment.failed", a.RazorpayOrderID, "pay_fail_hold", "evt_fail_hold", "failed", 24900); err != nil {
+		t.Fatal(err)
+	}
+	h.drain()
+	released := false
+	_ = h.store.RunInTx(context.Background(), func(tx Tx) error {
+		released = h.store.holdsReleased[a.CheckoutProposalID]
+		return nil
+	})
+	if !released {
+		t.Fatal("expected hold release")
+	}
+	if h.attempt(res.PaymentAttemptID).HoldReleaseFrozen {
+		t.Fatal("hold freeze must lift after verified failure")
+	}
+}
+
+func TestFourteenStepCapturedReconciledRail(t *testing.T) {
+	h := newHarness(t)
+	res := h.complete("success")
+	h.drain()
+	a := h.attempt(res.PaymentAttemptID)
+	if a.RazorpayOrderID == "" || a.ProviderIdempotencyKey == "" {
+		t.Fatal("step 7 provider order")
+	}
+	job, err := h.svc.ClaimRunnerJob(context.Background(), "executor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.RecordRunnerObservation(context.Background(), RunnerObservation{
+		JobID: job.JobID, ExecutorToken: job.ExecutorToken, ExecutorCredential: "executor",
+		ObservedScreen: "success_screen", RazorpayOrderID: a.RazorpayOrderID, RazorpayPaymentID: "pay_live14",
+		ObservationConfidence: ObservationNonAuthoritative,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if h.attempt(res.PaymentAttemptID).State == StateCapturedReconciled {
+		t.Fatal("observation is not capture")
+	}
+	h.fake.SimulateCheckoutCaptured(a.RazorpayOrderID, "pay_live14")
+	if err := h.webhook("payment.captured", a.RazorpayOrderID, "pay_live14", "evt_live14", "captured", 24900); err != nil {
+		t.Fatal(err)
+	}
+	h.drain()
+	a = h.attempt(res.PaymentAttemptID)
+	if a.State != StateCapturedReconciled {
+		t.Fatalf("step 12 state %s", a.State)
+	}
+	o := h.order(res.MerchantOrderID)
+	if o.State != OrderConfirmed {
+		t.Fatalf("step 13 order %s", o.State)
+	}
+	kinds := auditKindSet(h, res.PaymentAttemptID)
+	for _, k := range []string{"PROVIDER_ORDER_CREATED", "RUNNER_OBSERVATION", "PROVIDER_WEBHOOK_BOUND", "ORDER_CONFIRMED"} {
+		if !kinds[k] {
+			t.Fatalf("step 14 missing %s in %v", k, kinds)
+		}
+	}
+	if !kinds["PROVIDER_EVIDENCE_EVALUATED"] {
+		t.Fatalf("expected evidence %v", kinds)
 	}
 }

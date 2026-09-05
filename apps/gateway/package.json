@@ -6,11 +6,13 @@
   "scripts": {
     "start": "npx tsx src/main.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/mcp-map.test.ts"
+    "test": "node --import tsx --test src/mcp-map.test.ts src/grpc-error.test.ts src/mcp-schemas.test.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.12.6",
     "@grpc/proto-loader": "^0.7.13",
+    "ajv": "^8.17.1",
+    "protobufjs": "^7.4.0",
     "tsx": "^4.20.5"
   },
   "devDependencies": {

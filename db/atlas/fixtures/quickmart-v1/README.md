@@ -8,15 +8,15 @@ There is no default store. `create_session` must supply a matching `delivery_ser
 
 | Surface | Count / value |
 |---|---|
-| Merchant | `quickmart_in` / QuickMart. INR, `en-IN`, `Asia/Kolkata`, tax-inclusive prices. Delivery ₹35, MOV ₹99, free delivery from ₹199, handling ₹0, ETA 10 minutes. |
+| Merchant | `quickmart_in` / QuickMart. INR, `en-IN`, `Asia/Kolkata`, tax-inclusive prices. Delivery ₹30, MOV ₹49, small-order fee ₹30 below ₹99, handling ₹0.12, ETA 8 minutes. |
 | Locations | 3 dark stores, daily `06:00`–`23:30`: Koramangala (`blr_koramangala_5th_block`), Bellandur (`blr_bellandur`), Indiranagar (`blr_indiranagar`). |
 | Service areas | 1 pincode list per store. |
-| Catalog | 250 products, 350 SKUs, 720 location×SKU offers (Koramangala 300, Bellandur 210, Indiranagar 210). |
-| Graph | 500 product-level edges. |
-| Promotions | 21 automatic promotions, including 3 brand-funded campaigns, Sep–Oct 2026. |
+| Catalog | 250 products, 350 SKUs, 720 location×SKU offers (Koramangala 300, Bellandur 210, Indiranagar 210). Discovery requires `assorted` and sellable quantity > 0. |
+| Graph | 500 product-level edges. Advisory only — not substitution, inventory, or payment authority. |
+| Promotions | 21 automatic promotions, including 3 brand-funded campaigns, Sep–Oct 2026. Cart money uses fixed `discount_amount_minor`; rate/cap/funding are reference-only except BRAND_PROMO offer scoring. |
 | Bundles | 20 Koramangala bundles. |
-| Strategies | All six Commercial Engine types enabled. |
-| Reference carts | Synthetic carts for evaluation — not loaded into Postgres. |
+| Strategies | 12 Commercial Engine types. Buyer copy and `enabled`/`surfaces` are live; most `config` keys are reference-only. |
+| History | Synthetic Test Mode buyers, orders, search events, and routines — loaded for repeat-buyer/routine tests, not real demand proof. |
 
 Categories: snacks, beverages, fresh produce, meat and seafood, household, personal care, pantry, pet care, baby care.
 
@@ -35,12 +35,12 @@ Categories: snacks, beverages, fresh produce, meat and seafood, household, perso
 | `bundles.json` | yes | Bundles |
 | `strategies.json` | yes | Commercial Engine strategies |
 | `agent_capabilities.json` | yes | Agent-facing capability flags |
-| `buyers.csv` | no | Supplemental buyer-to-location history |
-| `campaigns.json` | no | Supplemental campaign roll-up for brand-funded promotions |
-| `routines.json` | no | Supplemental recurring-basket history |
-| `orders.csv` | no | Supplemental completed-order history |
-| `order_lines.csv` | no | Supplemental historical order contents and line totals |
-| `search_events.csv` | no | Supplemental search-to-cart behavior events |
+| `buyers.csv` | yes | Synthetic buyer-to-location history (Test Mode only) |
+| `campaigns.json` | yes | Campaign roll-up for BRAND_PROMO budget matching; rate/cap planning fields are reference-only |
+| `routines.json` | yes | Synthetic recurring-basket history |
+| `orders.csv` | yes | Synthetic completed-order history |
+| `order_lines.csv` | yes | Synthetic historical order contents and line totals |
+| `search_events.csv` | yes | Synthetic search-to-cart events (stored; not current ranking input) |
 | `manifest.json` | digest only | Snapshot metadata and per-file SHA-256 |
 | `tests/reference_carts.json` | no | Test carts only |
 
@@ -427,7 +427,7 @@ Raw JSON stored on `merchant_profile.agent_capabilities`. Ignored if `merchant.j
 
 ### Supplemental buyer and merchandising history
 
-The following files preserve a consistent synthetic history for analytics and campaign evaluation. They are deliberately not loaded by the current Core fixture reset. All monetary values use integer paise, and all IDs resolve against the catalog or promotion fixture above.
+The following files are loaded by Core fixture reset as synthetic Test Mode history for repeat-buyer, routine, and campaign tests — not real demand proof. All monetary values use integer paise, and all IDs resolve against the catalog or promotion fixture above.
 
 #### `buyers.csv`
 

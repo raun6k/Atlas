@@ -31,6 +31,24 @@ test("invalid signature is rejected", async () => {
   server.close();
 });
 
+test("gateway still requires hmac even for unknown event types", async () => {
+  const server = createWebhookServer(secret, {
+    async ingestWebhook() {
+      throw new Error("should not ingest invalid signature");
+    },
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  const body = JSON.stringify({ event: "refund.processed" });
+  const res = await fetch(`http://127.0.0.1:${port}/providers/razorpay/webhooks`, {
+    method: "POST",
+    headers: { "X-Razorpay-Signature": "deadbeef", "X-Razorpay-Event-Id": "evt_bad" },
+    body,
+  });
+  assert.equal(res.status, 401);
+  server.close();
+});
+
 test("valid signature forwards raw body and duplicate event id is acknowledged", async () => {
   const ids: string[] = [];
   const server = createWebhookServer(secret, {

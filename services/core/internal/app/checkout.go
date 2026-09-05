@@ -53,6 +53,9 @@ func (k *Kernel) PrepareCheckout(ctx context.Context, m Meta, sessionID, cartID 
 	if err := requireHost(m); err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
+	if err := k.paymentPathRunnable(ctx); err != nil {
+		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+	}
 	m.RequireIdempotency = true
 	m.Tool = "prepare_checkout"
 	if m.Arguments == nil {
@@ -122,26 +125,62 @@ func (k *Kernel) PrepareCheckout(ctx context.Context, m Meta, sessionID, cartID 
 	if fees.MinimumOrderValueMinor > 0 && cv.Totals.MerchandiseMinor-cv.Totals.DiscountsMinor < fees.MinimumOrderValueMinor {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, apperr.New(apperr.MerchantPolicyDenied, "cart is below the minimum order value")
 	}
+	cur := cv.Currency
+	if cur == "" {
+		cur, err = k.merchantCurrency(ctx, tx)
+		if err != nil {
+			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+		}
+	}
 	pid := ids.New(ids.Proposal)
 	holdExp := k.Now().Add(k.Cfg.ProposalHoldTTL)
-	snap, _ := json.Marshal(map[string]any{"lines": cv.Lines, "totals": cv.Totals})
+	snap, _ := json.Marshal(map[string]any{"lines": cv.Lines, "totals": cv.Totals, "currency": cur})
 	qh := quoteHash(cv)
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO checkout_proposals (checkout_proposal_id, session_id, cart_id, session_context_version, cart_version, location_id, quote_hash, currency,
 			merchandise_minor, discounts_minor, delivery_fee_minor, handling_fee_minor, tax_minor, final_amount_minor, payment_capability_id, snapshot, status, hold_expires_at, proposal_expires_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,'INR',$8,$9,$10,$11,$12,$13,'pcap_razorpay_test',$14,'ACTIVE',$15,$15)`,
-		pid, s.SessionID, s.CartID, s.SessionContextVersion, s.CartVersion, s.LocationID, qh,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pcap_razorpay_test',$15,'ACTIVE',$16,$16)`,
+		pid, s.SessionID, s.CartID, s.SessionContextVersion, s.CartVersion, s.LocationID, qh, cur,
 		cv.Totals.MerchandiseMinor, cv.Totals.DiscountsMinor, cv.Totals.DeliveryFeeMinor, cv.Totals.HandlingFeeMinor, cv.Totals.TaxMinor, cv.Totals.AllInMinor,
 		snap, holdExp); err != nil {
+		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE offers SET status='RETAINED', updated_at=now()
+		WHERE session_id=$1 AND status='APPLIED'`, s.SessionID); err != nil {
+		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE commercial_attributions SET checkout_proposal_id=$2, updated_at=now()
+		WHERE session_id=$1 AND attribution_state='APPLIED'`, s.SessionID, pid); err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE shopping_sessions SET status='CHECKOUT_HELD', updated_at=now() WHERE session_id=$1`, s.SessionID); err != nil {
 		return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
 	}
+	for _, line := range cv.Lines {
+		tag, err := tx.Exec(ctx, `
+			UPDATE inventory SET reserved_quantity = reserved_quantity + $3, updated_at=now()
+			WHERE location_id=$1 AND sku_id=$2
+			  AND on_hand_quantity - reserved_quantity - safety_buffer >= $3`,
+			s.LocationID, line.SKUID, line.Quantity)
+		if err != nil {
+			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+		}
+		if tag.RowsAffected() != 1 {
+			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, apperr.New(apperr.InventoryChanged, "insufficient inventory for atomic hold")
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO reservations (reservation_id, checkout_proposal_id, sku_id, location_id, quantity, status, expires_at)
+			VALUES ($1,$2,$3,$4,$5,'ACTIVE',$6)`,
+			ids.New(ids.Reservation), pid, line.SKUID, s.LocationID, line.Quantity, holdExp); err != nil {
+			return Envelope{}, SessionSummary{}, CartView{}, ProposalView{}, err
+		}
+	}
 	s.Status = "CHECKOUT_HELD"
 	prop := ProposalView{
 		ProposalID: pid, SessionID: s.SessionID, SessionContextVersion: s.SessionContextVersion, CartID: s.CartID, CartVersion: s.CartVersion,
-		QuoteHash: qh, FinalMinor: cv.Totals.AllInMinor, Currency: "INR", Capability: "pcap_razorpay_test",
+		QuoteHash: qh, FinalMinor: cv.Totals.AllInMinor, Currency: cur, Capability: "pcap_razorpay_test",
 		HoldExpiresAt: holdExp.Format("2006-01-02T15:04:05Z"), ProposalExpiresAt: holdExp.Format("2006-01-02T15:04:05Z"),
 		Status: "ACTIVE", Totals: cv.Totals, Lines: cv.Lines, LocationID: s.LocationID,
 	}
@@ -175,6 +214,9 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 	if err := requireHost(m); err != nil {
 		return Envelope{}, OrderView{}, err
 	}
+	if err := k.paymentPathRunnable(ctx); err != nil {
+		return Envelope{}, OrderView{}, err
+	}
 	m.RequireIdempotency = true
 	m.Tool = "complete_checkout"
 	if m.Arguments == nil {
@@ -201,10 +243,11 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 	var amount int64
 	var scv, cv int64
 	var holdExp time.Time
+	var propCur string
 	err = tx.QueryRow(ctx, `
-		SELECT quote_hash, status, final_amount_minor, location_id, session_context_version, cart_version, hold_expires_at
+		SELECT quote_hash, status, final_amount_minor, location_id, session_context_version, cart_version, hold_expires_at, currency
 		FROM checkout_proposals WHERE checkout_proposal_id=$1 AND session_id=$2 FOR UPDATE`, proposalID, sessionID).
-		Scan(&quoteHash, &status, &amount, &loc, &scv, &cv, &holdExp)
+		Scan(&quoteHash, &status, &amount, &loc, &scv, &cv, &holdExp, &propCur)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Envelope{}, OrderView{}, apperr.New(apperr.NotFound, "checkout proposal not found")
 	}
@@ -218,7 +261,13 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 		_ = k.releaseProposal(ctx, tx, proposalID, "EXPIRED")
 		return Envelope{}, OrderView{}, apperr.New(apperr.RequoteRequired, "proposal expired")
 	}
-	auth, err := trust.VerifyCheckoutAuthority(ctx, tx, authority, m.ApprovedHostID, proposalID, quoteHash, "pcap_razorpay_test", amount, "INR", k.Now(), k.Cfg.HostAudience, k.Cfg.CheckoutAuthorityTTL)
+	if propCur == "" {
+		propCur, err = k.merchantCurrency(ctx, tx)
+		if err != nil {
+			return Envelope{}, OrderView{}, err
+		}
+	}
+	auth, err := trust.VerifyCheckoutAuthority(ctx, tx, authority, m.ApprovedHostID, proposalID, quoteHash, "pcap_razorpay_test", amount, propCur, k.Now(), k.Cfg.HostAudience, k.Cfg.CheckoutAuthorityTTL)
 	if err != nil {
 		k.recordGateDecision(ctx, m, op, sessionID, proposalID, "DENY", gateReasonCodes(err), "Atlas denied complete checkout because checkout authority did not verify.")
 		return Envelope{}, OrderView{}, err
@@ -232,8 +281,8 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 	}
 	passID := ids.New(ids.Passport)
 	passExp := k.Now().Add(k.Cfg.CheckoutAuthorityTTL)
-	if _, err := tx.Exec(ctx, `INSERT INTO execution_passports (passport_id, checkout_proposal_id, policy_decision_id, action_type, action_digest, amount_minor, currency, payment_capability_id, authority_hash, expires_at) VALUES ($1,$2,$3,'COMPLETE_CHECKOUT',$4,$5,'INR','pcap_razorpay_test',$6,$7)`,
-		passID, proposalID, polID, quoteHash, amount, trust.ArtifactDigest(authority), passExp); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO execution_passports (passport_id, checkout_proposal_id, policy_decision_id, action_type, action_digest, amount_minor, currency, payment_capability_id, authority_hash, expires_at, status) VALUES ($1,$2,$3,'COMPLETE_CHECKOUT',$4,$5,$6,'pcap_razorpay_test',$7,$8,'issued')`,
+		passID, proposalID, polID, quoteHash, amount, propCur, trust.ArtifactDigest(authority), passExp); err != nil {
 		return Envelope{}, OrderView{}, err
 	}
 	orderID := ids.New(ids.Order)
@@ -246,8 +295,8 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO orders (order_id, checkout_proposal_id, session_id, location_id, status, currency, total_amount_minor, quote_hash, payment_attempt_id, payment_public_status, snapshot)
-		VALUES ($1,$2,$3,$4,'PENDING_PAYMENT','INR',$5,$6,$7,'PAYMENT_PROCESSING','{}')`,
-		orderID, proposalID, sessionID, loc, amount, quoteHash, payID); err != nil {
+		VALUES ($1,$2,$3,$4,'PENDING_PAYMENT',$5,$6,$7,$8,'PAYMENT_PROCESSING','{}')`,
+		orderID, proposalID, sessionID, loc, propCur, amount, quoteHash, payID); err != nil {
 		return Envelope{}, OrderView{}, err
 	}
 	cvw, _ := k.loadCart(ctx, tx, s.CartID)
@@ -258,21 +307,35 @@ func (k *Kernel) CompleteCheckout(ctx context.Context, m Meta, sessionID, propos
 		}
 	}
 	if err := payment.Current().AfterPendingOrder(payment.WithExistingTx(ctx, tx), payment.PendingOrder{
-		OrderID: orderID, PaymentAttemptID: payID, ProposalID: proposalID, AmountMinor: amount, Currency: "INR",
+		OrderID: orderID, PaymentAttemptID: payID, ProposalID: proposalID, AmountMinor: amount, Currency: propCur,
 		OperationID: op, PassportID: passID, HostID: m.ApprovedHostID, IdempotencyKey: m.IdempotencyKey,
 		RequestID: m.RequestID, SessionID: sessionID, LocationID: loc, QuoteHash: quoteHash,
 	}); err != nil {
 		return Envelope{}, OrderView{}, err
 	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE execution_passports
+		SET consumed_at=now(), status='consumed'
+		WHERE passport_id=$1 AND consumed_at IS NULL AND COALESCE(status,'issued') IN ('issued','')`, passID)
+	if err != nil {
+		return Envelope{}, OrderView{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		var st string
+		_ = tx.QueryRow(ctx, `SELECT status FROM execution_passports WHERE passport_id=$1`, passID).Scan(&st)
+		if st != "consumed" {
+			return Envelope{}, OrderView{}, apperr.New(apperr.AuthorityInvalid, "execution passport is not consumable")
+		}
+	}
 	ov := OrderView{
-		OrderID: orderID, SessionID: sessionID, ProposalID: proposalID, Status: "PENDING_PAYMENT", TotalMinor: amount, Currency: "INR",
+		OrderID: orderID, SessionID: sessionID, ProposalID: proposalID, Status: "PENDING_PAYMENT", TotalMinor: amount, Currency: propCur,
 		PaymentAttemptID: payID, PaymentPublicStatus: "PAYMENT_PROCESSING", LocationID: loc, CreatedAt: k.Now().Format("2006-01-02T15:04:05Z"),
 		OperationID: op, Lines: cvw.Lines,
 	}
 	env := k.withRequest(k.env(), m.RequestID, op)
 	env.OperationID = op
 	aid, err := auditMutation(ctx, tx, m, op, "complete_checkout", "order", orderID, 0, map[string]any{
-		"effect_disposition": "EXTERNAL_ACTION_SCHEDULED", "passport_id": passID, "verification": "PASS",
+		"effect_disposition": "EXTERNAL_ACTION_SCHEDULED", "passport_id": passID, "passport_status": "consumed", "verification": "PASS",
 	}, "Approved Host submitted complete checkout. Atlas allowed it and created a pending Test Mode order. Provider capture is not claimed.")
 	if err != nil {
 		return Envelope{}, OrderView{}, err
@@ -329,11 +392,4 @@ func (k *Kernel) GetOrder(ctx context.Context, m Meta, sessionID, orderID string
 		ov.Lines = append(ov.Lines, l)
 	}
 	return k.withRequest(k.env(), m.RequestID, ""), ov, nil
-}
-
-func nullIfEmpty(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
 }

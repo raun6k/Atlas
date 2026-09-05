@@ -1,10 +1,5 @@
 import type { PairResultRecord, RunRecord } from "../types.js";
 
-export interface RevenueArm {
-  run: RunRecord;
-  revenue_minor: number;
-}
-
 export function relativeUplift(controlRevenue: number, treatmentRevenue: number): { absolute_delta: number; relative_percent: number | null } {
   const absolute_delta = treatmentRevenue - controlRevenue;
   if (controlRevenue === 0) {
@@ -14,8 +9,11 @@ export function relativeUplift(controlRevenue: number, treatmentRevenue: number)
 }
 
 export function pairEligible(control: RunRecord, treatment: RunRecord): { ok: boolean; reason?: string } {
-  if (control.run_type !== "BENCHMARK_MODEL" || treatment.run_type !== "BENCHMARK_MODEL") {
-    return { ok: false, reason: "only BENCHMARK_MODEL runs may enter a pair; deterministic and custom runs cannot enter benchmark denominators" };
+  if (control.run_type !== "BENCHMARK_MODEL" && control.run_type !== "LIVE_SESSION") {
+    return { ok: false, reason: "only live model sessions may enter a pair" };
+  }
+  if (treatment.run_type !== "BENCHMARK_MODEL" && treatment.run_type !== "LIVE_SESSION") {
+    return { ok: false, reason: "only live model sessions may enter a pair" };
   }
   if (control.evidence_eligibility !== "BENCHMARK_ELIGIBLE" || treatment.evidence_eligibility !== "BENCHMARK_ELIGIBLE") {
     return { ok: false, reason: "both arms must be BENCHMARK_ELIGIBLE" };
@@ -44,6 +42,7 @@ export function pairRuns(opts: {
   treatmentRevenueMinor?: number;
   controlUnknown?: boolean;
   treatmentUnknown?: boolean;
+  criticalSafetyFailure?: boolean;
 }): PairResultRecord {
   const elig = pairEligible(opts.control, opts.treatment);
   const base: PairResultRecord = {
@@ -62,6 +61,9 @@ export function pairRuns(opts: {
   if (!elig.ok) return base;
   if (opts.controlUnknown || opts.treatmentUnknown) {
     return { ...base, exclusion_reason: "OUTCOME_UNKNOWN" };
+  }
+  if (opts.criticalSafetyFailure) {
+    return { ...base, exclusion_reason: "CRITICAL_SAFETY_FAILURE", guardrails: { critical_safety_failure: true } };
   }
   if (opts.controlRevenueMinor === undefined || opts.treatmentRevenueMinor === undefined) {
     return { ...base, exclusion_reason: "MISSING_REVENUE" };
@@ -83,5 +85,10 @@ export function pairRuns(opts: {
 }
 
 export function cannotEnterDenominator(run: RunRecord): boolean {
+  if (run.evidence_eligibility === "EXPLORATORY") return true;
+  if (run.run_type === "DETERMINISTIC_SUITE" || run.run_type === "EVALUATION_SITTING") return true;
+  if (run.scenario_id === "suite_qm_v1" || run.action_program_id === "ap_suite_qm_v1") return true;
+  if (run.scenario_id === "suite_agent_compat_v1" || run.scenario_id === "suite_commercial_uplift_v1") return true;
+  if (run.run_type === "LIVE_SESSION") return run.evidence_eligibility !== "BENCHMARK_ELIGIBLE";
   return run.run_type !== "BENCHMARK_MODEL" || run.evidence_eligibility !== "BENCHMARK_ELIGIBLE";
 }

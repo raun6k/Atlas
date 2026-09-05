@@ -81,6 +81,13 @@ test("snapshot carries last_action after a tool result", async () => {
   assert.equal(second.last_action?.tool, "get_capabilities");
   assert.equal(second.payment_capabilities?.[0]?.capability_id, undefined);
   assert.equal(second.payment_capabilities?.[0]?.completion_mode, "asynchronous");
+  assert.equal("arm" in second, false);
+  assert.equal("evaluation_arm" in second, false);
+  const schemas = (second as { allowed_tool_schemas?: Record<string, { properties?: Record<string, unknown> }> }).allowed_tool_schemas;
+  if (schemas?.create_session) {
+    assert.equal(schemas.create_session.properties?.evaluation_arm, undefined);
+    assert.equal(schemas.create_session.properties?.strategy_allowlist, undefined);
+  }
   const capResult = adapter.histories[1]?.[0]?.toolResult ?? {};
   assert.equal(capResult.merchant_display_name, "QuickMart");
   assert.equal(capResult.capabilities, undefined);
@@ -132,4 +139,102 @@ test("discovery get_capabilities does not burn the turn ceiling", async () => {
   const grades = await store.listGrades(run.run_id);
   const task = grades.find((g) => g.dimension === "task_completion");
   assert.equal(task?.result, "PASS");
+});
+
+test("sequential inner sessions on one run continue agent turn numbers", async () => {
+  const cfg = loadConfig({
+    openRouterApiKey: SECRET_CANARIES.OPENROUTER,
+    hostBearer: SECRET_CANARIES.HOST_BEARER,
+    fixtureControlCredential: SECRET_CANARIES.FIXTURE_CONTROL,
+    mockMcp: true,
+    mockFixtureReset: true,
+    maxTurns: 4,
+    maxToolCalls: 8,
+    maxTokens: 1000,
+    maxCostUsdMicros: 50_000,
+  });
+  const store = new MemoryStore();
+  const gateway = new MockGateway();
+  const host = new HostBoundary(generateEphemeralHostSigner(), gateway, store, cfg.hostBearer);
+  const adapter = new MockModelAdapter([
+    { tool: "get_capabilities", arguments: {} },
+    { tool: "get_capabilities", arguments: {} },
+  ]);
+  const { SkillLoop } = await import("./skill-loop.js");
+  const { PUBLIC_MCP_TOOLS } = await import("../types.js");
+  const run = {
+    run_id: "run_inner_offset",
+    run_type: "BENCHMARK_MODEL" as const,
+    configuration_id: "cfg",
+    configuration_digest: "d",
+    evidence_eligibility: "BENCHMARK_ELIGIBLE" as const,
+    state: "RUNNING" as const,
+    fixture_snapshot_id: "fix_quickmart_v1",
+    fixture_digest: "digest",
+    arm: null,
+    pair_id: null,
+    scenario_id: "suite_agent_compat_v1",
+    scenario_version: "1",
+    action_program_id: null,
+    action_program_digest: null,
+    custom_input_digest: null,
+    requested_model_id: "openrouter/test-model",
+    returned_model_id: null,
+    terminal_reason: null,
+    start_at: null,
+    end_at: null,
+    created_at: "",
+    updated_at: "",
+  };
+  await store.insertRun(run, {
+    run_id: run.run_id,
+    scenario_id: run.scenario_id,
+    scenario_version: "1",
+    custom_input_snapshot: null,
+    custom_input_digest: null,
+    consent_policy: { max_amount_minor: 250000, currency: "INR", capability_id: "pcap_razorpay_test" },
+    permitted_actions: [...PUBLIC_MCP_TOOLS],
+    structured_criteria: {},
+    redaction_revision: "redact_v1",
+  });
+  const model = {
+    scenario_id: run.scenario_id,
+    scenario_version: "1",
+    model_id: "openrouter/test-model",
+    system_prompt_version: "p",
+    skill_registry_version: "s",
+    temperature: 0,
+    max_tokens_per_turn: 128,
+    max_turns: 4,
+    max_tool_calls: 8,
+    token_ceiling: 1000,
+    cost_ceiling_usd_micros: 50_000,
+    buyer_spend_minor: 250000,
+    routing_policy: "same_model_provider_fallback" as const,
+    permitted_actions: [...PUBLIC_MCP_TOOLS],
+  };
+  const consent = { max_amount_minor: 250000, currency: "INR", capability_id: "pcap_razorpay_test" };
+  const loop = new SkillLoop(store, host, adapter);
+  await loop.run({
+    run,
+    model,
+    consent,
+    permittedActions: [...PUBLIC_MCP_TOOLS],
+    mission: "first",
+    extraSecrets: [],
+    deadlineMs: Date.now() + 5000,
+  });
+  const afterFirst = await store.maxAgentTurnNumber(run.run_id);
+  assert.ok(afterFirst >= 1);
+  await loop.run({
+    run,
+    model,
+    consent,
+    permittedActions: [...PUBLIC_MCP_TOOLS],
+    mission: "second",
+    extraSecrets: [],
+    deadlineMs: Date.now() + 5000,
+  });
+  const afterSecond = await store.maxAgentTurnNumber(run.run_id);
+  assert.ok(afterSecond > afterFirst);
 });

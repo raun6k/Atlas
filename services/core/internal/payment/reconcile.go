@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"atlas.dev/core/internal/provider"
 )
@@ -36,15 +37,41 @@ func (s *Service) ReconcilePayment(ctx context.Context, attemptID string) error 
 	fetchedOrder, err := s.Client.FetchOrder(ctx, attempt.RazorpayOrderID)
 	if err != nil {
 		return s.Store.RunInTx(ctx, func(tx Tx) error {
-			a, _ := tx.GetAttemptByID(attemptID)
-			return s.recordReconcile(tx, a, "", "FETCH_FAILED", err.Error())
+			a, ok := tx.GetAttemptByID(attemptID)
+			if !ok {
+				return Err("NOT_FOUND", "payment attempt not found")
+			}
+			a.ReasonCode = ReasonFetchFailure
+			if a.State != StateOutcomeUnknown {
+				a.State = StateReconciling
+			}
+			if err := tx.UpdateAttempt(a); err != nil {
+				return err
+			}
+			if err := s.recordReconcile(tx, a, "", "FETCH_FAILED", err.Error()); err != nil {
+				return err
+			}
+			return s.scheduleFollowUp(tx, a)
 		})
 	}
 	payments, err := s.Client.FetchOrderPayments(ctx, attempt.RazorpayOrderID)
 	if err != nil {
 		return s.Store.RunInTx(ctx, func(tx Tx) error {
-			a, _ := tx.GetAttemptByID(attemptID)
-			return s.recordReconcile(tx, a, fetchedOrder.Status, "FETCH_FAILED", err.Error())
+			a, ok := tx.GetAttemptByID(attemptID)
+			if !ok {
+				return Err("NOT_FOUND", "payment attempt not found")
+			}
+			a.ReasonCode = ReasonFetchFailure
+			if a.State != StateOutcomeUnknown {
+				a.State = StateReconciling
+			}
+			if err := tx.UpdateAttempt(a); err != nil {
+				return err
+			}
+			if err := s.recordReconcile(tx, a, fetchedOrder.Status, "FETCH_FAILED", err.Error()); err != nil {
+				return err
+			}
+			return s.scheduleFollowUp(tx, a)
 		})
 	}
 
@@ -62,7 +89,11 @@ func (s *Service) ReconcilePayment(ctx context.Context, attemptID string) error 
 				return err
 			}
 			a.State = StateReconciling
-			return tx.UpdateAttempt(a)
+			a.ReasonCode = ReasonProviderMismatch
+			if err := tx.UpdateAttempt(a); err != nil {
+				return err
+			}
+			return s.scheduleFollowUp(tx, a)
 		}
 
 		var captured *provider.Payment
@@ -101,16 +132,31 @@ func (s *Service) ReconcilePayment(ctx context.Context, attemptID string) error 
 
 		if captured != nil {
 			if !a.HasEventBinding() {
-				if err := s.recordReconcile(tx, a, captured.Status, "WAITING_EVENT_BINDING", "fetch shows captured but no authenticated callback/webhook binding"); err != nil {
+				now := tx.Now()
+				if a.WaitingEventBindingSince == nil {
+					a.WaitingEventBindingSince = &now
+				}
+				reason := ReasonWaitingEventBinding
+				decision := "WAITING_EVENT_BINDING"
+				if now.Sub(*a.WaitingEventBindingSince) >= s.bindingTimeout() {
+					reason = ReasonWebhookTimeout
+					decision = "WEBHOOK_TIMEOUT"
+				}
+				a.ReasonCode = reason
+				if err := s.recordReconcile(tx, a, captured.Status, decision, "fetch shows captured but no authenticated callback/webhook binding"); err != nil {
 					return err
 				}
-				if err := recordEvidence(tx, a, "WAITING_EVENT_BINDING", "fetch shows captured but no authenticated callback/webhook binding", captured.Status); err != nil {
+				if err := recordEvidence(tx, a, decision, "fetch shows captured but no authenticated callback/webhook binding", captured.Status); err != nil {
 					return err
 				}
 				if a.State != StateOutcomeUnknown {
 					a.State = StateReconciling
 				}
-				return tx.UpdateAttempt(a)
+				if err := tx.UpdateAttempt(a); err != nil {
+					return err
+				}
+				_ = tx.SetOrderPaymentPublicStatus(a.MerchantOrderID, string(PublicCapturedAwaitingBinding))
+				return s.scheduleFollowUp(tx, a)
 			}
 			return s.confirmCaptured(tx, a, *captured, fetchedOrder)
 		}
@@ -162,7 +208,11 @@ func (s *Service) ReconcilePayment(ctx context.Context, attemptID string) error 
 		if a.State != StateOutcomeUnknown {
 			a.State = StateReconciling
 		}
-		return tx.UpdateAttempt(a)
+		a.ReasonCode = ReasonWebhookDelay
+		if err := tx.UpdateAttempt(a); err != nil {
+			return err
+		}
+		return s.scheduleFollowUp(tx, a)
 	})
 }
 
@@ -194,11 +244,11 @@ func (s *Service) confirmCaptured(tx Tx, a PaymentAttempt, p provider.Payment, o
 	if err := s.recordReconcile(tx, a, p.Status, "CAPTURED_RECONCILED", ""); err != nil {
 		return err
 	}
-	if err := recordEvidence(tx, a, "CAPTURED_RECONCILED", "", p.Status); err != nil {
+	if err := recordEvidence(tx, a, "CAPTURED_RECONCILED", "Test Mode capture after provider fetch and event binding; not merchant settlement.", p.Status); err != nil {
 		return err
 	}
-	if err := recordAsyncDecision(tx, a, "", "Atlas applied a captured Test Mode payment after provider fetch and event binding.", map[string]any{
-		"razorpay_payment_id": p.ID, "order_id": mo.OrderID,
+	if err := recordAsyncDecision(tx, a, "", "Atlas applied a captured Test Mode payment after provider fetch and event binding. This is not merchant settlement.", map[string]any{
+		"razorpay_payment_id": p.ID, "order_id": mo.OrderID, "not_settlement": true,
 	}); err != nil {
 		return err
 	}
@@ -208,7 +258,7 @@ func (s *Service) confirmCaptured(tx Tx, a PaymentAttempt, p provider.Payment, o
 		SafeBody: map[string]any{
 			"razorpay_order_id": order.ID, "razorpay_payment_id": p.ID,
 			"amount_minor": AmountString(p.Amount), "currency": p.Currency,
-			"binding": a.HasEventBinding(),
+			"binding": a.HasEventBinding(), "not_settlement": true,
 		},
 		OccurredAt: tx.Now(),
 	})
@@ -229,11 +279,17 @@ func (s *Service) failVerified(tx Tx, a PaymentAttempt, terminal State) error {
 		if err := tx.UpdateOrder(mo); err != nil {
 			return err
 		}
+		if err := tx.ReleaseSessionToActive(mo.SessionID); err != nil {
+			return err
+		}
+	}
+	if err := tx.ReleaseHold(a.CheckoutProposalID); err != nil {
+		return err
 	}
 	if err := tx.InsertAudit(AuditEvent{
 		AuditEventID: NewAuditID(), Kind: string(terminal),
 		PaymentAttemptID: a.PaymentAttemptID, OrderID: a.MerchantOrderID,
-		SafeBody:   map[string]any{"proven_no_captured_payment": true},
+		SafeBody:   map[string]any{"proven_no_captured_payment": true, "hold_released": true},
 		OccurredAt: tx.Now(),
 	}); err != nil {
 		return err
@@ -242,7 +298,7 @@ func (s *Service) failVerified(tx Tx, a PaymentAttempt, terminal State) error {
 		return err
 	}
 	return recordAsyncDecision(tx, a, "", "Atlas applied a verified Test Mode payment failure.", map[string]any{
-		"proven_no_captured_payment": true, "terminal": string(terminal),
+		"proven_no_captured_payment": true, "terminal": string(terminal), "hold_released": true,
 	})
 }
 
@@ -274,9 +330,16 @@ func (s *Service) CaptureAuthorizedPayment(ctx context.Context, attemptID, payme
 	}
 	_, err = s.Client.CapturePayment(ctx, provider.CaptureRequest{
 		PaymentID: paymentID, AmountMinor: attempt.Amount.AmountMinor, Currency: attempt.Amount.Currency,
+		IdempotencyKey: ProviderCaptureKey(attemptID, paymentID),
 	})
 	if err != nil {
-		return s.markUnknown(ctx, attemptID, "capture possible submission: "+err.Error())
+		reason := classifyProviderError(err, ReasonCaptureResponseLoss)
+		if !provider.IsAmbiguous(err) && !strings.Contains(strings.ToLower(err.Error()), "transport") && !strings.Contains(strings.ToLower(err.Error()), "timeout") {
+			if _, ok := err.(*provider.APIError); ok {
+				reason = ReasonCaptureResponseLoss
+			}
+		}
+		return s.markUnknown(ctx, attemptID, reason)
 	}
 	return s.ReconcilePayment(ctx, attemptID)
 }

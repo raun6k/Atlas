@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"atlas.dev/core/internal/ids"
 	"atlas.dev/core/internal/store"
 
 	"github.com/jackc/pgx/v5"
@@ -169,7 +168,36 @@ func Fail(ctx context.Context, db *store.DB, jobID string, jobErr error) error {
 			msg = msg[:2000]
 		}
 	}
-	_, err := db.Pool.Exec(ctx, `UPDATE jobs SET status='FAILED', last_error=$2, lease_owner=NULL, lease_expires_at=NULL WHERE job_id=$1`, jobID, msg)
+	class := ErrorClass(msg)
+	var attempts, maxAttempts int
+	_ = db.Pool.QueryRow(ctx, `SELECT attempt_count, COALESCE(max_attempts,5) FROM jobs WHERE job_id=$1`, jobID).Scan(&attempts, &maxAttempts)
+	if maxAttempts <= 0 {
+		maxAttempts = 5
+	}
+	retryable := attempts < maxAttempts
+	status := StatusFailed
+	dead := ""
+	action := "Retry from admin reconcile once the provider is reachable."
+	next := NextRetry(attempts, time.Now().UTC())
+	if !retryable {
+		status = StatusNotRetryable
+		dead = "max_attempts_exhausted"
+		action = "Inspect provider evidence; do not auto-retry."
+		next = time.Time{}
+	}
+	_, err := db.Pool.Exec(ctx, `
+		UPDATE jobs SET
+			status=$2,
+			last_error=$3,
+			last_error_class=$4,
+			retryable=$5,
+			dead_letter_reason=NULLIF($6,''),
+			operator_action=$7,
+			available_at=CASE WHEN $5 THEN $8 ELSE available_at END,
+			lease_owner=NULL,
+			lease_expires_at=NULL
+		WHERE job_id=$1`,
+		jobID, status, msg, class, retryable, dead, action, next)
 	return err
 }
 
@@ -177,5 +205,3 @@ func itoa(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)
 }
-
-func NewJobID() string { return ids.New(ids.Job) }

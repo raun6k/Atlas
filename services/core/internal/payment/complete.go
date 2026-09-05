@@ -12,9 +12,14 @@ import (
 // Service is the Payment Fabric domain. Kernel calls it through Register hooks.
 // It never prices, ranks offers, or treats browser success as capture.
 type Service struct {
-	Store  Store
-	Client *provider.Client
-	Cfg    provider.Config
+	Store                 Store
+	Client                *provider.Client
+	Cfg                   provider.Config
+	RunnerCredentialHash  string
+	RunnerIdentity        string
+	OperatorAssisted      bool
+	RetryBase             time.Duration
+	WebhookBindingTimeout time.Duration
 }
 
 type CompleteCheckoutCommand struct {
@@ -101,6 +106,7 @@ func (s *Service) CompleteCheckout(ctx context.Context, cmd CompleteCheckoutComm
 			SafeBody: map[string]any{
 				"amount_minor": AmountString(cmd.AmountMinor), "currency": cmd.Currency,
 				"capability_id": cmd.CapabilityID, "proposal_id": cmd.CheckoutProposalID,
+				"not_settlement": true, "rail": "razorpay_test_mode_capture",
 			},
 			OccurredAt: now,
 		}); err != nil {
@@ -125,6 +131,8 @@ func publicStatus(a PaymentAttempt, o MerchantOrder) PublicOrderStatus {
 		return PublicConfirmed
 	case a.State == StateFailedVerified || a.State == StateCancelledVerified:
 		return PublicPaymentFailedVerified
+	case a.ReasonCode == ReasonWaitingEventBinding || a.ReasonCode == ReasonWebhookTimeout:
+		return PublicCapturedAwaitingBinding
 	case a.State == StateOutcomeUnknown:
 		return PublicOutcomeUnknown
 	case a.State == StateReconciling:
@@ -164,13 +172,25 @@ func (s *Service) HandleCreateProviderOrder(ctx context.Context, job WorkerJob) 
 		if !ok {
 			return Err("NOT_FOUND", "payment attempt not found")
 		}
+		if a.ProviderIdempotencyKey == "" {
+			a.ProviderIdempotencyKey = ProviderCreateOrderKey(a.PaymentAttemptID)
+			a.ProviderRequestDigest = SnapshotDigest(
+				AmountString(a.Amount.AmountMinor), a.Amount.Currency, a.CheckoutProposalID, a.MerchantOrderID, "create_order",
+			)
+			if err := tx.UpdateAttempt(a); err != nil {
+				return err
+			}
+		}
 		attempt = a
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	if attempt.State.Terminal() || attempt.DuplicateFrozen {
+	if attempt.State.Terminal() {
+		return nil
+	}
+	if attempt.RazorpayOrderID != "" {
 		return nil
 	}
 	if err := s.Cfg.Validate(); err != nil {
@@ -182,16 +202,17 @@ func (s *Service) HandleCreateProviderOrder(ctx context.Context, job WorkerJob) 
 		Currency:       attempt.Amount.Currency,
 		Receipt:        attempt.CheckoutProposalID,
 		PaymentCapture: s.Cfg.PaymentCaptureFlag(),
+		IdempotencyKey: attempt.ProviderIdempotencyKey,
 		Notes: map[string]string{
 			"payment_attempt_id": attempt.PaymentAttemptID,
 			"merchant_order_id":  attempt.MerchantOrderID,
 		},
 	})
 	if err != nil {
-		return s.markUnknown(ctx, attemptID, "CREATE_PROVIDER_ORDER transport after possible accept: "+err.Error())
+		return s.markUnknown(ctx, attemptID, classifyProviderError(err, ReasonTransportFailure))
 	}
 	if order.Amount != attempt.Amount.AmountMinor || order.Currency != attempt.Amount.Currency {
-		return ErrFetchMismatch
+		return s.markUnknown(ctx, attemptID, ReasonProviderMismatch)
 	}
 
 	token := NewExecutorToken()
@@ -204,36 +225,44 @@ func (s *Service) HandleCreateProviderOrder(ctx context.Context, job WorkerJob) 
 			return Err("NOT_FOUND", "payment attempt not found")
 		}
 		a.RazorpayOrderID = order.ID
+		a.DuplicateFrozen = false
+		a.FulfillmentFrozen = false
+		a.HoldReleaseFrozen = false
+		a.EffectDisposition = ""
+		a.ReasonCode = ""
 		a.State = StateProviderOrderCreated
 		if err := tx.UpdateAttempt(a); err != nil {
 			return err
 		}
-		a.State = StateRunnerQueued
-		if err := tx.UpdateAttempt(a); err != nil {
-			return err
-		}
-		if err := tx.InsertRunnerJob(RunnerJob{
-			JobID: runnerJobID, PaymentAttemptID: attemptID, ExecutorToken: token, ExecutorTokenHash: tokenHash,
-			Status: "ISSUED", RazorpayOrderID: order.ID, RazorpayKeyID: s.Cfg.KeyID,
-			AmountMinor: attempt.Amount.AmountMinor, Currency: attempt.Amount.Currency,
-			CallbackOrigin: s.Cfg.CallbackOrigin, Scenario: scenario, CheckoutPageURL: pageURL,
-			CreatedAt: tx.Now(),
-		}); err != nil {
-			return err
-		}
-		if err := tx.EnqueueJob(WorkerJob{
-			JobID: NewJobID(), Type: JobRunTestCheckout,
-			PayloadJSON: mustJSON(map[string]string{
-				"payment_attempt_id": attemptID, "runner_job_id": runnerJobID, "executor_token": token,
-			}),
-			DedupKey: "run-checkout:" + attemptID, AvailableAt: tx.Now(),
-		}); err != nil {
-			return err
+		if !s.OperatorAssisted {
+			a.State = StateRunnerQueued
+			if err := tx.UpdateAttempt(a); err != nil {
+				return err
+			}
+			if err := tx.InsertRunnerJob(RunnerJob{
+				JobID: runnerJobID, PaymentAttemptID: attemptID, ExecutorToken: token, ExecutorTokenHash: tokenHash,
+				Status: "ISSUED", RazorpayOrderID: order.ID, RazorpayKeyID: s.Cfg.KeyID,
+				AmountMinor: attempt.Amount.AmountMinor, Currency: attempt.Amount.Currency,
+				CallbackOrigin: s.Cfg.CallbackOrigin, Scenario: scenario, CheckoutPageURL: pageURL,
+				CreatedAt: tx.Now(),
+			}); err != nil {
+				return err
+			}
+			if err := tx.EnqueueJob(WorkerJob{
+				JobID: NewJobID(), Type: JobRunTestCheckout,
+				PayloadJSON: mustJSON(map[string]string{
+					"payment_attempt_id": attemptID, "runner_job_id": runnerJobID, "executor_token": token,
+				}),
+				DedupKey: "run-checkout:" + attemptID, AvailableAt: tx.Now(),
+			}); err != nil {
+				return err
+			}
 		}
 		return tx.InsertAudit(AuditEvent{
 			AuditEventID: NewAuditID(), Kind: "PROVIDER_ORDER_CREATED", PaymentAttemptID: attemptID, OrderID: a.MerchantOrderID,
 			SafeBody: map[string]any{
 				"razorpay_order_id": order.ID, "amount_minor": AmountString(order.Amount), "currency": order.Currency,
+				"provider_idempotency_key_present": true, "not_settlement": true,
 			},
 			OccurredAt: tx.Now(),
 		})
@@ -243,12 +272,17 @@ func (s *Service) HandleCreateProviderOrder(ctx context.Context, job WorkerJob) 
 // ClaimRunnerJob is the Core side of POST /internal/v1/test-runner/jobs/claim.
 // executorCredential authenticates the runner process. The one-action token is returned once.
 func (s *Service) ClaimRunnerJob(ctx context.Context, executorCredential string) (RunnerJob, error) {
+	if err := s.verifyRunnerCredential(executorCredential); err != nil {
+		return RunnerJob{}, err
+	}
 	var job RunnerJob
 	err := s.Store.RunInTx(ctx, func(tx Tx) error {
 		j, ok := tx.ClaimIssuedRunnerJob("")
 		if !ok {
 			return Err("RUNNER_JOB_NOT_FOUND", "no issued runner job")
 		}
+		j.ClaimedByIdentity = s.runnerIdentity()
+		_ = tx.UpdateRunnerJob(j)
 		job = j
 		return nil
 	})
@@ -256,16 +290,24 @@ func (s *Service) ClaimRunnerJob(ctx context.Context, executorCredential string)
 }
 
 type RunnerObservation struct {
-	JobID             string
-	ExecutorToken     string
-	ObservedScreen    string // checkout_opened | possible_submission | success_screen | failure_screen | timeout
-	RazorpayOrderID   string
-	RazorpayPaymentID string
+	JobID                 string
+	ExecutorToken         string
+	ExecutorCredential    string
+	ObservedScreen        string // checkout_opened | possible_submission | success_screen | failure_screen | timeout
+	RazorpayOrderID       string
+	RazorpayPaymentID     string
+	ObservationConfidence string
 }
 
 // RecordRunnerObservation stores what the private executor saw.
 // A success screen never confirms the merchant order and never skips provider fetch.
 func (s *Service) RecordRunnerObservation(ctx context.Context, obs RunnerObservation) error {
+	if err := s.verifyRunnerCredential(obs.ExecutorCredential); err != nil {
+		return err
+	}
+	if obs.RazorpayPaymentID != "" && !validRazorpayPaymentID(obs.RazorpayPaymentID) {
+		return Err("RUNNER_OBSERVATION_INVALID", "razorpay payment id format is invalid")
+	}
 	return s.Store.RunInTx(ctx, func(tx Tx) error {
 		j, ok := tx.GetRunnerJob(obs.JobID)
 		if !ok {
@@ -274,8 +316,16 @@ func (s *Service) RecordRunnerObservation(ctx context.Context, obs RunnerObserva
 		if HashToken(obs.ExecutorToken) != j.ExecutorTokenHash {
 			return Err("RUNNER_FORBIDDEN", "executor token mismatch")
 		}
+		if obs.RazorpayOrderID != "" && obs.RazorpayOrderID != j.RazorpayOrderID {
+			return Err("RUNNER_OBSERVATION_MISMATCH", "reported razorpay order id does not match issued job")
+		}
+		confidence := obs.ObservationConfidence
+		if confidence == "" {
+			confidence = ObservationNonAuthoritative
+		}
 		j.Status = "OBSERVED"
 		j.ObservationSummary = obs.ObservedScreen
+		j.ObservationConfidence = confidence
 		if err := tx.UpdateRunnerJob(j); err != nil {
 			return err
 		}
@@ -286,8 +336,12 @@ func (s *Service) RecordRunnerObservation(ctx context.Context, obs RunnerObserva
 		if a.State.Terminal() {
 			return tx.InsertAudit(AuditEvent{
 				AuditEventID: NewAuditID(), Kind: "RUNNER_OBSERVATION", PaymentAttemptID: a.PaymentAttemptID, OrderID: a.MerchantOrderID,
-				SafeBody:   map[string]any{"screen": obs.ObservedScreen, "not_capture": true, "already_terminal": true},
-				OccurredAt: tx.Now(),
+				SafeBody: map[string]any{
+					"screen": obs.ObservedScreen, "not_capture": true, "already_terminal": true,
+					"observation_confidence": confidence, "not_authoritative": true,
+					"observed_provider_order_id": obs.RazorpayOrderID, "observed_provider_payment_id": obs.RazorpayPaymentID,
+				},
+				OccurredAt: tx.Now(), OperationID: a.OperationID, RequestID: a.RequestID,
 			})
 		}
 		switch obs.ObservedScreen {
@@ -314,29 +368,39 @@ func (s *Service) RecordRunnerObservation(ctx context.Context, obs RunnerObserva
 				return err
 			}
 		case "possible_submission", "timeout":
-			return s.applyUnknown(tx, a, ReasonPossibleSubmission)
+			return s.applyUnknown(tx, a, ReasonBrowserAmbiguity)
 		}
 		return tx.InsertAudit(AuditEvent{
 			AuditEventID: NewAuditID(), Kind: "RUNNER_OBSERVATION", PaymentAttemptID: a.PaymentAttemptID, OrderID: a.MerchantOrderID,
-			SafeBody:   map[string]any{"screen": obs.ObservedScreen, "not_capture": true},
-			OccurredAt: tx.Now(),
+			SafeBody: map[string]any{
+				"screen": obs.ObservedScreen, "not_capture": true,
+				"observation_confidence": confidence, "not_authoritative": true,
+				"observed_provider_order_id": obs.RazorpayOrderID, "observed_provider_payment_id": obs.RazorpayPaymentID,
+			},
+			OccurredAt: tx.Now(), OperationID: a.OperationID, RequestID: a.RequestID,
 		})
 	})
 }
 
-func (s *Service) markUnknown(ctx context.Context, attemptID, _ string) error {
+func (s *Service) markUnknown(ctx context.Context, attemptID, reason string) error {
+	if reason == "" {
+		reason = ReasonPossibleSubmission
+	}
 	return s.Store.RunInTx(ctx, func(tx Tx) error {
 		a, ok := tx.GetAttemptByID(attemptID)
 		if !ok {
 			return Err("NOT_FOUND", "payment attempt not found")
 		}
-		return s.applyUnknown(tx, a, ReasonPossibleSubmission)
+		return s.applyUnknown(tx, a, reason)
 	})
 }
 
 func (s *Service) applyUnknown(tx Tx, a PaymentAttempt, reason string) error {
 	if a.State.Terminal() {
 		return nil
+	}
+	if reason == "" {
+		reason = ReasonPossibleSubmission
 	}
 	a.State = StateOutcomeUnknown
 	a.DuplicateFrozen = true
@@ -350,12 +414,7 @@ func (s *Service) applyUnknown(tx Tx, a PaymentAttempt, reason string) error {
 	if err := tx.FreezeHold(a.CheckoutProposalID); err != nil {
 		return err
 	}
-	if err := tx.EnqueueJob(WorkerJob{
-		JobID: NewJobID(), Type: JobReconcilePayment,
-		PayloadJSON: mustJSON(map[string]string{"payment_attempt_id": a.PaymentAttemptID}),
-		DedupKey:    "reconcile-unknown:" + a.PaymentAttemptID,
-		AvailableAt: tx.Now().Add(2 * time.Second),
-	}); err != nil {
+	if err := s.scheduleFollowUp(tx, a); err != nil {
 		return err
 	}
 	if err := tx.InsertAudit(AuditEvent{
@@ -363,6 +422,7 @@ func (s *Service) applyUnknown(tx Tx, a PaymentAttempt, reason string) error {
 		SafeBody: map[string]any{
 			"effect_disposition": DispositionExternalUnknown, "reason_code": reason,
 			"duplicate_attempt_frozen": true, "fulfillment_frozen": true, "hold_release_frozen": true,
+			"not_settlement": true,
 		},
 		OccurredAt: tx.Now(),
 	}); err != nil {
